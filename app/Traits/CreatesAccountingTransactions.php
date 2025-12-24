@@ -1,0 +1,161 @@
+<?php
+
+namespace App\Traits;
+
+use App\Models\Account;
+use App\Models\Transaction;
+use App\Models\IncomeCategory;
+
+trait CreatesAccountingTransactions
+{
+    /**
+     * Create an accounting income transaction for fee collection
+     *
+     * @param int $accountId
+     * @param float $amount
+     * @param string $date
+     * @param string $paymentMethod
+     * @param string $referenceNumber
+     * @param string $description
+     * @return Transaction
+     */
+    public function createFeeIncomeTransaction(
+        int $accountId,
+        float $amount,
+        string $date,
+        string $paymentMethod,
+        string $referenceNumber,
+        string $description
+    ): Transaction {
+        // Get or create "Fee Income" category
+        $incomeCategory = IncomeCategory::firstOrCreate(
+            ['name' => 'Fee Income'],
+            [
+                'code' => 'FEE-INC',
+                'description' => 'Student fee collections',
+                'status' => 'active',
+                'created_by' => auth()->id(),
+            ]
+        );
+
+        // Generate transaction number
+        $transactionNumber = 'TRX-' . date('Ymd') . '-' . str_pad(
+            Transaction::whereDate('created_at', today())->count() + 1,
+            4,
+            '0',
+            STR_PAD_LEFT
+        );
+
+        // Create income transaction
+        $transaction = Transaction::create([
+            'transaction_number' => $transactionNumber,
+            'account_id' => $accountId,
+            'type' => 'income',
+            'income_category_id' => $incomeCategory->id,
+            'amount' => $amount,
+            'transaction_date' => $date,
+            'payment_method' => $paymentMethod,
+            'reference_number' => $referenceNumber,
+            'description' => $description,
+            'created_by' => auth()->id(),
+        ]);
+
+        // Update account balance (credit - income)
+        Account::find($accountId)->increment('current_balance', $amount);
+
+        return $transaction;
+    }
+
+    /**
+     * Reverse an accounting transaction
+     *
+     * @param int $transactionId
+     * @return bool
+     */
+    public function reverseAccountingTransaction(int $transactionId): bool
+    {
+        $transaction = Transaction::find($transactionId);
+
+        if (!$transaction) {
+            return false;
+        }
+
+        // Reverse account balance based on transaction type
+        $account = Account::find($transaction->account_id);
+
+        if ($transaction->type === 'income') {
+            // Reverse income: decrease balance
+            $account->decrement('current_balance', $transaction->amount);
+        } elseif ($transaction->type === 'expense') {
+            // Reverse expense: increase balance
+            $account->increment('current_balance', $transaction->amount);
+        }
+
+        // Delete the transaction
+        $transaction->delete();
+
+        return true;
+    }
+
+    /**
+     * Create an accounting expense transaction (for salary, expenses etc.)
+     *
+     * @param int $accountId
+     * @param float $amount
+     * @param string $date
+     * @param string $paymentMethod
+     * @param string $referenceNumber
+     * @param string $description
+     * @param int|null $expenseCategoryId
+     * @return Transaction
+     */
+    public function createExpenseTransaction(
+        int $accountId,
+        float $amount,
+        string $date,
+        string $paymentMethod,
+        string $referenceNumber,
+        string $description,
+        ?int $expenseCategoryId = null
+    ): Transaction {
+        // If no expense category provided, get or create "Salary & Wages" category
+        if (!$expenseCategoryId) {
+            $expenseCategory = \App\Models\ExpenseCategory::firstOrCreate(
+                ['name' => 'Salary & Wages'],
+                [
+                    'description' => 'Staff and teacher salary payments',
+                    'status' => 'active',
+                    'created_by' => auth()->id(),
+                ]
+            );
+            $expenseCategoryId = $expenseCategory->id;
+        }
+
+        // Generate transaction number
+        $transactionNumber = 'TRX-' . date('Ymd') . '-' . str_pad(
+            Transaction::whereDate('created_at', today())->count() + 1,
+            4,
+            '0',
+            STR_PAD_LEFT
+        );
+
+        // Create expense transaction
+        $transaction = Transaction::create([
+            'transaction_number' => $transactionNumber,
+            'account_id' => $accountId,
+            'type' => 'expense',
+            'expense_category_id' => $expenseCategoryId,
+            'amount' => $amount,
+            'transaction_date' => $date,
+            'payment_method' => $paymentMethod,
+            'reference_number' => $referenceNumber,
+            'description' => $description,
+            'created_by' => auth()->id(),
+        ]);
+
+        // Update account balance (debit - expense)
+        Account::find($accountId)->decrement('current_balance', $amount);
+
+        return $transaction;
+    }
+}
