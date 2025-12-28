@@ -1,7 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
-import { Badge } from '@/Components/ui/badge';
 import {
     User,
     Calendar,
@@ -69,8 +67,8 @@ export default function Show({ student, attendanceStats, recentResults, feeStats
             <div className="py-6">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     {/* Profile Header */}
-                    <Card className="mb-6">
-                        <CardContent className="p-6">
+                    <div className="bg-white rounded-lg shadow-md mb-6">
+                        <div className="p-6">
                             <div className="flex items-start gap-6">
                                 <img
                                     src={student.photo || '/default-avatar.png'}
@@ -99,13 +97,13 @@ export default function Show({ student, attendanceStats, recentResults, feeStats
                                     </div>
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {/* Stats Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                        <Card>
-                            <CardContent className="p-6">
+                        <div className="bg-white rounded-lg shadow-md">
+                            <div className="p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm text-gray-600">Attendance</p>
@@ -116,11 +114,11 @@ export default function Show({ student, attendanceStats, recentResults, feeStats
                                     </div>
                                     <CheckCircle className="h-8 w-8 text-green-600" />
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
 
-                        <Card>
-                            <CardContent className="p-6">
+                        <div className="bg-white rounded-lg shadow-md">
+                            <div className="p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm text-gray-600">Recent Exams</p>
@@ -129,11 +127,11 @@ export default function Show({ student, attendanceStats, recentResults, feeStats
                                     </div>
                                     <TrendingUp className="h-8 w-8 text-blue-600" />
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
 
-                        <Card>
-                            <CardContent className="p-6">
+                        <div className="bg-white rounded-lg shadow-md">
+                            <div className="p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm text-gray-600">Average Performance</p>
@@ -146,17 +144,17 @@ export default function Show({ student, attendanceStats, recentResults, feeStats
                                     </div>
                                     <BookOpen className="h-8 w-8 text-purple-600" />
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Personal Information */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Personal Information</CardTitle>
-                            </CardHeader>
-                            <CardContent>
+                        <div className="bg-white rounded-lg shadow-md">
+                            <div className="p-6 border-b border-gray-200">
+                                <h2 className="text-xl font-bold text-gray-900">Personal Information</h2>
+                            </div>
+                            <div className="p-6">
                                 <div className="space-y-4">
                                     <div className="flex items-center gap-3">
                                         <Calendar className="h-5 w-5 text-gray-400" />
@@ -205,15 +203,15 @@ export default function Show({ student, attendanceStats, recentResults, feeStats
                                         </div>
                                     )}
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
 
                         {/* Attendance Summary */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Attendance Summary (This Year)</CardTitle>
-                            </CardHeader>
-                            <CardContent>
+                        <div className="bg-white rounded-lg shadow-md">
+                            <div className="p-6 border-b border-gray-200">
+                                <h2 className="text-xl font-bold text-gray-900">Attendance Summary (This Year)</h2>
+                            </div>
+                            <div className="p-6">
                                 <div className="space-y-4">
                                     <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                                         <div className="flex items-center gap-2">
@@ -252,15 +250,15 @@ export default function Show({ student, attendanceStats, recentResults, feeStats
                                         </span>
                                     </div>
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
 
                         {/* Recent Exam Results */}
-                        <Card className="lg:col-span-2">
-                            <CardHeader>
-                                <CardTitle>Recent Exam Results</CardTitle>
-                            </CardHeader>
-                            <CardContent>
+                        <div className="lg:col-span-2 bg-white rounded-lg shadow-md">
+                            <div className="p-6 border-b border-gray-200">
+                                <h2 className="text-xl font-bold text-gray-900">Recent Exam Results</h2>
+                            </div>
+                            <div className="p-6">
                                 {recentResults.length > 0 ? (
                                     <div className="overflow-x-auto">
                                         <table className="w-full">
@@ -281,8 +279,8 @@ export default function Show({ student, attendanceStats, recentResults, feeStats
                                                         <td className="text-center py-3 px-4">{result.total_marks}</td>
                                                         <td className="text-center py-3 px-4">{result.obtained_marks}</td>
                                                         <td className="text-center py-3 px-4">
-                                                            <Badge
-                                                                className={
+                                                            <span
+                                                                className={`px-3 py-1 text-xs font-semibold rounded-full ${
                                                                     result.percentage >= 80
                                                                         ? 'bg-green-100 text-green-800'
                                                                         : result.percentage >= 60
@@ -290,13 +288,15 @@ export default function Show({ student, attendanceStats, recentResults, feeStats
                                                                         : result.percentage >= 40
                                                                         ? 'bg-orange-100 text-orange-800'
                                                                         : 'bg-red-100 text-red-800'
-                                                                }
+                                                                }`}
                                                             >
                                                                 {result.percentage.toFixed(2)}%
-                                                            </Badge>
+                                                            </span>
                                                         </td>
                                                         <td className="text-center py-3 px-4">
-                                                            <Badge>{result.grade}</Badge>
+                                                            <span className="px-3 py-1 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800">
+                                                                {result.grade}
+                                                            </span>
                                                         </td>
                                                         <td className="text-center py-3 px-4">{result.gpa.toFixed(2)}</td>
                                                     </tr>
@@ -307,8 +307,8 @@ export default function Show({ student, attendanceStats, recentResults, feeStats
                                 ) : (
                                     <p className="text-center text-gray-500 py-8">No exam results available</p>
                                 )}
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

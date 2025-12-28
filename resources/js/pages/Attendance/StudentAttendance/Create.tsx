@@ -3,7 +3,6 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Card from '@/Components/Card';
 import Button from '@/Components/Button';
 import Input from '@/Components/Input';
-import Label from '@/Components/Label';
 import { Save, ArrowLeft, Users } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -198,7 +197,7 @@ export default function Create({ classes, sections }: Props) {
                 <Card>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                         <div>
-                            <Label>Date</Label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
                             <Input
                                 type="date"
                                 value={selectedDate}
@@ -210,7 +209,7 @@ export default function Create({ classes, sections }: Props) {
                         </div>
 
                         <div>
-                            <Label>Class</Label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
                             <select
                                 className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                 value={selectedClass}
@@ -232,7 +231,7 @@ export default function Create({ classes, sections }: Props) {
                         </div>
 
                         <div>
-                            <Label>Section</Label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Section</label>
                             <select
                                 className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                 value={selectedSection}

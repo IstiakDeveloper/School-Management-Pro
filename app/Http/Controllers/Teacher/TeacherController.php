@@ -9,6 +9,7 @@ use App\Models\Subject;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class TeacherController extends Controller
@@ -87,7 +88,7 @@ class TeacherController extends Controller
             'salary' => 'nullable|numeric|min:0',
             'present_address' => 'nullable|string',
             'permanent_address' => 'nullable|string',
-            'photo' => 'nullable|string',
+            'photo' => 'nullable|image|mimes:jpeg,jpg,png,gif|max:2048',
             'status' => 'required|in:active,inactive,resigned,retired',
         ]);
 
@@ -107,6 +108,12 @@ class TeacherController extends Controller
             $nameParts = explode(' ', $validated['name'], 2);
             $firstName = $nameParts[0];
             $lastName = $nameParts[1] ?? '';
+
+            // Handle photo upload
+            $photoPath = null;
+            if ($request->hasFile('photo')) {
+                $photoPath = $request->file('photo')->store('teachers/photos', 'public');
+            }
 
             $teacher = Teacher::create([
                 'user_id' => $user->id,
@@ -128,7 +135,7 @@ class TeacherController extends Controller
                 'salary' => $validated['salary'] ?? null,
                 'present_address' => $validated['present_address'] ?? null,
                 'permanent_address' => $validated['permanent_address'] ?? null,
-                'photo' => $validated['photo'] ?? null,
+                'photo' => $photoPath,
                 'status' => $validated['status'],
             ]);
 
@@ -154,9 +161,9 @@ class TeacherController extends Controller
 
         $teacher->load([
             'user',
-            'subjects',
-            'sections',
-            'attendances' => fn($q) => $q->latest()->limit(30),
+            'teacherSubjects.subject',
+            'teacherSubjects.schoolClass',
+            'attendance' => fn($q) => $q->latest()->limit(30),
             'salaries' => fn($q) => $q->latest()->limit(12),
         ]);
 
@@ -210,7 +217,7 @@ class TeacherController extends Controller
             'salary' => 'nullable|numeric|min:0',
             'present_address' => 'nullable|string',
             'permanent_address' => 'nullable|string',
-            'photo' => 'nullable|string',
+            'photo' => 'nullable|image|mimes:jpeg,jpg,png,gif|max:2048',
             'status' => 'required|in:active,inactive,resigned,retired',
         ]);
 
@@ -226,6 +233,16 @@ class TeacherController extends Controller
             $nameParts = explode(' ', $validated['name'], 2);
             $firstName = $nameParts[0];
             $lastName = $nameParts[1] ?? '';
+
+            // Handle photo upload
+            $photoPath = $teacher->photo; // Keep existing photo
+            if ($request->hasFile('photo')) {
+                // Delete old photo if exists
+                if ($teacher->photo && Storage::disk('public')->exists($teacher->photo)) {
+                    Storage::disk('public')->delete($teacher->photo);
+                }
+                $photoPath = $request->file('photo')->store('teachers/photos', 'public');
+            }
 
             $teacher->update([
                 'employee_id' => $validated['employee_id'],
@@ -246,7 +263,7 @@ class TeacherController extends Controller
                 'salary' => $validated['salary'] ?? null,
                 'present_address' => $validated['present_address'] ?? null,
                 'permanent_address' => $validated['permanent_address'] ?? null,
-                'photo' => $validated['photo'] ?? null,
+                'photo' => $photoPath,
                 'status' => $validated['status'],
             ]);
 

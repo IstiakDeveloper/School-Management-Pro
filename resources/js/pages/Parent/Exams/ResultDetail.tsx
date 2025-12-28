@@ -1,8 +1,8 @@
 import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
-import { Badge } from '@/Components/ui/badge';
-import { Button } from '@/Components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/Components/Card';
+import Badge from '@/Components/Badge';
+import Button from '@/Components/Button';
 import { ArrowLeft, BookOpen, TrendingUp, Award } from 'lucide-react';
 
 interface Mark {

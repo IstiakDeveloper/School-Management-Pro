@@ -1,9 +1,13 @@
 import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
-import { Badge } from '@/Components/ui/badge';
-import { Button } from '@/Components/ui/button';
 import { ArrowLeft, Bell, Calendar, Eye, Paperclip, Pin } from 'lucide-react';
+
+function route(name: string, params?: any): string {
+    const routes: Record<string, string> = {
+        'parent.notices.index': '/parent/notices',
+    };
+    return routes[name] || '/';
+}
 
 interface Notice {
     id: number;
@@ -61,15 +65,15 @@ export default function Show({ notice }: Props) {
                 <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="mb-6">
                         <Link href={route('parent.notices.index')}>
-                            <Button variant="outline" size="sm">
+                            <button className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
                                 <ArrowLeft className="h-4 w-4 mr-2" />
                                 Back to Notices
-                            </Button>
+                            </button>
                         </Link>
                     </div>
 
-                    <Card>
-                        <CardHeader>
+                    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                        <div className="p-6 border-b border-gray-200">
                             <div className="flex items-start justify-between mb-4">
                                 <div className="flex items-start gap-3 flex-1">
                                     <Bell className="h-6 w-6 text-indigo-600 mt-1" />
@@ -78,15 +82,15 @@ export default function Show({ notice }: Props) {
                                             {notice.is_pinned && (
                                                 <Pin className="h-5 w-5 text-blue-600" />
                                             )}
-                                            <CardTitle className="text-2xl">{notice.title}</CardTitle>
+                                            <h1 className="text-2xl font-bold text-gray-900">{notice.title}</h1>
                                         </div>
                                         <div className="flex items-center gap-2 flex-wrap">
-                                            <Badge className={getTypeColor(notice.type)}>
+                                            <span className={`px-3 py-1 text-xs font-semibold rounded-full uppercase ${getTypeColor(notice.type)}`}>
                                                 {notice.type}
-                                            </Badge>
-                                            <Badge className={getPriorityColor(notice.priority)}>
+                                            </span>
+                                            <span className={`px-3 py-1 text-xs font-semibold rounded-full uppercase ${getPriorityColor(notice.priority)}`}>
                                                 {notice.priority}
-                                            </Badge>
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
@@ -119,10 +123,10 @@ export default function Show({ notice }: Props) {
                                     </div>
                                 )}
                             </div>
-                        </CardHeader>
+                        </div>
 
-                        <CardContent>
-                            <div className="prose max-w-none mb-6">
+                        <div className="p-6">
+                            <div className="mb-6">
                                 <div className="text-gray-700 whitespace-pre-wrap leading-relaxed">
                                     {notice.description}
                                 </div>
@@ -156,8 +160,8 @@ export default function Show({ notice }: Props) {
                                     Posted on {new Date(notice.created_at).toLocaleString()}
                                 </p>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
                 </div>
             </div>
         </AuthenticatedLayout>

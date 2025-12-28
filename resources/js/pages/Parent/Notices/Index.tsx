@@ -1,13 +1,20 @@
 import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
-import { Badge } from '@/Components/ui/badge';
-import { Button } from '@/Components/ui/button';
-import { Input } from '@/Components/ui/input';
-import { Label } from '@/Components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { Bell, Search, Eye, Paperclip, Pin } from 'lucide-react';
 import { useState } from 'react';
+
+function route(name: string, params?: any): string {
+    const routes: Record<string, string> = {
+        'parent.notices.index': '/parent/notices',
+        'parent.notices.show': '/parent/notices/:id',
+    };
+
+    if (params && name === 'parent.notices.show') {
+        return `/parent/notices/${params}`;
+    }
+
+    return routes[name] || '/';
+}
 
 interface Notice {
     id: number;
@@ -80,49 +87,47 @@ export default function Index({ pinnedNotices, regularNotices, filters }: Props)
             href={route('parent.notices.show', notice.id)}
             className="block"
         >
-            <Card className="hover:shadow-lg transition cursor-pointer">
-                <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                                {notice.is_pinned && (
-                                    <Pin className="h-4 w-4 text-blue-600" />
-                                )}
-                                <h3 className="font-semibold text-lg line-clamp-2">{notice.title}</h3>
-                            </div>
-                            <p className="text-sm text-gray-600 line-clamp-3 mb-3">
-                                {notice.description}
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <Badge className={getTypeColor(notice.type)}>
-                                {notice.type}
-                            </Badge>
-                            <Badge className={getPriorityColor(notice.priority)}>
-                                {notice.priority}
-                            </Badge>
-                            <span className="text-xs text-gray-500">
-                                {new Date(notice.publish_date).toLocaleDateString()}
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-3 text-sm text-gray-500">
-                            {notice.attachments && notice.attachments.length > 0 && (
-                                <div className="flex items-center gap-1">
-                                    <Paperclip className="h-4 w-4" />
-                                    <span>{notice.attachments.length}</span>
-                                </div>
+            <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition cursor-pointer p-4">
+                <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                            {notice.is_pinned && (
+                                <Pin className="h-4 w-4 text-blue-600" />
                             )}
+                            <h3 className="font-semibold text-lg line-clamp-2">{notice.title}</h3>
+                        </div>
+                        <p className="text-sm text-gray-600 line-clamp-3 mb-3">
+                            {notice.description}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`px-3 py-1 text-xs font-semibold rounded-full uppercase ${getTypeColor(notice.type)}`}>
+                            {notice.type}
+                        </span>
+                        <span className={`px-3 py-1 text-xs font-semibold rounded-full uppercase ${getPriorityColor(notice.priority)}`}>
+                            {notice.priority}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                            {new Date(notice.publish_date).toLocaleDateString()}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm text-gray-500">
+                        {notice.attachments && notice.attachments.length > 0 && (
                             <div className="flex items-center gap-1">
-                                <Eye className="h-4 w-4" />
-                                <span>{notice.view_count}</span>
+                                <Paperclip className="h-4 w-4" />
+                                <span>{notice.attachments.length}</span>
                             </div>
+                        )}
+                        <div className="flex items-center gap-1">
+                            <Eye className="h-4 w-4" />
+                            <span>{notice.view_count}</span>
                         </div>
                     </div>
-                </CardContent>
-            </Card>
+                </div>
+            </div>
         </Link>
     );
 
@@ -138,62 +143,62 @@ export default function Index({ pinnedNotices, regularNotices, filters }: Props)
                     </div>
 
                     {/* Filters */}
-                    <Card className="mb-6">
-                        <CardContent className="p-6">
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                <div className="md:col-span-2">
-                                    <Label>Search</Label>
-                                    <div className="relative">
-                                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                        <Input
-                                            placeholder="Search notices..."
-                                            value={search}
-                                            onChange={(e) => setSearch(e.target.value)}
-                                            className="pl-10"
-                                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                                        />
-                                    </div>
-                                </div>
-                                <div>
-                                    <Label>Type</Label>
-                                    <Select value={type} onValueChange={setType}>
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">All Types</SelectItem>
-                                            <SelectItem value="general">General</SelectItem>
-                                            <SelectItem value="exam">Exam</SelectItem>
-                                            <SelectItem value="holiday">Holiday</SelectItem>
-                                            <SelectItem value="event">Event</SelectItem>
-                                            <SelectItem value="fee">Fee</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div>
-                                    <Label>Priority</Label>
-                                    <Select value={priority} onValueChange={setPriority}>
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">All Priorities</SelectItem>
-                                            <SelectItem value="urgent">Urgent</SelectItem>
-                                            <SelectItem value="high">High</SelectItem>
-                                            <SelectItem value="medium">Medium</SelectItem>
-                                            <SelectItem value="low">Low</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                    <div className="bg-white rounded-lg shadow-md mb-6 p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="Search notices..."
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                        className="pl-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                                    />
                                 </div>
                             </div>
-                            <div className="mt-4">
-                                <Button onClick={handleSearch}>
-                                    <Search className="h-4 w-4 mr-2" />
-                                    Search
-                                </Button>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                                <select
+                                    value={type}
+                                    onChange={(e) => setType(e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                >
+                                    <option value="all">All Types</option>
+                                    <option value="general">General</option>
+                                    <option value="exam">Exam</option>
+                                    <option value="holiday">Holiday</option>
+                                    <option value="event">Event</option>
+                                    <option value="fee">Fee</option>
+                                </select>
                             </div>
-                        </CardContent>
-                    </Card>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+                                <select
+                                    value={priority}
+                                    onChange={(e) => setPriority(e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                >
+                                    <option value="all">All Priorities</option>
+                                    <option value="urgent">Urgent</option>
+                                    <option value="high">High</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="low">Low</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="mt-4">
+                            <button
+                                onClick={handleSearch}
+                                className="inline-flex items-center px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition"
+                            >
+                                <Search className="h-4 w-4 mr-2" />
+                                Search
+                            </button>
+                        </div>
+                    </div>
 
                     {/* Pinned Notices */}
                     {pinnedNotices.length > 0 && (
@@ -223,12 +228,10 @@ export default function Index({ pinnedNotices, regularNotices, filters }: Props)
                                 {regularNotices.map((notice) => renderNoticeCard(notice))}
                             </div>
                         ) : (
-                            <Card>
-                                <CardContent className="p-12 text-center">
-                                    <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                                    <p className="text-gray-600">No notices found</p>
-                                </CardContent>
-                            </Card>
+                            <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                                <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                                <p className="text-gray-600">No notices found</p>
+                            </div>
                         )}
                     </div>
                 </div>

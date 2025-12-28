@@ -3,7 +3,6 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Card from '@/Components/Card';
 import Button from '@/Components/Button';
 import Input from '@/Components/Input';
-import Label from '@/Components/Label';
 import { Save, ArrowLeft } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -139,7 +138,7 @@ export default function Create({ teachers, date }: Props) {
                 <form onSubmit={handleSubmit}>
                     <Card>
                         <div className="mb-6">
-                            <Label>Date</Label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
                             <Input
                                 type="date"
                                 value={selectedDate}

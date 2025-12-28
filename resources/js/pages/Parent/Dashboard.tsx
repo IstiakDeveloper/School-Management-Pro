@@ -1,8 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
-import { Badge } from '@/Components/ui/badge';
-import { Button } from '@/Components/ui/button';
 import {
     User,
     Calendar,
@@ -17,6 +14,40 @@ import {
     Clock,
     AlertTriangle
 } from 'lucide-react';
+
+function route(name: string, params?: any): string {
+    const routes: Record<string, string> = {
+        'parent.children.show': '/parent/children/:id',
+        'parent.attendance.index': '/parent/attendance',
+        'parent.exams.index': '/parent/exams',
+        'parent.fees.index': '/parent/fees',
+        'parent.notices.index': '/parent/notices',
+        'parent.notices.show': '/parent/notices/:id',
+        'parent.messages.index': '/parent/messages',
+        'parent.children.index': '/parent/children',
+        'parent.profile.show': '/parent/profile',
+    };
+
+    if (params) {
+        if (name === 'parent.children.show') {
+            return `/parent/children/${params}`;
+        }
+        if (name === 'parent.notices.show') {
+            return `/parent/notices/${params}`;
+        }
+        if (name === 'parent.attendance.index' && params.student_id) {
+            return `/parent/attendance?student_id=${params.student_id}`;
+        }
+        if (name === 'parent.exams.index' && params.student_id) {
+            return `/parent/exams?student_id=${params.student_id}`;
+        }
+        if (name === 'parent.fees.index' && params.student_id) {
+            return `/parent/fees?student_id=${params.student_id}`;
+        }
+    }
+
+    return routes[name] || '/';
+}
 
 interface Child {
     id: number;
@@ -110,8 +141,8 @@ export default function Dashboard({ parent, children, recentNotices, unreadMessa
             <div className="py-6">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     {/* Welcome Card */}
-                    <Card className="mb-6 bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
-                        <CardContent className="p-6">
+                    <div className="mb-6 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg shadow-md">
+                        <div className="p-6">
                             <div className="flex items-center gap-4">
                                 <User className="h-12 w-12" />
                                 <div>
@@ -119,13 +150,13 @@ export default function Dashboard({ parent, children, recentNotices, unreadMessa
                                     <p className="text-indigo-100">Parent Dashboard</p>
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {/* Stats Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-                        <Card>
-                            <CardContent className="p-6">
+                        <div className="bg-white rounded-lg shadow-md">
+                            <div className="p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm text-gray-600">Children</p>
@@ -133,11 +164,11 @@ export default function Dashboard({ parent, children, recentNotices, unreadMessa
                                     </div>
                                     <Users className="h-8 w-8 text-indigo-600" />
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
 
-                        <Card>
-                            <CardContent className="p-6">
+                        <div className="bg-white rounded-lg shadow-md">
+                            <div className="p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm text-gray-600">Total Due</p>
@@ -147,11 +178,11 @@ export default function Dashboard({ parent, children, recentNotices, unreadMessa
                                     </div>
                                     <DollarSign className="h-8 w-8 text-red-600" />
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
 
-                        <Card>
-                            <CardContent className="p-6">
+                        <div className="bg-white rounded-lg shadow-md">
+                            <div className="p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm text-gray-600">Unread Messages</p>
@@ -159,11 +190,11 @@ export default function Dashboard({ parent, children, recentNotices, unreadMessa
                                     </div>
                                     <MessageSquare className="h-8 w-8 text-green-600" />
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
 
-                        <Card>
-                            <CardContent className="p-6">
+                        <div className="bg-white rounded-lg shadow-md">
+                            <div className="p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm text-gray-600">Recent Notices</p>
@@ -171,22 +202,22 @@ export default function Dashboard({ parent, children, recentNotices, unreadMessa
                                     </div>
                                     <Bell className="h-8 w-8 text-purple-600" />
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Children Cards */}
                         <div className="lg:col-span-2">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>My Children</CardTitle>
-                                </CardHeader>
-                                <CardContent>
+                            <div className="bg-white rounded-lg shadow-md">
+                                <div className="p-6 border-b border-gray-200">
+                                    <h2 className="text-xl font-bold text-gray-900">My Children</h2>
+                                </div>
+                                <div className="p-6">
                                     <div className="space-y-4">
                                         {children.map((child) => (
-                                            <Card key={child.id} className="border">
-                                                <CardContent className="p-4">
+                                            <div key={child.id} className="border rounded-lg shadow-sm">
+                                                <div className="p-4">
                                                     <div className="flex items-start gap-4">
                                                         <img
                                                             src={child.photo || '/default-avatar.png'}
@@ -212,58 +243,58 @@ export default function Dashboard({ parent, children, recentNotices, unreadMessa
                                                                 </div>
                                                             </div>
                                                             {child.fee_status.overdue_count > 0 && (
-                                                                <Badge variant="destructive" className="mb-2">
+                                                                <span className="inline-block px-3 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 mb-2">
                                                                     {child.fee_status.overdue_count} Overdue Fee(s)
-                                                                </Badge>
+                                                                </span>
                                                             )}
                                                             <div className="flex gap-2 flex-wrap">
                                                                 <Link href={route('parent.children.show', child.id)}>
-                                                                    <Button size="sm" variant="outline">
+                                                                    <button className="inline-flex items-center px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
                                                                         <User className="h-4 w-4 mr-1" />
                                                                         View Profile
-                                                                    </Button>
+                                                                    </button>
                                                                 </Link>
                                                                 <Link href={route('parent.attendance.index', { student_id: child.id })}>
-                                                                    <Button size="sm" variant="outline">
+                                                                    <button className="inline-flex items-center px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
                                                                         <Calendar className="h-4 w-4 mr-1" />
                                                                         Attendance
-                                                                    </Button>
+                                                                    </button>
                                                                 </Link>
                                                                 <Link href={route('parent.exams.index', { student_id: child.id })}>
-                                                                    <Button size="sm" variant="outline">
+                                                                    <button className="inline-flex items-center px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
                                                                         <TrendingUp className="h-4 w-4 mr-1" />
                                                                         Results
-                                                                    </Button>
+                                                                    </button>
                                                                 </Link>
                                                                 <Link href={route('parent.fees.index', { student_id: child.id })}>
-                                                                    <Button size="sm" variant="outline">
+                                                                    <button className="inline-flex items-center px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
                                                                         <DollarSign className="h-4 w-4 mr-1" />
                                                                         Fees
-                                                                    </Button>
+                                                                    </button>
                                                                 </Link>
                                                             </div>
                                                         </div>
                                                     </div>
-                                                </CardContent>
-                                            </Card>
+                                                </div>
+                                            </div>
                                         ))}
                                     </div>
-                                </CardContent>
-                            </Card>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Recent Notices */}
                         <div>
-                            <Card>
-                                <CardHeader>
+                            <div className="bg-white rounded-lg shadow-md">
+                                <div className="p-6 border-b border-gray-200">
                                     <div className="flex items-center justify-between">
-                                        <CardTitle>Recent Notices</CardTitle>
+                                        <h2 className="text-xl font-bold text-gray-900">Recent Notices</h2>
                                         <Link href={route('parent.notices.index')}>
-                                            <Button size="sm" variant="ghost">View All</Button>
+                                            <button className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded-md">View All</button>
                                         </Link>
                                     </div>
-                                </CardHeader>
-                                <CardContent>
+                                </div>
+                                <div className="p-6">
                                     <div className="space-y-3">
                                         {recentNotices.length > 0 ? (
                                             recentNotices.map((notice) => (
@@ -277,12 +308,12 @@ export default function Dashboard({ parent, children, recentNotices, unreadMessa
                                                         <div className="flex-1">
                                                             <h4 className="font-medium text-sm line-clamp-2">{notice.title}</h4>
                                                             <div className="flex items-center gap-2 mt-1">
-                                                                <Badge variant="outline" className="text-xs">
+                                                                <span className="px-2 py-0.5 text-xs border border-gray-300 rounded">
                                                                     {notice.type}
-                                                                </Badge>
-                                                                <Badge className={`text-xs ${getPriorityColor(notice.priority)}`}>
+                                                                </span>
+                                                                <span className={`px-2 py-0.5 text-xs rounded ${getPriorityColor(notice.priority)}`}>
                                                                     {notice.priority}
-                                                                </Badge>
+                                                                </span>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -292,46 +323,46 @@ export default function Dashboard({ parent, children, recentNotices, unreadMessa
                                             <p className="text-sm text-gray-500 text-center py-4">No recent notices</p>
                                         )}
                                     </div>
-                                </CardContent>
-                            </Card>
+                                </div>
+                            </div>
 
                             {/* Quick Actions */}
-                            <Card className="mt-6">
-                                <CardHeader>
-                                    <CardTitle>Quick Actions</CardTitle>
-                                </CardHeader>
-                                <CardContent>
+                            <div className="bg-white rounded-lg shadow-md mt-6">
+                                <div className="p-6 border-b border-gray-200">
+                                    <h2 className="text-xl font-bold text-gray-900">Quick Actions</h2>
+                                </div>
+                                <div className="p-6">
                                     <div className="space-y-2">
                                         <Link href={route('parent.messages.index')}>
-                                            <Button variant="outline" className="w-full justify-start">
+                                            <button className="w-full inline-flex items-center justify-start px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">
                                                 <MessageSquare className="h-4 w-4 mr-2" />
                                                 Messages
                                                 {unreadMessages > 0 && (
-                                                    <Badge className="ml-auto">{unreadMessages}</Badge>
+                                                    <span className="ml-auto px-2 py-0.5 text-xs bg-indigo-600 text-white rounded-full">{unreadMessages}</span>
                                                 )}
-                                            </Button>
+                                            </button>
                                         </Link>
                                         <Link href={route('parent.notices.index')}>
-                                            <Button variant="outline" className="w-full justify-start">
+                                            <button className="w-full inline-flex items-center justify-start px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">
                                                 <Bell className="h-4 w-4 mr-2" />
                                                 View All Notices
-                                            </Button>
+                                            </button>
                                         </Link>
                                         <Link href={route('parent.children.index')}>
-                                            <Button variant="outline" className="w-full justify-start">
+                                            <button className="w-full inline-flex items-center justify-start px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">
                                                 <Users className="h-4 w-4 mr-2" />
                                                 My Children
-                                            </Button>
+                                            </button>
                                         </Link>
                                         <Link href={route('parent.profile.show')}>
-                                            <Button variant="outline" className="w-full justify-start">
+                                            <button className="w-full inline-flex items-center justify-start px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">
                                                 <User className="h-4 w-4 mr-2" />
                                                 My Profile
-                                            </Button>
+                                            </button>
                                         </Link>
                                     </div>
-                                </CardContent>
-                            </Card>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -339,3 +370,4 @@ export default function Dashboard({ parent, children, recentNotices, unreadMessa
         </AuthenticatedLayout>
     );
 }
+

@@ -1,13 +1,10 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
-import { Badge } from '@/Components/ui/badge';
-import { Button } from '@/Components/ui/button';
-import { Input } from '@/Components/ui/input';
-import { Label } from '@/Components/ui/label';
-import { Textarea } from '@/Components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@/Components/Card';
+import Badge from '@/Components/Badge';
+import Button from '@/Components/Button';
+import Input from '@/Components/Input';
+import Select from '@/Components/Select';
 import { MessageSquare, Send, Search, Mail, Eye } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
@@ -40,6 +37,7 @@ interface Props {
 export default function Index({ parent, inbox, sent, unreadCount }: Props) {
     const [showCompose, setShowCompose] = useState(false);
     const [search, setSearch] = useState('');
+    const [activeTab, setActiveTab] = useState('inbox');
 
     const { data, setData, post, processing, errors, reset } = useForm({
         recipient_type: 'Teacher',
@@ -97,60 +95,51 @@ export default function Index({ parent, inbox, sent, unreadCount }: Props) {
                                     <div className="space-y-4">
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
-                                                <Label>Recipient Type</Label>
                                                 <Select
+                                                    label="Recipient Type"
                                                     value={data.recipient_type}
-                                                    onValueChange={(value) => setData('recipient_type', value)}
-                                                >
-                                                    <SelectTrigger>
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="Teacher">Teacher</SelectItem>
-                                                        <SelectItem value="Admin">Admin</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                                {errors.recipient_type && (
-                                                    <p className="text-sm text-red-600 mt-1">{errors.recipient_type}</p>
-                                                )}
+                                                    onChange={(e) => setData('recipient_type', e.target.value)}
+                                                    options={[
+                                                        { value: 'Teacher', label: 'Teacher' },
+                                                        { value: 'Admin', label: 'Admin' }
+                                                    ]}
+                                                    error={errors.recipient_type}
+                                                />
                                             </div>
                                             <div>
-                                                <Label>Recipient ID</Label>
                                                 <Input
+                                                    label="Recipient ID"
                                                     type="number"
                                                     value={data.recipient_id}
                                                     onChange={(e) => setData('recipient_id', e.target.value)}
                                                     placeholder="Enter recipient user ID"
+                                                    error={errors.recipient_id}
                                                 />
-                                                {errors.recipient_id && (
-                                                    <p className="text-sm text-red-600 mt-1">{errors.recipient_id}</p>
-                                                )}
                                             </div>
                                         </div>
                                         <div>
-                                            <Label>Subject</Label>
                                             <Input
+                                                label="Subject"
                                                 value={data.subject}
                                                 onChange={(e) => setData('subject', e.target.value)}
                                                 placeholder="Enter message subject"
+                                                error={errors.subject}
                                             />
-                                            {errors.subject && (
-                                                <p className="text-sm text-red-600 mt-1">{errors.subject}</p>
-                                            )}
                                         </div>
                                         <div>
-                                            <Label>Message</Label>
-                                            <Textarea
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
+                                            <textarea
                                                 value={data.message}
                                                 onChange={(e) => setData('message', e.target.value)}
                                                 placeholder="Enter your message"
                                                 rows={6}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                             />
                                             {errors.message && (
                                                 <p className="text-sm text-red-600 mt-1">{errors.message}</p>
                                             )}
                                         </div>
-                                        <Button type="submit" disabled={processing}>
+                                        <Button onClick={handleSubmit} disabled={processing}>
                                             <Send className="h-4 w-4 mr-2" />
                                             Send Message
                                         </Button>
@@ -183,82 +172,99 @@ export default function Index({ parent, inbox, sent, unreadCount }: Props) {
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <Tabs defaultValue="inbox">
-                                <TabsList className="grid w-full grid-cols-2">
-                                    <TabsTrigger value="inbox">
-                                        Inbox
-                                        {unreadCount > 0 && (
-                                            <Badge className="ml-2">{unreadCount}</Badge>
-                                        )}
-                                    </TabsTrigger>
-                                    <TabsTrigger value="sent">Sent</TabsTrigger>
-                                </TabsList>
+                            {/* Tab Buttons */}
+                            <div className="grid w-full grid-cols-2 mb-4 border-b">
+                                <button
+                                    onClick={() => setActiveTab('inbox')}
+                                    className={`px-4 py-2 text-sm font-medium transition-colors ${
+                                        activeTab === 'inbox'
+                                            ? 'border-b-2 border-blue-600 text-blue-600'
+                                            : 'text-gray-600 hover:text-gray-900'
+                                    }`}
+                                >
+                                    Inbox
+                                    {unreadCount > 0 && (
+                                        <Badge variant="default" className="ml-2">{unreadCount}</Badge>
+                                    )}
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('sent')}
+                                    className={`px-4 py-2 text-sm font-medium transition-colors ${
+                                        activeTab === 'sent'
+                                            ? 'border-b-2 border-blue-600 text-blue-600'
+                                            : 'text-gray-600 hover:text-gray-900'
+                                    }`}
+                                >
+                                    Sent
+                                </button>
+                            </div>
 
-                                <TabsContent value="inbox" className="mt-4">
-                                    <div className="space-y-3">
-                                        {filteredInbox.length > 0 ? (
-                                            filteredInbox.map((message) => (
-                                                <Link
-                                                    key={message.id}
-                                                    href={route('parent.messages.show', message.id)}
-                                                    className={`block p-4 border rounded-lg hover:bg-gray-50 transition ${
-                                                        !message.read_at ? 'bg-blue-50 border-blue-200' : ''
-                                                    }`}
-                                                >
-                                                    <div className="flex items-start justify-between mb-2">
-                                                        <div className="flex items-center gap-2">
-                                                            <Mail className="h-5 w-5 text-gray-400" />
-                                                            <h4 className="font-semibold">{message.subject}</h4>
-                                                            {!message.read_at && (
-                                                                <Badge variant="default" className="ml-2">New</Badge>
-                                                            )}
-                                                        </div>
-                                                        <span className="text-sm text-gray-500">
-                                                            {new Date(message.created_at).toLocaleDateString()}
-                                                        </span>
+                            {/* Inbox Tab */}
+                            {activeTab === 'inbox' && (
+                                <div className="space-y-3">
+                                    {filteredInbox.length > 0 ? (
+                                        filteredInbox.map((message) => (
+                                            <Link
+                                                key={message.id}
+                                                href={route('parent.messages.show', message.id)}
+                                                className={`block p-4 border rounded-lg hover:bg-gray-50 transition ${
+                                                    !message.read_at ? 'bg-blue-50 border-blue-200' : ''
+                                                }`}
+                                            >
+                                                <div className="flex items-start justify-between mb-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <Mail className="h-5 w-5 text-gray-400" />
+                                                        <h4 className="font-semibold">{message.subject}</h4>
+                                                        {!message.read_at && (
+                                                            <Badge variant="default" className="ml-2">New</Badge>
+                                                        )}
                                                     </div>
-                                                    <p className="text-sm text-gray-600 mb-2">
-                                                        From: <span className="font-medium">{message.sender.name}</span>
-                                                    </p>
-                                                    <p className="text-sm text-gray-700 line-clamp-2">{message.message}</p>
-                                                </Link>
-                                            ))
-                                        ) : (
-                                            <p className="text-center text-gray-500 py-8">No messages in inbox</p>
-                                        )}
-                                    </div>
-                                </TabsContent>
+                                                    <span className="text-sm text-gray-500">
+                                                        {new Date(message.created_at).toLocaleDateString()}
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm text-gray-600 mb-2">
+                                                    From: <span className="font-medium">{message.sender.name}</span>
+                                                </p>
+                                                <p className="text-sm text-gray-700 line-clamp-2">{message.message}</p>
+                                            </Link>
+                                        ))
+                                    ) : (
+                                        <p className="text-center text-gray-500 py-8">No messages in inbox</p>
+                                    )}
+                                </div>
+                            )}
 
-                                <TabsContent value="sent" className="mt-4">
-                                    <div className="space-y-3">
-                                        {filteredSent.length > 0 ? (
-                                            filteredSent.map((message) => (
-                                                <Link
-                                                    key={message.id}
-                                                    href={route('parent.messages.show', message.id)}
-                                                    className="block p-4 border rounded-lg hover:bg-gray-50 transition"
-                                                >
-                                                    <div className="flex items-start justify-between mb-2">
-                                                        <div className="flex items-center gap-2">
-                                                            <Send className="h-5 w-5 text-gray-400" />
-                                                            <h4 className="font-semibold">{message.subject}</h4>
-                                                        </div>
-                                                        <span className="text-sm text-gray-500">
-                                                            {new Date(message.created_at).toLocaleDateString()}
-                                                        </span>
+                            {/* Sent Tab */}
+                            {activeTab === 'sent' && (
+                                <div className="space-y-3">
+                                    {filteredSent.length > 0 ? (
+                                        filteredSent.map((message) => (
+                                            <Link
+                                                key={message.id}
+                                                href={route('parent.messages.show', message.id)}
+                                                className="block p-4 border rounded-lg hover:bg-gray-50 transition"
+                                            >
+                                                <div className="flex items-start justify-between mb-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <Send className="h-5 w-5 text-gray-400" />
+                                                        <h4 className="font-semibold">{message.subject}</h4>
                                                     </div>
-                                                    <p className="text-sm text-gray-600 mb-2">
-                                                        To: <span className="font-medium">{message.recipient.name}</span>
-                                                    </p>
-                                                    <p className="text-sm text-gray-700 line-clamp-2">{message.message}</p>
-                                                </Link>
-                                            ))
-                                        ) : (
-                                            <p className="text-center text-gray-500 py-8">No sent messages</p>
-                                        )}
-                                    </div>
-                                </TabsContent>
-                            </Tabs>
+                                                    <span className="text-sm text-gray-500">
+                                                        {new Date(message.created_at).toLocaleDateString()}
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm text-gray-600 mb-2">
+                                                    To: <span className="font-medium">{message.recipient.name}</span>
+                                                </p>
+                                                <p className="text-sm text-gray-700 line-clamp-2">{message.message}</p>
+                                            </Link>
+                                        ))
+                                    ) : (
+                                        <p className="text-center text-gray-500 py-8">No sent messages</p>
+                                    )}
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 </div>

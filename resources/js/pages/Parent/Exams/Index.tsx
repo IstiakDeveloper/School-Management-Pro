@@ -1,10 +1,9 @@
 import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
-import { Badge } from '@/Components/ui/badge';
-import { Button } from '@/Components/ui/button';
-import { Label } from '@/Components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle } from '@/Components/Card';
+import Badge from '@/Components/Badge';
+import Button from '@/Components/Button';
+import Select from '@/Components/Select';
 import { Calendar, TrendingUp, BookOpen, Clock } from 'lucide-react';
 
 interface Child {
@@ -70,19 +69,15 @@ export default function Index({ student, children, upcomingExams, results }: Pro
                         <CardContent className="p-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <Label>Select Child</Label>
-                                    <Select value={student.id.toString()} onValueChange={handleStudentChange}>
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {children.map((child) => (
-                                                <SelectItem key={child.id} value={child.id.toString()}>
-                                                    {child.full_name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <Select
+                                        label="Select Child"
+                                        value={student.id.toString()}
+                                        onChange={(e) => handleStudentChange(e.target.value)}
+                                        options={children.map((child) => ({
+                                            value: child.id.toString(),
+                                            label: child.full_name
+                                        }))}
+                                    />
                                 </div>
                                 <div className="flex items-end">
                                     <div className="text-sm">

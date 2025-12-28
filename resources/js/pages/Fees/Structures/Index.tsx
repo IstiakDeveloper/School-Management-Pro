@@ -1,6 +1,7 @@
-import { Head } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
+import { useState } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Settings } from 'lucide-react';
+import { Plus, Edit, Trash2, X, FileText } from 'lucide-react';
 
 function route(name: string, params?: any): string {
     const routes: Record<string, string> = {
@@ -32,9 +33,15 @@ interface FeeStructure {
     status: string;
 }
 
+interface FeeType {
+    id: number;
+    name: string;
+    amount: number;
+}
+
 interface Props {
     feeStructures: { data: FeeStructure[]; links: any[]; meta: any };
-    feeTypes: Array<{ id: number; name: string }>;
+    feeTypes: FeeType[];
     classes: Array<{ id: number; name: string }>;
     academicYears: Array<{ id: number; year: string }>;
 }
@@ -235,7 +242,7 @@ export default function Index({ feeStructures, feeTypes, classes, academicYears 
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Amount <spal>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Amount <span className="text-red-500">*</span></label>
                                 <input type="number" step="0.01" value={createForm.data.amount} onChange={(e) => createForm.setData('amount', e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" required />
                             </div>
 

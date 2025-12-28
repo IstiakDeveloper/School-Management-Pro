@@ -1,10 +1,8 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
-import { Button } from '@/Components/ui/button';
-import { Input } from '@/Components/ui/input';
-import { Label } from '@/Components/ui/label';
-import { Textarea } from '@/Components/ui/textarea';
+import { Card, CardContent, CardHeader, CardTitle } from '@/Components/Card';
+import Button from '@/Components/Button';
+import Input from '@/Components/Input';
 import { User, Mail, Phone, MapPin, Upload, Lock, Users } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
@@ -193,18 +191,18 @@ export default function Profile({ parent, children }: Props) {
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                             {/* Father's Information */}
                                             <div>
-                                                <Label>Father's Name</Label>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Father's Name</label>
                                                 <div className="flex items-center gap-2 mt-1">
                                                     <User className="h-4 w-4 text-gray-400" />
                                                     <p className="text-gray-900">{parent.father_name}</p>
                                                 </div>
                                             </div>
                                             <div>
-                                                <Label>Father's Occupation</Label>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Father's Occupation</label>
                                                 <p className="text-gray-900 mt-1">{parent.father_occupation || 'N/A'}</p>
                                             </div>
                                             <div>
-                                                <Label>Father's Phone</Label>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Father's Phone</label>
                                                 {editing ? (
                                                     <Input
                                                         value={data.father_phone}
@@ -221,18 +219,18 @@ export default function Profile({ parent, children }: Props) {
 
                                             {/* Mother's Information */}
                                             <div>
-                                                <Label>Mother's Name</Label>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Mother's Name</label>
                                                 <div className="flex items-center gap-2 mt-1">
                                                     <User className="h-4 w-4 text-gray-400" />
                                                     <p className="text-gray-900">{parent.mother_name}</p>
                                                 </div>
                                             </div>
                                             <div>
-                                                <Label>Mother's Occupation</Label>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Mother's Occupation</label>
                                                 <p className="text-gray-900 mt-1">{parent.mother_occupation || 'N/A'}</p>
                                             </div>
                                             <div>
-                                                <Label>Mother's Phone</Label>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Mother's Phone</label>
                                                 {editing ? (
                                                     <Input
                                                         value={data.mother_phone}
@@ -249,7 +247,7 @@ export default function Profile({ parent, children }: Props) {
 
                                             {/* Contact Information */}
                                             <div>
-                                                <Label>Primary Phone</Label>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Primary Phone</label>
                                                 {editing ? (
                                                     <Input
                                                         value={data.phone}
@@ -264,7 +262,7 @@ export default function Profile({ parent, children }: Props) {
                                                 {errors.phone && <p className="text-sm text-red-600 mt-1">{errors.phone}</p>}
                                             </div>
                                             <div>
-                                                <Label>Email</Label>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                                                 {editing ? (
                                                     <Input
                                                         type="email"
@@ -283,12 +281,13 @@ export default function Profile({ parent, children }: Props) {
 
                                         {/* Address */}
                                         <div className="mb-4">
-                                            <Label>Address</Label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
                                             {editing ? (
-                                                <Textarea
+                                                <textarea
                                                     value={data.address}
                                                     onChange={(e) => setData('address', e.target.value)}
                                                     rows={3}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                                 />
                                             ) : (
                                                 <div className="flex items-start gap-2 mt-1">
@@ -301,7 +300,7 @@ export default function Profile({ parent, children }: Props) {
 
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                             <div>
-                                                <Label>City</Label>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
                                                 {editing ? (
                                                     <Input
                                                         value={data.city}
@@ -313,7 +312,7 @@ export default function Profile({ parent, children }: Props) {
                                                 {errors.city && <p className="text-sm text-red-600 mt-1">{errors.city}</p>}
                                             </div>
                                             <div>
-                                                <Label>State</Label>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
                                                 {editing ? (
                                                     <Input
                                                         value={data.state}
@@ -325,7 +324,7 @@ export default function Profile({ parent, children }: Props) {
                                                 {errors.state && <p className="text-sm text-red-600 mt-1">{errors.state}</p>}
                                             </div>
                                             <div>
-                                                <Label>Postal Code</Label>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Postal Code</label>
                                                 {editing ? (
                                                     <Input
                                                         value={data.postal_code}
@@ -365,7 +364,7 @@ export default function Profile({ parent, children }: Props) {
                                     <form onSubmit={handlePasswordChange}>
                                         <div className="space-y-4">
                                             <div>
-                                                <Label>Current Password</Label>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
                                                 <Input
                                                     type="password"
                                                     value={passwordForm.data.current_password}
@@ -376,7 +375,7 @@ export default function Profile({ parent, children }: Props) {
                                                 )}
                                             </div>
                                             <div>
-                                                <Label>New Password</Label>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
                                                 <Input
                                                     type="password"
                                                     value={passwordForm.data.password}
@@ -387,7 +386,7 @@ export default function Profile({ parent, children }: Props) {
                                                 )}
                                             </div>
                                             <div>
-                                                <Label>Confirm New Password</Label>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
                                                 <Input
                                                     type="password"
                                                     value={passwordForm.data.password_confirmation}

@@ -68,7 +68,7 @@ export default function Show({ teacher }: ShowProps) {
                         </Button>
                         <div className="flex items-center gap-3">
                             {teacher.photo ? (
-                                <img src={teacher.photo} alt={teacher.full_name} className="w-16 h-16 rounded-full object-cover" />
+                                <img src={`/storage/${teacher.photo}`} alt={teacher.full_name} className="w-16 h-16 rounded-full object-cover" />
                             ) : (
                                 <div className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-600 to-cyan-600 flex items-center justify-center">
                                     <User className="w-8 h-8 text-white" />

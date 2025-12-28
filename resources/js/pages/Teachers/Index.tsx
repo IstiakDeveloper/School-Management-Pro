@@ -168,7 +168,7 @@ export default function Index({ teachers, filters }: IndexProps) {
                                     <td className="px-6 py-4">
                                         <div className="flex items-center">
                                             {teacher.photo ? (
-                                                <img src={teacher.photo} alt={teacher.full_name} className="h-10 w-10 rounded-full object-cover" />
+                                                <img src={`/storage/${teacher.photo}`} alt={teacher.full_name} className="h-10 w-10 rounded-full object-cover" />
                                             ) : (
                                                 <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
                                                     <span className="text-blue-600 font-semibold text-sm">
