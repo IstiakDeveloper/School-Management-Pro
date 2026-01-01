@@ -75,9 +75,9 @@ export default function Edit({ teacher }: EditProps) {
         emergency_contact: teacher.emergency_contact || '',
         present_address: teacher.present_address || '',
         permanent_address: teacher.permanent_address || '',
-        qualification: teacher.qualification,
+        qualification: teacher.qualification || '',
         specialization: teacher.specialization || '',
-        experience_years: teacher.experience_years.toString(),
+        experience_years: teacher.experience_years ? teacher.experience_years.toString() : '0',
         previous_experience: teacher.previous_experience || '',
         joining_date: teacher.joining_date || '',
         leaving_date: teacher.leaving_date || '',
@@ -384,10 +384,9 @@ export default function Edit({ teacher }: EditProps) {
                                     <option value="Assistant Head Teacher">Assistant Head Teacher</option>
                                     <option value="Senior Teacher">Senior Teacher</option>
                                     <option value="Assistant Teacher">Assistant Teacher</option>
-                                    <option value="Lecturer">Lecturer</option>
+                                    <option value="Administrator">Administrator</option>
                                     <option value="Physical Education Teacher">Physical Education Teacher</option>
-                                    <option value="Computer Teacher">Computer Teacher</option>
-                                    <option value="Librarian">Librarian</option>
+                                    <option value="Computer Operator">Computer Operator</option>
                                     <option value="Other">Other</option>
                                 </select>
                                 {errors.designation && <p className="text-red-600 text-sm mt-1">{errors.designation}</p>}

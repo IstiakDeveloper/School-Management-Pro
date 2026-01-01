@@ -90,8 +90,10 @@ Route::middleware('auth')->group(function () {
     // Logout
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
-    // Dashboard (redirects to role-specific dashboard)
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    // Dashboard (redirects to role-specific dashboard) - Auto-generate fees on visit
+    Route::get('/dashboard', [DashboardController::class, 'index'])
+        ->middleware('auto.fees')
+        ->name('dashboard');
 
     // ============================================
     // ADMIN ROUTES (User, Role, Permission Management)
@@ -143,6 +145,10 @@ Route::middleware('auth')->group(function () {
     // TEACHER MANAGEMENT (Super Admin & Principal Access)
     // ============================================
     Route::middleware(['role:Super Admin,Principal'])->group(function () {
+        // Print routes (must be before resource route)
+        Route::get('teachers/{teacher}/print-profile', [TeacherController::class, 'printProfile'])->name('teachers.print-profile');
+        Route::get('teachers/{teacher}/print-id-card', [TeacherController::class, 'printIdCard'])->name('teachers.print-id-card');
+
         Route::resource('teachers', TeacherController::class);
 
         Route::resource('teacher-subjects', TeacherSubjectController::class)->only(['index', 'create', 'store', 'destroy']);
@@ -226,17 +232,25 @@ Route::middleware('auth')->group(function () {
     Route::middleware(['role:Super Admin,Principal,Accountant'])->group(function () {
         Route::resource('fee-types', FeeTypeController::class)->except(['show']);
         Route::resource('fee-structures', FeeStructureController::class)->except(['show']);
-        Route::resource('fee-collections', FeeCollectionController::class)->except(['edit', 'update']);
+
+        // Fee collections with auto-generation middleware
+        Route::resource('fee-collections', FeeCollectionController::class)
+            ->except(['edit', 'update'])
+            ->middleware('auto.fees');
+
         Route::get('fee-collections/{fee_collection}/receipt', [FeeCollectionController::class, 'receipt'])->name('fee-collections.receipt');
         Route::get('students/{student}/fees', [FeeCollectionController::class, 'studentFees'])->name('students.fees');
 
-        // API endpoint for getting fee structures by class
+        // API endpoints for fee management
         Route::get('api/fee-structures', [FeeCollectionController::class, 'getFeesByClass'])->name('api.fee-structures');
+        Route::get('api/student-dues', [FeeCollectionController::class, 'getStudentDues'])->name('api.student-dues');
 
         Route::resource('fee-waivers', FeeWaiverController::class)->except(['show']);
 
-        // Overdue fee management
-        Route::get('overdue-fees', [\App\Http\Controllers\Fee\OverdueController::class, 'index'])->name('overdue-fees.index');
+        // Overdue fee management with auto-generation
+        Route::get('overdue-fees', [\App\Http\Controllers\Fee\OverdueController::class, 'index'])
+            ->middleware('auto.fees')
+            ->name('overdue-fees.index');
         Route::post('overdue-fees/reminder', [\App\Http\Controllers\Fee\OverdueController::class, 'sendReminder'])->name('overdue-fees.reminder');
         Route::post('overdue-fees/bulk-reminder', [\App\Http\Controllers\Fee\OverdueController::class, 'bulkReminder'])->name('overdue-fees.bulk-reminder');
         Route::post('overdue-fees/mark-paid', [\App\Http\Controllers\Fee\OverdueController::class, 'markPaid'])->name('overdue-fees.mark-paid');
@@ -531,3 +545,38 @@ Route::middleware('auth')->group(function () {
         Route::get('/notices/{notice}', [\App\Http\Controllers\Parent\ParentNoticeController::class, 'show'])->name('notices.show');
     });
 });
+
+// ============================================
+// SETUP/INSTALLATION ROUTES
+// ============================================
+Route::get('/storage-link', function () {
+    try {
+        \Illuminate\Support\Facades\Artisan::call('storage:link');
+        return response()->json([
+            'success' => true,
+            'message' => 'Storage link created successfully!',
+            'output' => \Illuminate\Support\Facades\Artisan::output()
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to create storage link: ' . $e->getMessage()
+        ], 500);
+    }
+})->name('setup.storage-link');
+
+Route::get('/migrate', function () {
+    try {
+        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+        return response()->json([
+            'success' => true,
+            'message' => 'Database migration completed successfully!',
+            'output' => \Illuminate\Support\Facades\Artisan::output()
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to migrate database: ' . $e->getMessage()
+        ], 500);
+    }
+})->name('setup.migrate');

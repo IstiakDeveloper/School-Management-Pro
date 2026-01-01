@@ -48,7 +48,7 @@ class StudentParentController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users',
             'phone' => 'required|string|max:20',
-            'password' => 'required|string|min:8',
+            'password' => 'required|string|min:8|confirmed',
             'father_name' => 'nullable|string|max:255',
             'father_phone' => 'nullable|string|max:20',
             'father_occupation' => 'nullable|string|max:255',
@@ -77,6 +77,7 @@ class StudentParentController extends Controller
 
             $parent = StudentParent::create([
                 'user_id' => $user->id,
+                'student_id' => $validated['student_ids'][0] ?? null,
                 'father_name' => $validated['father_name'],
                 'father_phone' => $validated['father_phone'],
                 'father_occupation' => $validated['father_occupation'],

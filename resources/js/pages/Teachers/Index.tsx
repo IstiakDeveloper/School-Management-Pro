@@ -3,7 +3,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
 import Badge from '@/Components/Badge';
-import { Plus, Edit, Trash2, Eye, Users, Search, Mail, Phone } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Users, Search, Mail, Phone, User } from 'lucide-react';
 
 interface Teacher {
     id: number;
@@ -42,6 +42,7 @@ interface IndexProps {
 
 export default function Index({ teachers, filters }: IndexProps) {
     const [searchTerm, setSearchTerm] = useState(filters?.search || '');
+    const [imageErrors, setImageErrors] = useState<{ [key: number]: boolean }>({});
 
     const handleDelete = (id: number, name: string) => {
         if (confirm(`Are you sure you want to delete "${name}"?`)) {
@@ -51,6 +52,22 @@ export default function Index({ teachers, filters }: IndexProps) {
 
     const handleSearch = () => {
         router.get('/teachers', { search: searchTerm }, { preserveState: true });
+    };
+
+    const handleImageError = (teacherId: number) => {
+        setImageErrors(prev => ({ ...prev, [teacherId]: true }));
+    };
+
+    const getTeacherImageUrl = (photo: string | null) => {
+        if (!photo) return null;
+        // Handle different path formats
+        if (photo.startsWith('http')) {
+            return photo;
+        }
+        if (photo.startsWith('storage/')) {
+            return `/${photo}`;
+        }
+        return `/storage/${photo}`;
     };
 
     return (
@@ -167,13 +184,16 @@ export default function Index({ teachers, filters }: IndexProps) {
                                 <tr key={teacher.id} className="hover:bg-gray-50 transition-colors animate-fade-in" style={{ animationDelay: `${index * 30}ms` }}>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center">
-                                            {teacher.photo ? (
-                                                <img src={`/storage/${teacher.photo}`} alt={teacher.full_name} className="h-10 w-10 rounded-full object-cover" />
+                                            {teacher.photo && !imageErrors[teacher.id] ? (
+                                                <img
+                                                    src={getTeacherImageUrl(teacher.photo) || ''}
+                                                    alt={teacher.full_name}
+                                                    className="h-10 w-10 rounded-full object-cover border-2 border-gray-200"
+                                                    onError={() => handleImageError(teacher.id)}
+                                                />
                                             ) : (
-                                                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                                                    <span className="text-blue-600 font-semibold text-sm">
-                                                        {teacher.full_name.charAt(0).toUpperCase()}
-                                                    </span>
+                                                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-sm">
+                                                    <User className="w-5 h-5 text-white" />
                                                 </div>
                                             )}
                                         </div>

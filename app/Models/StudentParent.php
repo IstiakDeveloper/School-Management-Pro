@@ -29,6 +29,16 @@ class StudentParent extends Model
         'can_pickup',
         'notes',
         'status',
+        'father_name',
+        'father_phone',
+        'father_occupation',
+        'mother_name',
+        'mother_phone',
+        'mother_occupation',
+        'guardian_name',
+        'guardian_phone',
+        'guardian_relation',
+        'address',
     ];
 
     protected function casts(): array

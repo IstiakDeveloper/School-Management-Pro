@@ -35,6 +35,7 @@ class FeeTypeController extends Controller
             'name' => 'required|string|max:255',
             'code' => 'required|string|max:50|unique:fee_types',
             'description' => 'nullable|string',
+            'frequency' => 'required|in:monthly,quarterly,yearly,one_time',
             'status' => 'required|in:active,inactive',
         ]);
 
@@ -63,6 +64,7 @@ class FeeTypeController extends Controller
             'name' => 'required|string|max:255',
             'code' => 'required|string|max:50|unique:fee_types,code,' . $feeType->id,
             'description' => 'nullable|string',
+            'frequency' => 'required|in:monthly,quarterly,yearly,one_time',
             'status' => 'required|in:active,inactive',
         ]);
 

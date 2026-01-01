@@ -320,10 +320,9 @@ export default function Create() {
                                     <option value="Assistant Head Teacher">Assistant Head Teacher</option>
                                     <option value="Senior Teacher">Senior Teacher</option>
                                     <option value="Assistant Teacher">Assistant Teacher</option>
-                                    <option value="Lecturer">Lecturer</option>
+                                    <option value="Administrator">Administrator</option>
                                     <option value="Physical Education Teacher">Physical Education Teacher</option>
-                                    <option value="Computer Teacher">Computer Teacher</option>
-                                    <option value="Librarian">Librarian</option>
+                                    <option value="Computer Operator">Computer Operator</option>
                                     <option value="Other">Other</option>
                                 </select>
                                 {errors.designation && <p className="text-red-600 text-sm mt-1">{errors.designation}</p>}

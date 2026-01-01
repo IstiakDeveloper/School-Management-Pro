@@ -25,7 +25,6 @@ class OverdueController extends Controller
             'academicYear',
             'schoolClass'
         ])
-            ->where('status', 'active')
             ->where('due_date', '<', $today)
             ->get();
 
@@ -140,8 +139,7 @@ class OverdueController extends Controller
         $daysOverdue = $request->days_filter === 'all' ? 0 : (int)$request->days_filter;
 
         // Get overdue fee structures
-        $query = FeeStructure::where('status', 'active')
-            ->where('due_date', '<', $today);
+        $query = FeeStructure::where('due_date', '<', $today);
 
         if ($daysOverdue > 0) {
             $filterDate = $today->copy()->subDays($daysOverdue);

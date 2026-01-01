@@ -172,6 +172,75 @@ class TeacherController extends Controller
         ]);
     }
 
+    public function printProfile(Teacher $teacher)
+    {
+        $this->authorize('view_teachers');
+
+        $teacher->load([
+            'user',
+            'teacherSubjects.subject',
+            'teacherSubjects.schoolClasses',
+        ]);
+
+        // Format the teacher data
+        $teacherData = $teacher->toArray();
+        $teacherData['full_name'] = $teacher->full_name;
+        $teacherData['email'] = $teacher->email ?? ($teacher->user ? $teacher->user->email : null);
+        $teacherData['phone'] = $teacher->phone;
+        $teacherData['subjects_count'] = $teacher->teacherSubjects->count();
+
+        // Format teacher subjects with classes
+        $teacherData['teacher_subjects'] = $teacher->teacherSubjects->map(function ($ts) {
+            return [
+                'id' => $ts->id,
+                'subject' => [
+                    'id' => $ts->subject->id,
+                    'name' => $ts->subject->name,
+                    'code' => $ts->subject->code,
+                ],
+                'classes' => $ts->schoolClasses->map(function ($class) {
+                    return [
+                        'id' => $class->id,
+                        'name' => $class->name,
+                        'name_bengali' => $class->name_bengali,
+                    ];
+                })->toArray(),
+            ];
+        })->toArray();
+
+        return Inertia::render('Teachers/TeacherPrintProfile', [
+            'teacher' => $teacherData,
+        ]);
+    }
+
+    public function printIdCard(Teacher $teacher)
+    {
+        $this->authorize('view_teachers');
+
+        $teacher->load('user');
+
+        // Format the teacher data
+        $teacherData = [
+            'id' => $teacher->id,
+            'employee_id' => $teacher->employee_id,
+            'full_name' => $teacher->full_name,
+            'email' => $teacher->email ?? ($teacher->user ? $teacher->user->email : null),
+            'phone' => $teacher->phone,
+            'date_of_birth' => $teacher->date_of_birth ? $teacher->date_of_birth->format('Y-m-d') : null,
+            'gender' => $teacher->gender,
+            'blood_group' => $teacher->blood_group,
+            'designation' => $teacher->designation,
+            'department' => $teacher->department,
+            'joining_date' => $teacher->joining_date ? $teacher->joining_date->format('Y-m-d') : null,
+            'status' => $teacher->status,
+            'photo' => $teacher->photo,
+        ];
+
+        return Inertia::render('Teachers/TeacherPrintIDCard', [
+            'teacher' => $teacherData,
+        ]);
+    }
+
     public function edit(Teacher $teacher)
     {
         $this->authorize('edit_teachers');

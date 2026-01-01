@@ -89,7 +89,7 @@ const menuItems: MenuItem[] = [
         icon: <Briefcase className="w-5 h-5" />,
         roles: ['Super Admin', 'Admin', 'Principal'],
         children: [
-            { name: 'Staff', href: '/staff', icon: <Users className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
+            // { name: 'Staff', href: '/staff', icon: <Users className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
             { name: 'Salary Payments', href: '/salary-payments', icon: <DollarSign className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
             { name: 'Provident Fund', href: '/provident-fund', icon: <Wallet className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
         ],
