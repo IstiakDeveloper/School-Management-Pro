@@ -26,7 +26,7 @@ class FeeCollectionController extends Controller
         $this->authorize('manage_fees');
 
         // Get collections with relationships
-        $collections = FeeCollection::with([
+        $collectionsQuery = FeeCollection::with([
             'student.user',
             'student.schoolClass',
             'feeType',
@@ -39,11 +39,62 @@ class FeeCollectionController extends Controller
             ->when($request->search, function ($query, $search) {
                 $query->whereHas('student.user', function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%");
-                });
+                })
+                ->orWhere('receipt_number', 'like', "%{$search}%");
             })
             ->latest('created_at')
-            ->paginate(20)
-            ->withQueryString();
+            ->get();
+
+        // Group by receipt number
+        $groupedCollections = $collectionsQuery->groupBy('receipt_number')->map(function ($group) {
+            $first = $group->first();
+            $monthsCount = $group->count();
+
+            // Get month range
+            $months = $group->pluck('month')->sort()->values();
+            $years = $group->pluck('year')->sort()->values();
+
+            if ($monthsCount === 1) {
+                $period = Carbon::create($first->year, $first->month, 1)->format('F Y');
+            } else {
+                $firstMonth = Carbon::create($years->first(), $months->first(), 1)->format('M Y');
+                $lastMonth = Carbon::create($years->last(), $months->last(), 1)->format('M Y');
+                $period = "{$firstMonth} - {$lastMonth} ({$monthsCount} months)";
+            }
+
+            return [
+                'id' => $first->id,
+                'receipt_number' => $first->receipt_number,
+                'student' => [
+                    'user' => ['name' => $first->student->user->name ?? 'N/A'],
+                    'admission_number' => $first->student->admission_number ?? 'N/A',
+                    'school_class' => ['name' => $first->student->schoolClass->name ?? 'N/A'],
+                ],
+                'fee_type' => ['name' => $group->pluck('feeType.name')->unique()->join(', ')],
+                'period' => $period,
+                'months_count' => $monthsCount,
+                'amount' => $group->sum('amount'),
+                'paid_amount' => $group->sum('paid_amount'),
+                'discount' => $group->sum('discount'),
+                'payment_date' => $first->payment_date,
+                'payment_method' => $first->payment_method,
+                'status' => $first->status,
+                'month' => $first->month,
+                'year' => $first->year,
+            ];
+        })->values();
+
+        // Paginate manually
+        $page = $request->get('page', 1);
+        $perPage = 20;
+        $total = $groupedCollections->count();
+        $collections = new \Illuminate\Pagination\LengthAwarePaginator(
+            $groupedCollections->slice(($page - 1) * $perPage, $perPage)->values(),
+            $total,
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
 
         // Get all pending/overdue fees
         $pendingFees = FeeCollection::with([
@@ -61,7 +112,7 @@ class FeeCollectionController extends Controller
                     'student_name' => $fee->student->user->name ?? 'N/A',
                     'student_id' => $fee->student_id,
                     'class_name' => $fee->student->schoolClass->name ?? 'N/A',
-                    'fee_type' => $fee->feeType->name,
+                    'fee_type' => $fee->feeType->name ?? 'N/A',
                     'month' => $fee->month,
                     'year' => $fee->year,
                     'amount' => $fee->amount,
@@ -96,120 +147,169 @@ class FeeCollectionController extends Controller
     }
 
     /**
+     * Display student fees page (new professional interface)
+     */
+    public function studentFeesPage()
+    {
+        $this->authorize('manage_fees');
+
+        return Inertia::render('Fees/Collections/StudentFees', [
+            'students' => Student::with(['user', 'schoolClass'])
+                ->where('status', 'active')
+                ->get(),
+            'accounts' => Account::where('status', 'active')
+                ->get(['id', 'account_name', 'current_balance']),
+        ]);
+    }
+
+    /**
      * Store fee collection (supports both new and old formats)
      */
     public function store(Request $request)
     {
         $this->authorize('manage_fees');
 
-        // Check if it's old format (fee_structures) or new format (fee_collection_ids)
-        $isOldFormat = $request->has('fee_structures');
+        // Check if it's paying pending fees or creating new fees
+        $hasPendingFees = $request->has('fee_collection_ids') && count($request->fee_collection_ids) > 0;
+        $hasNewFees = $request->has('fee_structures') && count($request->fee_structures) > 0;
 
-        if ($isOldFormat) {
-            // Old format: Create new fee collections
-            $validated = $request->validate([
-                'student_id' => 'required|exists:students,id',
-                'fee_structures' => 'required|array|min:1',
-                'fee_structures.*.fee_structure_id' => 'required|exists:fee_structures,id',
-                'fee_structures.*.month' => 'required|integer|min:1|max:12',
-                'fee_structures.*.year' => 'required|integer|min:2020|max:2100',
-                'account_id' => 'required|exists:accounts,id',
-                'payment_method' => 'required|in:cash,bank_transfer,cheque,mobile_banking,online',
-                'payment_date' => 'required|date',
-                'discount' => 'nullable|numeric|min:0',
-                'remarks' => 'nullable|string|max:500',
-            ]);
-
-            return $this->storeNewCollections($validated);
-        } else {
-            // New format: Pay existing pending/overdue fees
-            $validated = $request->validate([
-                'fee_collection_ids' => 'required|array|min:1',
-                'fee_collection_ids.*' => 'required|exists:fee_collections,id',
-                'account_id' => 'required|exists:accounts,id',
-                'payment_method' => 'required|in:cash,bank_transfer,cheque,mobile_banking,online',
-                'payment_date' => 'required|date',
-                'discount' => 'nullable|numeric|min:0',
-                'remarks' => 'nullable|string|max:500',
-            ]);
-
-            return $this->payExistingCollections($validated);
+        if (!$hasPendingFees && !$hasNewFees) {
+            return redirect()->back()
+                ->with('error', 'Please select at least one fee to collect');
         }
-    }
 
-    /**
-     * Create new fee collections (old format)
-     */
-    private function storeNewCollections(array $validated)
-    {
+        // Validate common fields
+        $validated = $request->validate([
+            'student_id' => 'required|exists:students,id',
+            'fee_collection_ids' => 'nullable|array',
+            'fee_collection_ids.*' => 'nullable|exists:fee_collections,id',
+            'fee_structures' => 'nullable|array',
+            'fee_structures.*.fee_structure_id' => 'nullable|exists:fee_structures,id',
+            'fee_structures.*.month' => 'nullable|integer|min:1|max:12',
+            'fee_structures.*.year' => 'nullable|integer|min:2020|max:2100',
+            'account_id' => 'required|exists:accounts,id',
+            'payment_method' => 'required|in:cash,bank_transfer,cheque,mobile_banking,online',
+            'payment_date' => 'required|date',
+            'discount' => 'nullable|numeric|min:0',
+            'remarks' => 'nullable|string|max:500',
+        ]);
+
         DB::beginTransaction();
         try {
             $student = Student::with('user')->findOrFail($validated['student_id']);
             $discount = floatval($validated['discount'] ?? 0);
 
-            // Generate unique receipt number
-            $receiptNumber = 'RCP-' . date('Ymd') . '-' . str_pad(
-                FeeCollection::whereDate('created_at', today())->count() + 1,
-                4,
-                '0',
-                STR_PAD_LEFT
-            );
+            // Generate ONE unique receipt number for this entire payment
+            $todayPrefix = 'RCP-' . date('Ymd');
+            $receiptNumber = null;
+
+            // Simple increment without sequence table
+            $maxExisting = DB::table('fee_collections')
+                ->where('receipt_number', 'LIKE', $todayPrefix . '-%')
+                ->lockForUpdate()
+                ->max(DB::raw('CAST(SUBSTRING(receipt_number, 15) AS UNSIGNED)'));
+
+            $nextNumber = ($maxExisting ?? 0) + 1;
+            $receiptNumber = $todayPrefix . '-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
 
             $totalAmount = 0;
             $feeDescriptions = [];
+            $feeCount = 0;
 
-            // Create collection for each selected fee structure with month/year
-            foreach ($validated['fee_structures'] as $feeData) {
-                $feeStructure = FeeStructure::with(['feeType', 'academicYear'])
-                    ->findOrFail($feeData['fee_structure_id']);
+            // Process pending/overdue fees first
+            if ($hasPendingFees) {
+                $pendingFeeCount = count($validated['fee_collection_ids']);
+                $pendingDiscount = $discount * ($pendingFeeCount / ($pendingFeeCount + ($hasNewFees ? count($validated['fee_structures']) : 0)));
 
-                $month = intval($feeData['month']);
-                $year = intval($feeData['year']);
+                foreach ($validated['fee_collection_ids'] as $feeId) {
+                    $fee = FeeCollection::with(['student.user', 'feeType'])
+                        ->findOrFail($feeId);
 
-                // Calculate proportional discount
-                $feeAmount = floatval($feeStructure->amount);
-                $feeDiscount = count($validated['fee_structures']) > 0
-                    ? $discount / count($validated['fee_structures'])
-                    : 0;
-                $paidAmount = $feeAmount - $feeDiscount;
-                $totalAmount += $paidAmount;
+                    if ($fee->status === 'paid') {
+                        throw new \Exception("Fee {$fee->feeType->name} has already been paid.");
+                    }
 
-                // Check if already paid for this month/year
-                $existingPayment = FeeCollection::where('student_id', $validated['student_id'])
-                    ->where('fee_type_id', $feeStructure->fee_type_id)
-                    ->where('month', $month)
-                    ->where('year', $year)
-                    ->where('status', 'paid')
-                    ->exists();
+                    // Calculate proportional discount for this fee
+                    $feeDiscount = $pendingFeeCount > 0 ? $pendingDiscount / $pendingFeeCount : 0;
+                    $paidAmount = $fee->amount + $fee->late_fee - $feeDiscount;
+                    $totalAmount += $paidAmount;
+                    $feeCount++;
 
-                if ($existingPayment) {
-                    $monthName = Carbon::create($year, $month, 1)->format('F Y');
-                    throw new \Exception("Fee '{$feeStructure->feeType->name}' for {$monthName} has already been paid.");
+                    // Update fee collection - SAME receipt number for all
+                    $fee->update([
+                        'receipt_number' => $receiptNumber,
+                        'account_id' => $validated['account_id'],
+                        'discount' => $feeDiscount,
+                        'total_amount' => $paidAmount,
+                        'paid_amount' => $paidAmount,
+                        'payment_date' => $validated['payment_date'],
+                        'payment_method' => $validated['payment_method'],
+                        'status' => 'paid',
+                        'remarks' => $validated['remarks'] ?? null,
+                        'collected_by' => auth()->id(),
+                    ]);
+
+                    $monthName = Carbon::create($fee->year, $fee->month, 1)->format('M Y');
+                    $feeDescriptions[] = $fee->feeType->name . ' (' . $monthName . ')';
                 }
+            }
 
-                // Create fee collection record
-                FeeCollection::create([
-                    'receipt_number' => $receiptNumber,
-                    'student_id' => $validated['student_id'],
-                    'fee_type_id' => $feeStructure->fee_type_id,
-                    'academic_year_id' => $feeStructure->academic_year_id,
-                    'account_id' => $validated['account_id'],
-                    'month' => $month,
-                    'year' => $year,
-                    'amount' => $feeAmount,
-                    'late_fee' => 0,
-                    'discount' => $feeDiscount,
-                    'total_amount' => $paidAmount,
-                    'paid_amount' => $paidAmount,
-                    'payment_date' => $validated['payment_date'],
-                    'payment_method' => $validated['payment_method'],
-                    'status' => 'paid',
-                    'remarks' => $validated['remarks'] ?? null,
-                    'collected_by' => auth()->id(),
-                ]);
+            // Process new fees
+            if ($hasNewFees) {
+                $newFeeCount = count($validated['fee_structures']);
+                $newDiscount = $discount * ($newFeeCount / (($hasPendingFees ? count($validated['fee_collection_ids']) : 0) + $newFeeCount));
 
-                $monthName = Carbon::create($year, $month, 1)->format('M Y');
-                $feeDescriptions[] = $feeStructure->feeType->name . ' (' . $monthName . ')';
+                foreach ($validated['fee_structures'] as $feeData) {
+                    $feeStructure = FeeStructure::with(['feeType', 'academicYear'])
+                        ->findOrFail($feeData['fee_structure_id']);
+
+                    $month = intval($feeData['month']);
+                    $year = intval($feeData['year']);
+
+                    // Calculate proportional discount
+                    $feeAmount = floatval($feeStructure->amount);
+                    $feeDiscount = $newFeeCount > 0 ? $newDiscount / $newFeeCount : 0;
+                    $paidAmount = $feeAmount - $feeDiscount;
+                    $totalAmount += $paidAmount;
+                    $feeCount++;
+
+                    // Check if already paid for this month/year
+                    $existingPayment = FeeCollection::where('student_id', $validated['student_id'])
+                        ->where('fee_type_id', $feeStructure->fee_type_id)
+                        ->where('month', $month)
+                        ->where('year', $year)
+                        ->where('status', 'paid')
+                        ->exists();
+
+                    if ($existingPayment) {
+                        $monthName = Carbon::create($year, $month, 1)->format('F Y');
+                        throw new \Exception("Fee '{$feeStructure->feeType->name}' for {$monthName} has already been paid.");
+                    }
+
+                    // Create fee collection record - SAME receipt number for all
+                    FeeCollection::create([
+                        'receipt_number' => $receiptNumber,
+                        'student_id' => $validated['student_id'],
+                        'fee_type_id' => $feeStructure->fee_type_id,
+                        'academic_year_id' => $feeStructure->academic_year_id,
+                        'account_id' => $validated['account_id'],
+                        'month' => $month,
+                        'year' => $year,
+                        'amount' => $feeAmount,
+                        'late_fee' => 0,
+                        'discount' => $feeDiscount,
+                        'total_amount' => $paidAmount,
+                        'paid_amount' => $paidAmount,
+                        'payment_date' => $validated['payment_date'],
+                        'payment_method' => $validated['payment_method'],
+                        'status' => 'paid',
+                        'remarks' => $validated['remarks'] ?? null,
+                        'collected_by' => auth()->id(),
+                    ]);
+
+                    $monthName = Carbon::create($year, $month, 1)->format('M Y');
+                    $feeDescriptions[] = $feeStructure->feeType->name . ' (' . $monthName . ')';
+                }
             }
 
             // Create accounting transaction
@@ -233,108 +333,12 @@ class FeeCollectionController extends Controller
 
             logActivity(
                 'create',
-                "Collected " . count($validated['fee_structures']) . " fees from {$student->user->name} (Receipt: {$receiptNumber})",
+                "Collected {$feeCount} fees from {$student->user->name} (Receipt: {$receiptNumber})",
                 FeeCollection::class
             );
 
-            return redirect()->route('fee-collections.index')
-                ->with('success', "Fees collected successfully! Receipt: {$receiptNumber}");
-
-        } catch (\Exception $e) {
-            DB::rollBack();
             return redirect()->back()
-                ->withInput()
-                ->with('error', 'Failed to collect fees: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Pay existing pending/overdue fees (new format)
-     */
-    private function payExistingCollections(array $validated)
-    {
-        DB::beginTransaction();
-        try {
-            $discount = floatval($validated['discount'] ?? 0);
-
-            // Generate unique receipt number
-            $receiptNumber = 'RCP-' . date('Ymd') . '-' . str_pad(
-                FeeCollection::whereDate('created_at', today())->count() + 1,
-                4,
-                '0',
-                STR_PAD_LEFT
-            );
-
-            $totalAmount = 0;
-            $feeDescriptions = [];
-            $student = null;
-
-            // Update each pending/overdue fee to paid
-            foreach ($validated['fee_collection_ids'] as $feeId) {
-                $fee = FeeCollection::with(['student.user', 'feeType'])
-                    ->findOrFail($feeId);
-
-                if ($fee->status === 'paid') {
-                    throw new \Exception("Fee {$fee->feeType->name} has already been paid.");
-                }
-
-                if (!$student) {
-                    $student = $fee->student;
-                }
-
-                // Calculate proportional discount
-                $feeDiscount = count($validated['fee_collection_ids']) > 0
-                    ? $discount / count($validated['fee_collection_ids'])
-                    : 0;
-
-                $paidAmount = $fee->amount + $fee->late_fee - $feeDiscount;
-                $totalAmount += $paidAmount;
-
-                // Update fee collection
-                $fee->update([
-                    'receipt_number' => $receiptNumber,
-                    'account_id' => $validated['account_id'],
-                    'discount' => $feeDiscount,
-                    'total_amount' => $paidAmount,
-                    'paid_amount' => $paidAmount,
-                    'payment_date' => $validated['payment_date'],
-                    'payment_method' => $validated['payment_method'],
-                    'status' => 'paid',
-                    'remarks' => $validated['remarks'] ?? null,
-                    'collected_by' => auth()->id(),
-                ]);
-
-                $monthName = Carbon::create($fee->year, $fee->month, 1)->format('M Y');
-                $feeDescriptions[] = $fee->feeType->name . ' (' . $monthName . ')';
-            }
-
-            // Create accounting transaction
-            if ($totalAmount > 0 && $student) {
-                $description = "Fee collection from {$student->user->name} - " . implode(', ', $feeDescriptions);
-                if (!empty($validated['remarks'])) {
-                    $description .= " | {$validated['remarks']}";
-                }
-
-                $this->createFeeIncomeTransaction(
-                    accountId: $validated['account_id'],
-                    amount: $totalAmount,
-                    date: $validated['payment_date'],
-                    paymentMethod: $validated['payment_method'],
-                    referenceNumber: $receiptNumber,
-                    description: $description
-                );
-            }
-
-            DB::commit();
-
-            logActivity(
-                'create',
-                "Collected " . count($validated['fee_collection_ids']) . " fees from {$student->user->name} (Receipt: {$receiptNumber})",
-                FeeCollection::class
-            );
-
-            return redirect()->route('fee-collections.index')
-                ->with('success', "Fees collected successfully! Receipt: {$receiptNumber}");
+                ->with('success', "Fees collected successfully! Receipt: {$receiptNumber} ({$feeCount} months)");
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -457,7 +461,7 @@ class FeeCollectionController extends Controller
         $studentId = $request->query('student_id');
 
         if (!$studentId) {
-            return response()->json([]);
+            return response()->json(['dues' => [], 'next_month' => date('n'), 'next_year' => date('Y')]);
         }
 
         $dues = FeeCollection::with(['feeType'])
@@ -481,7 +485,31 @@ class FeeCollectionController extends Controller
                 ];
             });
 
-        return response()->json($dues);
+        // Find next unpaid month
+        $lastPaid = FeeCollection::where('student_id', $studentId)
+            ->where('status', 'paid')
+            ->orderBy('year', 'desc')
+            ->orderBy('month', 'desc')
+            ->first();
+
+        $nextMonth = date('n');
+        $nextYear = date('Y');
+
+        if ($lastPaid) {
+            $nextMonth = $lastPaid->month + 1;
+            $nextYear = $lastPaid->year;
+
+            if ($nextMonth > 12) {
+                $nextMonth = 1;
+                $nextYear++;
+            }
+        }
+
+        return response()->json([
+            'dues' => $dues,
+            'next_month' => $nextMonth,
+            'next_year' => $nextYear,
+        ]);
     }
 
     /**

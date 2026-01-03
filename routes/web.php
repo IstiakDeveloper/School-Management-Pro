@@ -235,15 +235,17 @@ Route::middleware('auth')->group(function () {
 
         // Fee collections with auto-generation middleware
         Route::resource('fee-collections', FeeCollectionController::class)
-            ->except(['edit', 'update'])
+            ->except(['edit', 'update', 'show'])
             ->middleware('auto.fees');
 
+        // Custom fee collection routes (must be before resource routes to avoid conflicts)
+        Route::get('fee-collections/student-fees', [FeeCollectionController::class, 'studentFeesPage'])->name('fee-collections.student-fees');
         Route::get('fee-collections/{fee_collection}/receipt', [FeeCollectionController::class, 'receipt'])->name('fee-collections.receipt');
         Route::get('students/{student}/fees', [FeeCollectionController::class, 'studentFees'])->name('students.fees');
 
         // API endpoints for fee management
         Route::get('api/fee-structures', [FeeCollectionController::class, 'getFeesByClass'])->name('api.fee-structures');
-        Route::get('api/student-dues', [FeeCollectionController::class, 'getStudentDues'])->name('api.student-dues');
+        Route::get('api/fee-collections/student-dues', [FeeCollectionController::class, 'getStudentDues'])->name('api.student-dues');
 
         Route::resource('fee-waivers', FeeWaiverController::class)->except(['show']);
 
