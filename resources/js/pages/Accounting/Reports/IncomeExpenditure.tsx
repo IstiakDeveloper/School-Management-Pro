@@ -11,15 +11,19 @@ interface Account {
 
 interface IncomeExpenditureItem {
     description: string;
-    amount: number;
+    month_amount: number;
+    cumulative_amount: number;
 }
 
 interface IncomeExpenditureProps {
-    incomes: IncomeExpenditureItem[];
-    expenditures: IncomeExpenditureItem[];
-    totalIncome: number;
-    totalExpenditure: number;
-    surplusDeficit: number;
+    income: IncomeExpenditureItem[];
+    expenditure: IncomeExpenditureItem[];
+    totalMonthIncome: number;
+    totalMonthExpenditure: number;
+    totalCumulativeIncome: number;
+    totalCumulativeExpenditure: number;
+    monthSurplus: number;
+    cumulativeSurplus: number;
     filters: {
         start_date: string;
         end_date: string;
@@ -29,11 +33,14 @@ interface IncomeExpenditureProps {
 }
 
 export default function IncomeExpenditure({
-    incomes,
-    expenditures,
-    totalIncome,
-    totalExpenditure,
-    surplusDeficit,
+    income,
+    expenditure,
+    totalMonthIncome,
+    totalMonthExpenditure,
+    totalCumulativeIncome,
+    totalCumulativeExpenditure,
+    monthSurplus,
+    cumulativeSurplus,
     filters,
     accounts,
 }: IncomeExpenditureProps) {
@@ -70,29 +77,12 @@ export default function IncomeExpenditure({
     const selectedAccount = accounts.find(a => a.id == accountId);
     const dateRange = `${new Date(filters.start_date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })} to ${new Date(filters.end_date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}`;
 
-    // Add cumulative amounts to expenditures
-    const expendituresWithCumulative = expenditures.map((expenditure, index) => {
-        const cumulative = expenditures.slice(0, index + 1).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-        return { ...expenditure, cumulative };
-    });
-
-    // Add cumulative amounts to incomes
-    const incomesWithCumulative = incomes.map((income, index) => {
-        const cumulative = incomes.slice(0, index + 1).reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
-        return { ...income, cumulative };
-    });
-
     // Calculate max rows for balanced layout
-    const maxRows = Math.max(expendituresWithCumulative.length, incomesWithCumulative.length);
-
-    // Determine if surplus or deficit
-    const isSurplus = surplusDeficit >= 0;
-    const isDeficit = surplusDeficit < 0;
-    const surplusDeficitAmount = Math.abs(surplusDeficit);
+    const maxRows = Math.max(income.length, expenditure.length);
 
     return (
         <AuthenticatedLayout>
-            <Head title="Income & Expenditure Report" />
+            <Head title="Comprehensive Statement of Income and Expenditure" />
 
             {/* Screen View */}
             <div className="print:hidden">
@@ -100,9 +90,9 @@ export default function IncomeExpenditure({
                     <div className="flex items-center justify-between">
                         <div>
                             <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-                                Income & Expenditure Report
+                                Comprehensive Statement of Income and Expenditure
                             </h1>
-                            <p className="text-gray-600 mt-1">Detailed income and expenditure account</p>
+                            <p className="text-gray-600 mt-1">Comprehensive statement of income and expenditure</p>
                         </div>
                         <div className="flex gap-2">
                             <Button
@@ -176,7 +166,7 @@ export default function IncomeExpenditure({
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     {/* Header Info */}
                     <div className="text-center mb-6 pb-4 border-b-2 border-gray-300">
-                        <h2 className="text-2xl font-bold mb-2 text-gray-800">INCOME & EXPENDITURE ACCOUNT</h2>
+                        <h2 className="text-2xl font-bold mb-2 text-gray-800">Comprehensive Statement of Income and Expenditure</h2>
                         <p className="text-sm font-semibold text-gray-600">For the period: {dateRange}</p>
                         {selectedAccount && (
                             <p className="text-xs mt-1 text-gray-500">Account: {selectedAccount.account_name}</p>
@@ -185,44 +175,28 @@ export default function IncomeExpenditure({
 
                     {/* Main Table */}
                     <div className="overflow-x-auto">
-                        <table className="w-full border-collapse">
+                        <table className="w-full border-collapse border border-gray-400">
                             <thead>
                                 <tr>
-                                    {/* Expenditure Main Header */}
-                                    <th colSpan={4} className="border-2 border-gray-400 px-3 py-2 text-center font-bold bg-gray-200 text-base">
+                                    {/* Expenditure Headers */}
+                                    <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '25%'}}>
                                         Expenditure
                                     </th>
-                                    {/* Income Main Header */}
-                                    <th colSpan={4} className="border-2 border-gray-400 px-3 py-2 text-center font-bold bg-gray-200 text-base">
-                                        Income
+                                    <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '10%'}}>
+                                        Month
                                     </th>
-                                </tr>
-                                <tr>
-                                    {/* Expenditure Sub Headers */}
-                                    <th className="border-2 border-gray-400 px-2 py-2 text-center font-bold bg-gray-100 text-xs" style={{width: '3%'}}>
-                                        SL
-                                    </th>
-                                    <th className="border-2 border-gray-400 px-3 py-2 text-center font-bold bg-gray-100 text-sm" style={{width: '20%'}}>
-                                        Particulars
-                                    </th>
-                                    <th className="border-2 border-gray-400 px-3 py-2 text-center font-bold bg-gray-100 text-sm" style={{width: '10%'}}>
-                                        Current Month
-                                    </th>
-                                    <th className="border-2 border-gray-400 px-3 py-2 text-center font-bold bg-gray-100 text-sm" style={{width: '10%'}}>
+                                    <th className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '10%'}}>
                                         Cumulative
                                     </th>
 
-                                    {/* Income Sub Headers */}
-                                    <th className="border-2 border-gray-400 px-2 py-2 text-center font-bold bg-gray-100 text-xs" style={{width: '3%'}}>
-                                        SL
+                                    {/* Income Headers */}
+                                    <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '25%'}}>
+                                        Income
                                     </th>
-                                    <th className="border-2 border-gray-400 px-3 py-2 text-center font-bold bg-gray-100 text-sm" style={{width: '20%'}}>
-                                        Particulars
+                                    <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '10%'}}>
+                                        Month
                                     </th>
-                                    <th className="border-2 border-gray-400 px-3 py-2 text-center font-bold bg-gray-100 text-sm" style={{width: '10%'}}>
-                                        Current Month
-                                    </th>
-                                    <th className="border-2 border-gray-400 px-3 py-2 text-center font-bold bg-gray-100 text-sm" style={{width: '10%'}}>
+                                    <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '10%'}}>
                                         Cumulative
                                     </th>
                                 </tr>
@@ -230,110 +204,88 @@ export default function IncomeExpenditure({
                             <tbody>
                                 {/* Data Rows */}
                                 {Array.from({ length: maxRows }).map((_, index) => {
-                                    const expenditure = expendituresWithCumulative[index];
-                                    const income = incomesWithCumulative[index];
+                                    const incomeItem = income[index];
+                                    const expenditureItem = expenditure[index];
 
                                     return (
-                                        <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                        <tr key={index}>
                                             {/* Expenditure Side */}
-                                            <td className="border border-gray-400 px-2 py-1.5 text-center text-xs">
-                                                {expenditure ? index + 1 : <span>&nbsp;</span>}
+                                            <td className="border border-gray-400 px-2 py-1 text-xs">
+                                                {expenditureItem ? expenditureItem.description : ''}
                                             </td>
-                                            <td className="border border-gray-400 px-3 py-1.5 text-sm">
-                                                {expenditure ? expenditure.description : <span>&nbsp;</span>}
+                                            <td className="border border-gray-400 px-2 py-1 text-right text-xs">
+                                                {expenditureItem ? formatCurrency(expenditureItem.month_amount) : ''}
                                             </td>
-                                            <td className="border border-gray-400 px-3 py-1.5 text-right font-mono text-sm">
-                                                {expenditure ? formatCurrency(expenditure.amount) : <span>&nbsp;</span>}
-                                            </td>
-                                            <td className="border border-gray-400 px-3 py-1.5 text-right font-mono text-sm">
-                                                {expenditure ? formatCurrency(expenditure.cumulative) : <span>&nbsp;</span>}
+                                            <td className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1 text-right text-xs">
+                                                {expenditureItem ? formatCurrency(expenditureItem.cumulative_amount) : ''}
                                             </td>
 
                                             {/* Income Side */}
-                                            <td className="border border-gray-400 px-2 py-1.5 text-center text-xs">
-                                                {income ? index + 1 : <span>&nbsp;</span>}
+                                            <td className="border border-gray-400 px-2 py-1 text-xs">
+                                                {incomeItem ? incomeItem.description : ''}
                                             </td>
-                                            <td className="border border-gray-400 px-3 py-1.5 text-sm">
-                                                {income ? income.description : <span>&nbsp;</span>}
+                                            <td className="border border-gray-400 px-2 py-1 text-right text-xs">
+                                                {incomeItem ? formatCurrency(incomeItem.month_amount) : ''}
                                             </td>
-                                            <td className="border border-gray-400 px-3 py-1.5 text-right font-mono text-sm">
-                                                {income ? formatCurrency(income.amount) : <span>&nbsp;</span>}
-                                            </td>
-                                            <td className="border border-gray-400 px-3 py-1.5 text-right font-mono text-sm">
-                                                {income ? formatCurrency(income.cumulative) : <span>&nbsp;</span>}
+                                            <td className="border border-gray-400 px-2 py-1 text-right text-xs">
+                                                {incomeItem ? formatCurrency(incomeItem.cumulative_amount) : ''}
                                             </td>
                                         </tr>
                                     );
                                 })}
 
-                            </tbody>
-                            <tfoot>
-                                {/* Total Expenditure / Total Income Row */}
-                                <tr className="font-bold">
-                                    <td colSpan={2} className="border-2 border-gray-400 px-3 py-2 text-right text-sm">
+                                {/* Total Expenditure Row */}
+                                <tr className="bg-gray-100">
+                                    <td className="border border-gray-400 px-2 py-1.5 text-right font-semibold text-xs">
                                         Total Expenditure:
                                     </td>
-                                    <td className="border-2 border-gray-400 px-3 py-2 text-right font-mono text-sm">
-                                        {formatCurrency(totalExpenditure)}
+                                    <td className="border border-gray-400 px-2 py-1.5 text-right font-semibold text-xs">
+                                        {formatCurrency(totalMonthExpenditure)}
                                     </td>
-                                    <td className="border-2 border-gray-400 px-3 py-2 text-right font-mono text-sm">
-                                        {formatCurrency(totalExpenditure)}
+                                    <td className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1.5 text-right font-semibold text-xs">
+                                        {formatCurrency(totalCumulativeExpenditure)}
                                     </td>
-
-                                    <td colSpan={2} className="border-2 border-gray-400 px-3 py-2 text-right text-sm">
-                                        Total Income:
-                                    </td>
-                                    <td className="border-2 border-gray-400 px-3 py-2 text-right font-mono text-sm">
-                                        {formatCurrency(totalIncome)}
-                                    </td>
-                                    <td className="border-2 border-gray-400 px-3 py-2 text-right font-mono text-sm">
-                                        {formatCurrency(totalIncome)}
-                                    </td>
+                                    <td className="border border-gray-400 px-2 py-1.5"></td>
+                                    <td className="border border-gray-400 px-2 py-1.5"></td>
+                                    <td className="border border-gray-400 px-2 py-1.5"></td>
                                 </tr>
 
-                                {/* Surplus/Deficit Row - On Expenditure Side */}
-                                <tr className="font-bold">
-                                    <td colSpan={2} className="border-2 border-gray-400 px-3 py-2 text-right text-sm">
-                                        Surplus/(Deficit):
+                                {/* Surplus/Deficit Row with +/- sign */}
+                                <tr className={monthSurplus >= 0 ? 'bg-green-50' : 'bg-red-50'}>
+                                    <td className="border border-gray-400 px-2 py-1.5 text-right font-semibold text-xs">
+                                        Surplus/Deficit
                                     </td>
-                                    <td className="border-2 border-gray-400 px-3 py-2 text-right font-mono text-sm">
-                                        {formatCurrency(surplusDeficit)}
+                                    <td className="border border-gray-400 px-2 py-1.5 text-right text-xs">
+                                        {monthSurplus >= 0 ? '+' : '-'} {formatCurrency(Math.abs(monthSurplus))}
                                     </td>
-                                    <td className="border-2 border-gray-400 px-3 py-2 text-right font-mono text-sm">
-                                        {formatCurrency(surplusDeficit)}
+                                    <td className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1.5 text-right text-xs">
+                                        {cumulativeSurplus >= 0 ? '+' : '-'} {formatCurrency(Math.abs(cumulativeSurplus))}
                                     </td>
-
-                                    <td colSpan={2} className="border-2 border-gray-400 px-3 py-2 text-sm">
-                                        &nbsp;
-                                    </td>
-                                    <td className="border-2 border-gray-400 px-3 py-2 text-sm">
-                                        &nbsp;
-                                    </td>
-                                    <td className="border-2 border-gray-400 px-3 py-2 text-sm">
-                                        &nbsp;
-                                    </td>
+                                    <td className="border border-gray-400 px-2 py-1.5"></td>
+                                    <td className="border border-gray-400 px-2 py-1.5"></td>
+                                    <td className="border border-gray-400 px-2 py-1.5"></td>
                                 </tr>
-
-                                {/* Grand Total Row */}
-                                <tr className="font-bold">
-                                    <td colSpan={2} className="border-2 border-gray-400 px-3 py-2 text-right text-sm">
+                            </tbody>
+                            <tfoot>
+                                {/* Final Total Row - Both sides equal */}
+                                <tr className="bg-gray-50">
+                                    <td className="border border-gray-400 px-2 py-1.5 text-right font-bold text-xs">
                                         Total:
                                     </td>
-                                    <td className="border-2 border-gray-400 px-3 py-2 text-right font-mono text-sm">
-                                        {formatCurrency(totalExpenditure + surplusDeficit)}
+                                    <td className="border border-gray-400 px-2 py-1.5 text-right font-bold text-xs">
+                                        {formatCurrency(totalMonthIncome)}
                                     </td>
-                                    <td className="border-2 border-gray-400 px-3 py-2 text-right font-mono text-sm">
-                                        {formatCurrency(totalExpenditure + surplusDeficit)}
+                                    <td className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1.5 text-right font-bold text-xs">
+                                        {formatCurrency(totalCumulativeIncome)}
                                     </td>
-
-                                    <td colSpan={2} className="border-2 border-gray-400 px-3 py-2 text-right text-sm">
+                                    <td className="border border-gray-400 px-2 py-1.5 text-right font-bold text-xs">
                                         Total:
                                     </td>
-                                    <td className="border-2 border-gray-400 px-3 py-2 text-right font-mono text-sm">
-                                        {formatCurrency(totalIncome)}
+                                    <td className="border border-gray-400 px-2 py-1.5 text-right font-bold text-xs">
+                                        {formatCurrency(totalMonthIncome)}
                                     </td>
-                                    <td className="border-2 border-gray-400 px-3 py-2 text-right font-mono text-sm">
-                                        {formatCurrency(totalIncome)}
+                                    <td className="border border-gray-400 px-2 py-1.5 text-right font-bold text-xs">
+                                        {formatCurrency(totalCumulativeIncome)}
                                     </td>
                                 </tr>
                             </tfoot>
@@ -344,16 +296,16 @@ export default function IncomeExpenditure({
                     <div className="mt-6 grid grid-cols-3 gap-4 text-sm">
                         <div className="bg-green-50 p-4 rounded-lg border border-green-200">
                             <p className="text-gray-600 mb-1">Total Income</p>
-                            <p className="text-2xl font-bold text-green-600">৳ {formatCurrency(totalIncome)}</p>
+                            <p className="text-2xl font-bold text-green-600">৳ {formatCurrency(totalMonthIncome)}</p>
                         </div>
                         <div className="bg-red-50 p-4 rounded-lg border border-red-200">
                             <p className="text-gray-600 mb-1">Total Expenditure</p>
-                            <p className="text-2xl font-bold text-red-600">৳ {formatCurrency(totalExpenditure)}</p>
+                            <p className="text-2xl font-bold text-red-600">৳ {formatCurrency(totalMonthExpenditure)}</p>
                         </div>
-                        <div className={`${isSurplus ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'} p-4 rounded-lg border`}>
-                            <p className="text-gray-600 mb-1">{isSurplus ? 'Surplus' : 'Deficit'}</p>
-                            <p className={`text-2xl font-bold ${isSurplus ? 'text-blue-600' : 'text-orange-600'}`}>
-                                ৳ {formatCurrency(surplusDeficitAmount)}
+                        <div className={`p-4 rounded-lg border ${monthSurplus >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'}`}>
+                            <p className="text-gray-600 mb-1">{monthSurplus >= 0 ? 'Surplus' : 'Deficit'}</p>
+                            <p className={`text-2xl font-bold ${monthSurplus >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                                ৳ {formatCurrency(Math.abs(monthSurplus))}
                             </p>
                         </div>
                     </div>
@@ -365,52 +317,36 @@ export default function IncomeExpenditure({
                 {/* Header */}
                 <div className="text-center mb-4 pb-2 border-b-2 border-black">
                     <h1 className="text-xl font-bold mb-1">School Management Pro</h1>
-                    <h2 className="text-lg font-bold mb-1">INCOME & EXPENDITURE ACCOUNT</h2>
+                    <h2 className="text-lg font-bold mb-1">Comprehensive Statement of Income and Expenditure</h2>
                     <p className="text-sm font-semibold">For the period: {dateRange}</p>
                     {selectedAccount && (
                         <p className="text-xs mt-1">Account: {selectedAccount.account_name}</p>
                     )}
                 </div>
 
-                {/* Main Table */}
-                <table className="w-full border-collapse" style={{borderCollapse: 'collapse'}}>
+                {/* Main Table - Print Style */}
+                <table className="w-full border-collapse border border-black">
                     <thead>
                         <tr>
-                            {/* Expenditure Main Header */}
-                            <th colSpan={4} className="border-2 border-black px-2 py-1.5 text-center font-bold bg-gray-200" style={{fontSize: '9px'}}>
+                            {/* Expenditure Headers */}
+                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '25%'}}>
                                 Expenditure
                             </th>
-                            {/* Income Main Header */}
-                            <th colSpan={4} className="border-2 border-black px-2 py-1.5 text-center font-bold bg-gray-200" style={{fontSize: '9px'}}>
-                                Income
+                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '10%'}}>
+                                Month
                             </th>
-                        </tr>
-                        <tr>
-                            {/* Expenditure Sub Headers */}
-                            <th className="border-2 border-black px-1 py-1 text-center font-bold bg-gray-100" style={{fontSize: '7px', width: '2%'}}>
-                                SL
-                            </th>
-                            <th className="border-2 border-black px-2 py-1 text-center font-bold bg-gray-100" style={{fontSize: '8px', width: '21%'}}>
-                                Particulars
-                            </th>
-                            <th className="border-2 border-black px-2 py-1 text-center font-bold bg-gray-100" style={{fontSize: '8px', width: '9%'}}>
-                                Current Month
-                            </th>
-                            <th className="border-2 border-black px-2 py-1 text-center font-bold bg-gray-100" style={{fontSize: '8px', width: '9%'}}>
+                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '10%', borderRightWidth: '3px'}}>
                                 Cumulative
                             </th>
 
-                            {/* Income Sub Headers */}
-                            <th className="border-2 border-black px-1 py-1 text-center font-bold bg-gray-100" style={{fontSize: '7px', width: '2%'}}>
-                                SL
+                            {/* Income Headers */}
+                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '25%'}}>
+                                Income
                             </th>
-                            <th className="border-2 border-black px-2 py-1 text-center font-bold bg-gray-100" style={{fontSize: '8px', width: '21%'}}>
-                                Particulars
+                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '10%'}}>
+                                Month
                             </th>
-                            <th className="border-2 border-black px-2 py-1 text-center font-bold bg-gray-100" style={{fontSize: '8px', width: '9%'}}>
-                                Current Month
-                            </th>
-                            <th className="border-2 border-black px-2 py-1 text-center font-bold bg-gray-100" style={{fontSize: '8px', width: '9%'}}>
+                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '10%'}}>
                                 Cumulative
                             </th>
                         </tr>
@@ -418,109 +354,88 @@ export default function IncomeExpenditure({
                     <tbody>
                         {/* Data Rows */}
                         {Array.from({ length: maxRows }).map((_, index) => {
-                            const expenditure = expendituresWithCumulative[index];
-                            const income = incomesWithCumulative[index];
+                            const incomeItem = income[index];
+                            const expenditureItem = expenditure[index];
 
                             return (
                                 <tr key={index}>
                                     {/* Expenditure Side */}
-                                    <td className="border border-black px-1 py-0.5 text-center" style={{fontSize: '6px'}}>
-                                        {expenditure ? index + 1 : <span>&nbsp;</span>}
+                                    <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px'}}>
+                                        {expenditureItem ? expenditureItem.description : ''}
                                     </td>
-                                    <td className="border border-black px-2 py-0.5" style={{fontSize: '7px'}}>
-                                        {expenditure ? expenditure.description : <span>&nbsp;</span>}
+                                    <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px'}}>
+                                        {expenditureItem ? formatCurrency(expenditureItem.month_amount) : ''}
                                     </td>
-                                    <td className="border border-black px-2 py-0.5 text-right font-mono" style={{fontSize: '7px'}}>
-                                        {expenditure ? formatCurrency(expenditure.amount) : <span>&nbsp;</span>}
-                                    </td>
-                                    <td className="border border-black px-2 py-0.5 text-right font-mono" style={{fontSize: '7px'}}>
-                                        {expenditure ? formatCurrency(expenditure.cumulative) : <span>&nbsp;</span>}
+                                    <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px', borderRightWidth: '3px'}}>
+                                        {expenditureItem ? formatCurrency(expenditureItem.cumulative_amount) : ''}
                                     </td>
 
                                     {/* Income Side */}
-                                    <td className="border border-black px-1 py-0.5 text-center" style={{fontSize: '6px'}}>
-                                        {income ? index + 1 : <span>&nbsp;</span>}
+                                    <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px'}}>
+                                        {incomeItem ? incomeItem.description : ''}
                                     </td>
-                                    <td className="border border-black px-2 py-0.5" style={{fontSize: '7px'}}>
-                                        {income ? income.description : <span>&nbsp;</span>}
+                                    <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px'}}>
+                                        {incomeItem ? formatCurrency(incomeItem.month_amount) : ''}
                                     </td>
-                                    <td className="border border-black px-2 py-0.5 text-right font-mono" style={{fontSize: '7px'}}>
-                                        {income ? formatCurrency(income.amount) : <span>&nbsp;</span>}
-                                    </td>
-                                    <td className="border border-black px-2 py-0.5 text-right font-mono" style={{fontSize: '7px'}}>
-                                        {income ? formatCurrency(income.cumulative) : <span>&nbsp;</span>}
+                                    <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px'}}>
+                                        {incomeItem ? formatCurrency(incomeItem.cumulative_amount) : ''}
                                     </td>
                                 </tr>
                             );
                         })}
-                    </tbody>
-                    <tfoot>
-                        {/* Total Expenditure / Total Income Row */}
-                        <tr className="font-bold">
-                            <td colSpan={2} className="border-2 border-black px-2 py-1 text-right" style={{fontSize: '7.5px'}}>
+
+                        {/* Total Expenditure Row */}
+                        <tr className="bg-gray-100">
+                            <td className="border border-black px-2 py-0.5 text-right font-semibold" style={{fontSize: '7px'}}>
                                 Total Expenditure:
                             </td>
-                            <td className="border-2 border-black px-2 py-1 text-right font-mono" style={{fontSize: '7.5px'}}>
-                                {formatCurrency(totalExpenditure)}
+                            <td className="border border-black px-2 py-0.5 text-right font-semibold" style={{fontSize: '7px'}}>
+                                {formatCurrency(totalMonthExpenditure)}
                             </td>
-                            <td className="border-2 border-black px-2 py-1 text-right font-mono" style={{fontSize: '7.5px'}}>
-                                {formatCurrency(totalExpenditure)}
+                            <td className="border border-black px-2 py-0.5 text-right font-semibold" style={{fontSize: '7px', borderRightWidth: '3px'}}>
+                                {formatCurrency(totalCumulativeExpenditure)}
                             </td>
-
-                            <td colSpan={2} className="border-2 border-black px-2 py-1 text-right" style={{fontSize: '7.5px'}}>
-                                Total Income:
-                            </td>
-                            <td className="border-2 border-black px-2 py-1 text-right font-mono" style={{fontSize: '7.5px'}}>
-                                {formatCurrency(totalIncome)}
-                            </td>
-                            <td className="border-2 border-black px-2 py-1 text-right font-mono" style={{fontSize: '7.5px'}}>
-                                {formatCurrency(totalIncome)}
-                            </td>
+                            <td className="border border-black px-2 py-0.5" style={{fontSize: '7px'}}></td>
+                            <td className="border border-black px-2 py-0.5" style={{fontSize: '7px'}}></td>
+                            <td className="border border-black px-2 py-0.5" style={{fontSize: '7px'}}></td>
                         </tr>
 
-                        {/* Surplus/Deficit Row - On Expenditure Side */}
-                        <tr className="font-bold">
-                            <td colSpan={2} className="border-2 border-black px-2 py-1 text-right" style={{fontSize: '7.5px'}}>
-                                Surplus/(Deficit):
+                        {/* Surplus/Deficit Row with +/- sign */}
+                        <tr>
+                            <td className="border border-black px-2 py-0.5 font-semibold" style={{fontSize: '7px'}}>
+                                {monthSurplus >= 0 ? 'Surplus (+)' : 'Deficit (-)'}
                             </td>
-                            <td className="border-2 border-black px-2 py-1 text-right font-mono" style={{fontSize: '7.5px'}}>
-                                {formatCurrency(surplusDeficit)}
+                            <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '7px'}}>
+                                {monthSurplus >= 0 ? '+' : '-'} {formatCurrency(Math.abs(monthSurplus))}
                             </td>
-                            <td className="border-2 border-black px-2 py-1 text-right font-mono" style={{fontSize: '7.5px'}}>
-                                {formatCurrency(surplusDeficit)}
+                            <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '7px', borderRightWidth: '3px'}}>
+                                {cumulativeSurplus >= 0 ? '+' : '-'} {formatCurrency(Math.abs(cumulativeSurplus))}
                             </td>
-
-                            <td colSpan={2} className="border-2 border-black px-2 py-1" style={{fontSize: '7.5px'}}>
-                                &nbsp;
-                            </td>
-                            <td className="border-2 border-black px-2 py-1" style={{fontSize: '7.5px'}}>
-                                &nbsp;
-                            </td>
-                            <td className="border-2 border-black px-2 py-1" style={{fontSize: '7.5px'}}>
-                                &nbsp;
-                            </td>
+                            <td className="border border-black px-2 py-0.5" style={{fontSize: '7px'}}></td>
+                            <td className="border border-black px-2 py-0.5" style={{fontSize: '7px'}}></td>
+                            <td className="border border-black px-2 py-0.5" style={{fontSize: '7px'}}></td>
                         </tr>
-
-                        {/* Grand Total Row */}
-                        <tr className="font-bold">
-                            <td colSpan={2} className="border-2 border-black px-2 py-1.5 text-right" style={{fontSize: '8px'}}>
+                    </tbody>
+                    <tfoot>
+                        {/* Final Total Row - Both sides equal */}
+                        <tr className="bg-gray-100">
+                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px'}}>
                                 Total:
                             </td>
-                            <td className="border-2 border-black px-2 py-1.5 text-right font-mono" style={{fontSize: '8px'}}>
-                                {formatCurrency(totalExpenditure + surplusDeficit)}
+                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px'}}>
+                                {formatCurrency(totalMonthIncome)}
                             </td>
-                            <td className="border-2 border-black px-2 py-1.5 text-right font-mono" style={{fontSize: '8px'}}>
-                                {formatCurrency(totalExpenditure + surplusDeficit)}
+                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px', borderRightWidth: '3px'}}>
+                                {formatCurrency(totalCumulativeIncome)}
                             </td>
-
-                            <td colSpan={2} className="border-2 border-black px-2 py-1.5 text-right" style={{fontSize: '8px'}}>
+                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px'}}>
                                 Total:
                             </td>
-                            <td className="border-2 border-black px-2 py-1.5 text-right font-mono" style={{fontSize: '8px'}}>
-                                {formatCurrency(totalIncome)}
+                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px'}}>
+                                {formatCurrency(totalMonthIncome)}
                             </td>
-                            <td className="border-2 border-black px-2 py-1.5 text-right font-mono" style={{fontSize: '8px'}}>
-                                {formatCurrency(totalIncome)}
+                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px'}}>
+                                {formatCurrency(totalCumulativeIncome)}
                             </td>
                         </tr>
                     </tfoot>
@@ -610,10 +525,13 @@ export default function IncomeExpenditure({
                         border: 1px solid #000 !important;
                     }
 
-                    .bg-gray-800,
-                    .bg-gray-100,
-                    .bg-green-50,
-                    .bg-red-50 {
+                    /* Bold divider between Income and Expenditure sections */
+                    th:nth-child(3),
+                    td:nth-child(3) {
+                        border-right: 3px solid #000 !important;
+                    }
+
+                    .bg-gray-100 {
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                     }

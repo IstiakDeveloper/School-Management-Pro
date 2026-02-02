@@ -6,6 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\ProvidentFundTransaction;
 use App\Models\PfWithdrawal;
 use App\Models\Teacher;
+use App\Models\Account;
+use App\Models\IncomeCategory;
+use App\Models\ExpenseCategory;
+use App\Traits\CreatesAccountingTransactions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -13,6 +17,7 @@ use Inertia\Inertia;
 
 class ProvidentFundController extends Controller
 {
+    use CreatesAccountingTransactions;
     /**
      * Display Provident Fund ledger with all teacher contributions.
      */
@@ -26,6 +31,12 @@ class ProvidentFundController extends Controller
             ->selectRaw('COALESCE(SUM(total_contribution), 0) as total_pf')
             ->selectRaw('MAX(transaction_date) as last_contribution_date')
             ->selectRaw('COUNT(id) as contribution_count')
+            ->when($request->from_date, function ($query, $fromDate) {
+                $query->where('transaction_date', '>=', $fromDate);
+            })
+            ->when($request->to_date, function ($query, $toDate) {
+                $query->where('transaction_date', '<=', $toDate);
+            })
             ->groupBy('staff_id');
 
         // Get teacher-wise withdrawal summary
@@ -36,6 +47,9 @@ class ProvidentFundController extends Controller
 
         $teacherSummary = Teacher::where('status', 'active')
             ->with('user')
+            ->when($request->teacher_id, function ($query, $teacherId) {
+                $query->where('teachers.id', $teacherId);
+            })
             ->leftJoinSub($pfSummary, 'pf', function ($join) {
                 $join->on('teachers.id', '=', 'pf.staff_id');
             })
@@ -83,23 +97,41 @@ class ProvidentFundController extends Controller
             'total_transactions' => $contributions->total_transactions,
         ];
 
+        // Get all teachers for filter dropdown
+        $allTeachers = Teacher::where('status', 'active')
+            ->with('user')
+            ->orderBy('first_name')
+            ->get()
+            ->map(fn($t) => [
+                'id' => $t->id,
+                'name' => $t->user->name,
+                'employee_id' => $t->employee_id,
+            ]);
+
         return Inertia::render('Salaries/ProvidentFund/Index', [
             'teacherSummary' => $teacherSummary,
             'summary' => $summary,
-            'filters' => $request->only(['search']),
+            'allTeachers' => $allTeachers,
+            'filters' => $request->only(['search', 'teacher_id', 'from_date', 'to_date']),
         ]);
     }
 
     /**
      * Display individual teacher PF history.
      */
-    public function show(Teacher $teacher)
+    public function show(Request $request, Teacher $teacher)
     {
         $teacher->load(['user']);
 
         // Get all transactions including contributions and withdrawals
         $transactions = ProvidentFundTransaction::with(['salaryPayment'])
             ->where('staff_id', $teacher->id)
+            ->when($request->from_date, function ($query, $fromDate) {
+                $query->where('transaction_date', '>=', $fromDate);
+            })
+            ->when($request->to_date, function ($query, $toDate) {
+                $query->where('transaction_date', '<=', $toDate);
+            })
             ->latest('transaction_date')
             ->get()
             ->map(function ($transaction) {
@@ -189,6 +221,7 @@ class ProvidentFundController extends Controller
             'transactions' => $transactions,
             'withdrawals' => $withdrawals,
             'summary' => $summary,
+            'filters' => $request->only(['from_date', 'to_date']),
         ]);
     }
 
@@ -203,18 +236,81 @@ class ProvidentFundController extends Controller
             'transaction_date' => 'required|date',
         ]);
 
-        $totalContribution = $validated['employee_contribution'] + $validated['employer_contribution'];
+        try {
+            DB::beginTransaction();
 
-        ProvidentFundTransaction::create([
-            'staff_id' => $teacher->id,
-            'type' => 'opening',
-            'employee_contribution' => $validated['employee_contribution'],
-            'employer_contribution' => $validated['employer_contribution'],
-            'total_contribution' => $totalContribution,
-            'transaction_date' => $validated['transaction_date'],
-        ]);
+            $totalContribution = $validated['employee_contribution'] + $validated['employer_contribution'];
 
-        return redirect()->back()->with('success', 'Opening entry added successfully.');
+            // Create PF transaction record
+            ProvidentFundTransaction::create([
+                'staff_id' => $teacher->id,
+                'type' => 'opening',
+                'employee_contribution' => $validated['employee_contribution'],
+                'employer_contribution' => $validated['employer_contribution'],
+                'total_contribution' => $totalContribution,
+                'transaction_date' => $validated['transaction_date'],
+            ]);
+
+            // Get or create Provident Fund account
+            $pfAccount = Account::firstOrCreate(
+                ['account_name' => 'Provident Fund'],
+                [
+                    'account_type' => 'bank',
+                    'account_number' => 'PF-' . date('Ymd'),
+                    'bank_name' => 'Internal Fund',
+                    'branch_name' => 'Main',
+                    'current_balance' => 0,
+                    'status' => 'active',
+                ]
+            );
+
+            // Get or create Provident Fund income category
+            $pfIncomeCategory = IncomeCategory::firstOrCreate(
+                ['code' => 'PF_INCOME'],
+                [
+                    'name' => 'Provident Fund Contribution',
+                    'description' => 'Employee and employer provident fund contributions',
+                    'status' => 'active',
+                ]
+            );
+
+            // Get staff details
+            $teacher->load('user');
+
+            // Create income transactions to PF account
+            // Transaction 1: Employee opening balance
+            if ($validated['employee_contribution'] > 0) {
+                $this->createIncomeTransaction(
+                    accountId: $pfAccount->id,
+                    amount: $validated['employee_contribution'],
+                    date: $validated['transaction_date'],
+                    paymentMethod: 'opening_balance',
+                    referenceNumber: 'OPENING-' . $teacher->employee_id,
+                    description: "PF Opening Balance (Employee) for {$teacher->user->name}",
+                    incomeCategoryId: $pfIncomeCategory->id
+                );
+            }
+
+            // Transaction 2: Employer opening balance
+            if ($validated['employer_contribution'] > 0) {
+                $this->createIncomeTransaction(
+                    accountId: $pfAccount->id,
+                    amount: $validated['employer_contribution'],
+                    date: $validated['transaction_date'],
+                    paymentMethod: 'opening_balance',
+                    referenceNumber: 'OPENING-' . $teacher->employee_id,
+                    description: "PF Opening Balance (Employer) for {$teacher->user->name}",
+                    incomeCategoryId: $pfIncomeCategory->id
+                );
+            }
+
+            DB::commit();
+
+            return redirect()->back()->with('success', 'Opening entry added successfully.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Failed to add opening entry: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -228,38 +324,86 @@ class ProvidentFundController extends Controller
             'withdrawal_date' => 'required|date',
         ]);
 
-        // Calculate current balance
-        $contributions = ProvidentFundTransaction::where('staff_id', $teacher->id)
-            ->whereIn('type', ['contribution', 'opening'])
-            ->selectRaw('
-                COALESCE(SUM(employee_contribution), 0) as total_employee,
-                COALESCE(SUM(employer_contribution), 0) as total_employer,
-                COALESCE(SUM(total_contribution), 0) as total
-            ')
-            ->first();
+        try {
+            DB::beginTransaction();
 
-        $withdrawalSum = PfWithdrawal::where('staff_id', $teacher->id)
-            ->selectRaw('COALESCE(SUM(total_amount), 0) as total_withdrawn')
-            ->first();
+            // Calculate current balance
+            $contributions = ProvidentFundTransaction::where('staff_id', $teacher->id)
+                ->whereIn('type', ['contribution', 'opening'])
+                ->selectRaw('
+                    COALESCE(SUM(employee_contribution), 0) as total_employee,
+                    COALESCE(SUM(employer_contribution), 0) as total_employer,
+                    COALESCE(SUM(total_contribution), 0) as total
+                ')
+                ->first();
 
-        $currentBalance = (float) $contributions->total - (float) $withdrawalSum->total_withdrawn;
+            $withdrawalSum = PfWithdrawal::where('staff_id', $teacher->id)
+                ->selectRaw('COALESCE(SUM(total_amount), 0) as total_withdrawn')
+                ->first();
 
-        if ($currentBalance <= 0) {
-            return redirect()->back()->withErrors(['error' => 'No balance available for withdrawal.']);
+            $currentBalance = (float) $contributions->total - (float) $withdrawalSum->total_withdrawn;
+            $remainingEmployee = (float) $contributions->total_employee - (PfWithdrawal::where('staff_id', $teacher->id)->sum('employee_contribution') ?? 0);
+            $remainingEmployer = (float) $contributions->total_employer - (PfWithdrawal::where('staff_id', $teacher->id)->sum('employer_contribution') ?? 0);
+
+            if ($currentBalance <= 0) {
+                return redirect()->back()->withErrors(['error' => 'No balance available for withdrawal.']);
+            }
+
+            // Create withdrawal record
+            PfWithdrawal::create([
+                'staff_id' => $teacher->id,
+                'employee_contribution' => $remainingEmployee,
+                'employer_contribution' => $remainingEmployer,
+                'total_amount' => $currentBalance,
+                'withdrawal_date' => $validated['withdrawal_date'],
+                'reason' => $validated['reason'],
+                'remarks' => $validated['remarks'],
+                'approved_by' => Auth::id(),
+            ]);
+
+            // Get or create Provident Fund account
+            $pfAccount = Account::firstOrCreate(
+                ['account_name' => 'Provident Fund'],
+                [
+                    'account_type' => 'bank',
+                    'account_number' => 'PF-' . date('Ymd'),
+                    'bank_name' => 'Internal Fund',
+                    'branch_name' => 'Main',
+                    'current_balance' => 0,
+                    'status' => 'active',
+                ]
+            );
+
+            // Get or create PF Withdrawal expense category
+            $pfWithdrawalCategory = ExpenseCategory::firstOrCreate(
+                ['code' => 'PF_WITHDRAWAL'],
+                [
+                    'name' => 'Provident Fund Withdrawal',
+                    'description' => 'Employee provident fund withdrawals',
+                    'status' => 'active',
+                ]
+            );
+
+            // Get staff details
+            $teacher->load('user');
+
+            // Create expense transaction from PF account
+            $this->createExpenseTransaction(
+                accountId: $pfAccount->id,
+                amount: $currentBalance,
+                date: $validated['withdrawal_date'],
+                paymentMethod: 'bank_transfer',
+                referenceNumber: 'PF-WD-' . $teacher->employee_id . '-' . date('Ymd'),
+                description: "PF Withdrawal for {$teacher->user->name} - {$validated['reason']}",
+                expenseCategoryId: $pfWithdrawalCategory->id
+            );
+
+            DB::commit();
+
+            return redirect()->back()->with('success', 'Provident Fund withdrawal processed successfully.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Failed to process withdrawal: ' . $e->getMessage());
         }
-
-        // Create withdrawal record
-        PfWithdrawal::create([
-            'staff_id' => $teacher->id,
-            'employee_contribution' => $contributions->total_employee - (PfWithdrawal::where('staff_id', $teacher->id)->sum('employee_contribution') ?? 0),
-            'employer_contribution' => $contributions->total_employer - (PfWithdrawal::where('staff_id', $teacher->id)->sum('employer_contribution') ?? 0),
-            'total_amount' => $currentBalance,
-            'withdrawal_date' => $validated['withdrawal_date'],
-            'reason' => $validated['reason'],
-            'remarks' => $validated['remarks'],
-            'approved_by' => Auth::id(),
-        ]);
-
-        return redirect()->back()->with('success', 'Provident Fund withdrawal processed successfully.');
     }
 }

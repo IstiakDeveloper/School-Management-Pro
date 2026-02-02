@@ -78,7 +78,8 @@ class FixedAssetController extends Controller
             $asset = FixedAsset::create($validated);
 
             // Create asset purchase transaction (not expense, but debit)
-            $transactionNumber = 'TXN-' . date('Ymd') . '-' . str_pad(Transaction::whereDate('created_at', today())->count() + 1, 4, '0', STR_PAD_LEFT);
+            // Use withTrashed() to include soft-deleted transactions when counting
+            $transactionNumber = 'TXN-' . date('Ymd') . '-' . str_pad(Transaction::withTrashed()->whereDate('created_at', today())->count() + 1, 4, '0', STR_PAD_LEFT);
 
             $transaction = Transaction::create([
                 'account_id' => $validated['account_id'],

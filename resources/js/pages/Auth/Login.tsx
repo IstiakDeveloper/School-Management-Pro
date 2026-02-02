@@ -141,39 +141,13 @@ export default function Login() {
                             </Button>
                         </form>
 
-                        <div className="mt-8 pt-6 border-t-2 border-gray-200">
-                            <p className="text-center text-sm text-gray-600">
-                                Don't have an account?{' '}
-                                <Link
-                                    href="/register"
-                                    className="font-bold text-purple-600 hover:text-pink-600 transition-all duration-200 hover:underline inline-flex items-center gap-1 group"
-                                >
-                                    Create Account
-                                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-200" />
-                                </Link>
-                            </p>
-                        </div>
 
-                        {/* Demo credentials */}
-                        <div className="mt-6 p-5 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 rounded-2xl border-2 border-purple-100 transform hover:scale-[1.02] transition-all duration-300">
-                            <div className="flex items-center gap-2 mb-3">
-                                <Sparkles className="w-5 h-5 text-purple-600 animate-pulse" />
-                                <p className="text-sm font-bold text-gray-700">Demo Login Credentials:</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-sm font-mono text-gray-700 bg-white/60 px-3 py-2 rounded-lg">
-                                    📧 admin@school.com
-                                </p>
-                                <p className="text-sm font-mono text-gray-700 bg-white/60 px-3 py-2 rounded-lg">
-                                    🔒 password
-                                </p>
-                            </div>
-                        </div>
+
                     </div>
 
                     {/* Footer */}
                     <p className="text-center text-white/90 text-sm mt-8 animate-fade-in font-medium drop-shadow-lg">
-                        © 2025 School Management Pro • Built with ❤️ using Laravel & React
+                        © 2025 School Management Pro • Built by ❤️ Mousumi Digital Window
                     </p>
                 </div>
             </div>

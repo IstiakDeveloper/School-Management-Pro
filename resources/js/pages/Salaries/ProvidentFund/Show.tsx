@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Head, Link, useForm, router } from '@inertiajs/react';
+import { useReactToPrint } from 'react-to-print';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Badge from '@/Components/Badge';
-import { ArrowLeft, Wallet, User, Calendar, DollarSign, TrendingUp, CreditCard, Plus, AlertCircle, LogOut } from 'lucide-react';
+import PrintProvidentFundShow from './PrintProvidentFundShow';
+import { ArrowLeft, Wallet, User, Calendar, DollarSign, TrendingUp, CreditCard, Plus, AlertCircle, LogOut, Printer } from 'lucide-react';
 
 function route(name: string, params?: any): string {
     if (name === 'provident-fund.index') return '/provident-fund';
@@ -55,11 +57,23 @@ interface ShowProps {
     transactions: Transaction[];
     withdrawals: Withdrawal[];
     summary: Summary;
+    filters: {
+        from_date?: string;
+        to_date?: string;
+    };
 }
 
-export default function Show({ teacher, transactions, withdrawals, summary }: ShowProps) {
+export default function Show({ teacher, transactions, withdrawals, summary, filters }: ShowProps) {
     const [showOpeningModal, setShowOpeningModal] = useState(false);
     const [showWithdrawalModal, setShowWithdrawalModal] = useState(false);
+    const [fromDate, setFromDate] = useState(filters.from_date || '');
+    const [toDate, setToDate] = useState(filters.to_date || '');
+    const printRef = useRef<HTMLDivElement>(null);
+
+    const handlePrint = useReactToPrint({
+        contentRef: printRef,
+        documentTitle: `PF_Statement_${teacher?.user?.name?.replace(/\s+/g, '_')}_${new Date().toLocaleDateString('en-GB').replace(/\//g, '-')}`,
+    });
 
     const openingForm = useForm({
         employee_contribution: '',
@@ -104,6 +118,20 @@ export default function Show({ teacher, transactions, withdrawals, summary }: Sh
         }
     };
 
+    const handleFilterSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        router.get(`/provident-fund/${teacher.id}`, {
+            from_date: fromDate,
+            to_date: toDate,
+        }, { preserveState: true });
+    };
+
+    const handleClearFilters = () => {
+        setFromDate('');
+        setToDate('');
+        router.get(`/provident-fund/${teacher.id}`, {}, { preserveState: true });
+    };
+
     const getTransactionTypeLabel = (type: string) => {
         switch (type) {
             case 'contribution': return 'Salary';
@@ -126,10 +154,15 @@ export default function Show({ teacher, transactions, withdrawals, summary }: Sh
         <AuthenticatedLayout>
             <Head title={`PF Ledger - ${teacher?.user?.name || 'Teacher'}`} />
 
-            <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 py-8 px-4 sm:px-6 lg:px-8">
+            {/* Hidden Print Component */}
+            <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+                <PrintProvidentFundShow ref={printRef} teacher={teacher} transactions={transactions} withdrawals={withdrawals} summary={summary} />
+            </div>
+
+            <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
                 <div className="max-w-7xl mx-auto space-y-6">
                     {/* Header */}
-                    <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200/50 p-6">
+                    <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
                                 <Link
@@ -138,17 +171,24 @@ export default function Show({ teacher, transactions, withdrawals, summary }: Sh
                                 >
                                     <ArrowLeft className="w-6 h-6 text-gray-600" />
                                 </Link>
-                                <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-lg">
+                                <div className="p-3 bg-green-600 rounded-lg">
                                     <Wallet className="w-8 h-8 text-white" />
                                 </div>
                                 <div>
-                                    <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                                    <h1 className="text-3xl font-bold text-gray-900">
                                         Provident Fund Details
                                     </h1>
                                     <p className="text-gray-600 mt-1">{teacher?.user?.name || 'N/A'} - {teacher?.employee_id || 'N/A'}</p>
                                 </div>
                             </div>
                             <div className="flex gap-2">
+                                <button
+                                    onClick={handlePrint}
+                                    className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                                >
+                                    <Printer className="w-4 h-4" />
+                                    Print
+                                </button>
                                 <button
                                     onClick={() => setShowOpeningModal(true)}
                                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -169,85 +209,100 @@ export default function Show({ teacher, transactions, withdrawals, summary }: Sh
                     </div>
 
                     {/* Teacher Info Card */}
-                    <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
+                    <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
                         <div className="flex items-center gap-4 mb-4">
-                            <div className="p-3 bg-white/20 rounded-xl">
-                                <User className="w-8 h-8" />
+                            <div className="p-3 bg-gray-100 rounded-lg">
+                                <User className="w-8 h-8 text-gray-700" />
                             </div>
                             <div>
-                                <h2 className="text-2xl font-bold">{teacher?.user?.name || 'N/A'}</h2>
-                                <p className="opacity-90">{teacher?.designation || 'N/A'}</p>
+                                <h2 className="text-2xl font-bold text-gray-900">{teacher?.user?.name || 'N/A'}</h2>
+                                <p className="text-gray-600">{teacher?.designation || 'N/A'}</p>
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <p className="text-sm opacity-80">Employee ID</p>
-                                <p className="text-lg font-semibold">{teacher?.employee_id || 'N/A'}</p>
+                                <p className="text-sm text-gray-600">Employee ID</p>
+                                <p className="text-lg font-semibold text-gray-900">{teacher?.employee_id || 'N/A'}</p>
                             </div>
                             <div>
-                                <p className="text-sm opacity-80">Current Salary</p>
-                                <p className="text-lg font-semibold">৳{teacher?.salary ? parseFloat(teacher.salary.toString()).toLocaleString('en-IN') : '0'}</p>
+                                <p className="text-sm text-gray-600">Current Salary</p>
+                                <p className="text-lg font-semibold text-gray-900">৳{teacher?.salary ? parseFloat(teacher.salary.toString()).toLocaleString('en-IN') : '0'}</p>
                             </div>
                         </div>
                     </div>
 
-                    {/* Summary Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-                        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-all duration-300">
-                            <div className="flex items-center justify-between mb-2">
-                                <DollarSign className="w-8 h-8 opacity-80" />
-                                <Badge variant="primary" size="sm" className="bg-white/20">Employee</Badge>
+                    {/* Date Filter */}
+                    <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
+                        <form onSubmit={handleFilterSubmit} className="flex flex-wrap gap-4 items-end">
+                            <div className="flex-1 min-w-[200px]">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+                                <input
+                                    type="date"
+                                    value={fromDate}
+                                    onChange={(e) => setFromDate(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
                             </div>
-                            <p className="text-sm opacity-90">Employee Contribution</p>
-                            <p className="text-2xl font-bold mt-2">
+                            <div className="flex-1 min-w-[200px]">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+                                <input
+                                    type="date"
+                                    value={toDate}
+                                    onChange={(e) => setToDate(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    type="submit"
+                                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                >
+                                    Apply
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleClearFilters}
+                                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                                >
+                                    Clear
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    {/* Summary Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
+                            <p className="text-sm text-gray-600">Employee Contribution</p>
+                            <p className="text-2xl font-bold text-gray-900 mt-1">
                                 ৳{parseFloat(summary.total_employee_contribution.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </p>
                         </div>
 
-                        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-all duration-300">
-                            <div className="flex items-center justify-between mb-2">
-                                <TrendingUp className="w-8 h-8 opacity-80" />
-                                <Badge variant="primary" size="sm" className="bg-white/20">Employer</Badge>
-                            </div>
-                            <p className="text-sm opacity-90">Employer Contribution</p>
-                            <p className="text-2xl font-bold mt-2">
+                        <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
+                            <p className="text-sm text-gray-600">Employer Contribution</p>
+                            <p className="text-2xl font-bold text-gray-900 mt-1">
                                 ৳{parseFloat(summary.total_employer_contribution.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </p>
                         </div>
 
-                        <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-all duration-300">
-                            <div className="flex items-center justify-between mb-2">
-                                <LogOut className="w-8 h-8 opacity-80" />
-                                <Badge variant="danger" size="sm" className="bg-white/20">Withdrawn</Badge>
-                            </div>
-                            <p className="text-sm opacity-90">Total Withdrawn</p>
-                            <p className="text-2xl font-bold mt-2">
+                        <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
+                            <p className="text-sm text-gray-600">Total Withdrawn</p>
+                            <p className="text-2xl font-bold text-gray-900 mt-1">
                                 ৳{parseFloat(summary.total_withdrawn.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </p>
                         </div>
 
-                        <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-all duration-300">
-                            <div className="flex items-center justify-between mb-2">
-                                <Wallet className="w-8 h-8 opacity-80" />
-                                <Badge variant="success" size="sm" className="bg-white/20">Current</Badge>
-                            </div>
-                            <p className="text-sm opacity-90">Current Balance</p>
-                            <p className="text-2xl font-bold mt-2">
+                        <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
+                            <p className="text-sm text-gray-600">Current Balance</p>
+                            <p className="text-2xl font-bold text-green-600 mt-1">
                                 ৳{parseFloat(summary.current_balance.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </p>
-                        </div>
-
-                        <div className="bg-gradient-to-br from-orange-500 to-amber-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-all duration-300">
-                            <div className="flex items-center justify-between mb-2">
-                                <Calendar className="w-8 h-8 opacity-80" />
-                            </div>
-                            <p className="text-sm opacity-90">Total Transactions</p>
-                            <p className="text-2xl font-bold mt-2">{summary.total_transactions}</p>
                         </div>
                     </div>
 
                     {/* Transaction History */}
-                    <div className="bg-white/80 backdrop-blur-xl rounded-xl shadow-lg border border-gray-200/50 overflow-hidden">
+                    <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
                         <div className="p-6 border-b border-gray-200">
                             <h2 className="text-xl font-bold text-gray-900">Transaction History</h2>
                             <p className="text-sm text-gray-600 mt-1">All provident fund transactions including contributions, opening entries, and withdrawals</p>
@@ -256,7 +311,7 @@ export default function Show({ teacher, transactions, withdrawals, summary }: Sh
                         <div className="overflow-x-auto">
                             <table className="w-full">
                                 <thead>
-                                    <tr className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                                    <tr className="bg-gray-50 border-b border-gray-200">
                                         <th className="px-6 py-4 text-left">
                                             <span className="text-sm font-semibold text-gray-900">Type</span>
                                         </th>
@@ -284,8 +339,7 @@ export default function Show({ teacher, transactions, withdrawals, summary }: Sh
                                     {transactions.length > 0 ? transactions.map((transaction, index) => (
                                         <tr
                                             key={transaction.id}
-                                            className="hover:bg-green-50/50 transition-colors duration-150"
-                                            style={{ animationDelay: `${index * 30}ms` }}
+                                            className="hover:bg-gray-50 transition-colors"
                                         >
                                             <td className="px-6 py-4">
                                                 <Badge variant={getTransactionBadgeVariant(transaction.type) as any} size="sm">
@@ -304,13 +358,13 @@ export default function Show({ teacher, transactions, withdrawals, summary }: Sh
                                             <td className="px-6 py-4 text-sm text-gray-900">
                                                 {formatDate(transaction.transaction_date)}
                                             </td>
-                                            <td className="px-6 py-4 text-right font-semibold text-blue-600">
+                                            <td className="px-6 py-4 text-right font-medium text-gray-900">
                                                 ৳{parseFloat(transaction.employee_contribution.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>
-                                            <td className="px-6 py-4 text-right font-semibold text-purple-600">
+                                            <td className="px-6 py-4 text-right font-medium text-gray-900">
                                                 ৳{parseFloat(transaction.employer_contribution.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>
-                                            <td className="px-6 py-4 text-right font-bold text-green-600">
+                                            <td className="px-6 py-4 text-right font-semibold text-gray-900">
                                                 ৳{parseFloat(transaction.total_contribution.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>
                                             <td className="px-6 py-4 text-center">
@@ -340,7 +394,7 @@ export default function Show({ teacher, transactions, withdrawals, summary }: Sh
 
                     {/* Withdrawal History */}
                     {withdrawals && withdrawals.length > 0 && (
-                        <div className="bg-white/80 backdrop-blur-xl rounded-xl shadow-lg border border-gray-200/50 overflow-hidden">
+                        <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
                             <div className="p-6 border-b border-gray-200">
                                 <h2 className="text-xl font-bold text-gray-900">Withdrawal History</h2>
                                 <p className="text-sm text-gray-600 mt-1">All PF withdrawals</p>
@@ -349,7 +403,7 @@ export default function Show({ teacher, transactions, withdrawals, summary }: Sh
                             <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead>
-                                        <tr className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                                        <tr className="bg-gray-50 border-b border-gray-200">
                                             <th className="px-6 py-4 text-left">
                                                 <span className="text-sm font-semibold text-gray-900">Date</span>
                                             </th>
@@ -374,8 +428,7 @@ export default function Show({ teacher, transactions, withdrawals, summary }: Sh
                                         {withdrawals.map((withdrawal, index) => (
                                             <tr
                                                 key={withdrawal.id}
-                                                className="hover:bg-red-50/50 transition-colors duration-150"
-                                                style={{ animationDelay: `${index * 30}ms` }}
+                                                className="hover:bg-gray-50 transition-colors"
                                             >
                                                 <td className="px-6 py-4 text-sm text-gray-900">
                                                     {formatDate(withdrawal.withdrawal_date)}

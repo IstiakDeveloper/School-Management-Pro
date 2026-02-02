@@ -6,6 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Exam;
 use App\Models\AcademicYear;
 use App\Models\SchoolClass;
+use App\Models\Student;
+use App\Models\FeeCollection;
+use App\Models\FeeStructure;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -55,16 +60,29 @@ class ExamController extends Controller
             'classes.*' => 'exists:classes,id',
         ]);
 
-        $exam = Exam::create($validated);
+        DB::beginTransaction();
+        try {
+            $exam = Exam::create($validated);
 
-        if (!empty($validated['classes'])) {
-            $exam->classes()->sync($validated['classes']);
+            if (!empty($validated['classes'])) {
+                $exam->classes()->sync($validated['classes']);
+
+                // Auto-generate exam fees for all students in selected classes
+                $this->generateExamFeesForStudents($exam, $validated['classes'], $validated['academic_year_id']);
+            }
+
+            DB::commit();
+
+            logActivity('create', "Created exam: {$exam->name}", Exam::class, $exam->id);
+
+            return redirect()->route('exams.index')
+                ->with('success', 'Exam created successfully and fees generated for students');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Failed to create exam: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Failed to create exam: ' . $e->getMessage());
         }
-
-        logActivity('create', "Created exam: {$exam->name}", Exam::class, $exam->id);
-
-        return redirect()->route('exams.index')
-            ->with('success', 'Exam created successfully');
     }
 
     public function show(Exam $exam)
@@ -132,5 +150,91 @@ class ExamController extends Controller
 
         return redirect()->route('exams.index')
             ->with('success', 'Exam deleted successfully');
+    }
+
+    /**
+     * Auto-generate exam fees for students in selected classes
+     */
+    private function generateExamFeesForStudents(Exam $exam, array $classIds, int $academicYearId)
+    {
+        try {
+            $examStartDate = Carbon::parse($exam->start_date);
+            $dueDate = $examStartDate->copy()->subDays(7); // Due 7 days before exam
+
+            foreach ($classIds as $classId) {
+                // Get Exam Fee structure for this class
+                $examFeeStructure = FeeStructure::with('feeType')
+                    ->where('class_id', $classId)
+                    ->where('academic_year_id', $academicYearId)
+                    ->whereHas('feeType', function($q) {
+                        $q->where(function($query) {
+                            $query->where('name', 'LIKE', '%Exam Fee%')
+                                  ->orWhere('name', 'LIKE', '%exam fee%')
+                                  ->orWhere('frequency', 'quarterly');
+                        });
+                    })
+                    ->first();
+
+                // Skip if no exam fee structure found for this class
+                if (!$examFeeStructure) {
+                    \Log::warning("No Exam Fee structure found for class ID: {$classId}");
+                    continue;
+                }
+
+                // Get all active students in this class
+                $students = Student::where('class_id', $classId)
+                    ->where('academic_year_id', $academicYearId)
+                    ->where('status', 'active')
+                    ->get();
+
+                foreach ($students as $student) {
+                    // Check if exam fee already exists for this student and exam
+                    $existingFee = FeeCollection::where('student_id', $student->id)
+                        ->where('fee_type_id', $examFeeStructure->fee_type_id)
+                        ->where('month', $examStartDate->month)
+                        ->where('year', $examStartDate->year)
+                        ->whereIn('status', ['pending', 'paid', 'overdue'])
+                        ->first();
+
+                    // Skip if already exists
+                    if ($existingFee) {
+                        continue;
+                    }
+
+                    // Generate receipt number
+                    $receiptNumber = 'FEE-' . date('Ymd') . '-' . str_pad(
+                        FeeCollection::whereDate('created_at', today())->count() + 1,
+                        6,
+                        '0',
+                        STR_PAD_LEFT
+                    );
+
+                    // Create pending exam fee
+                    FeeCollection::create([
+                        'receipt_number' => $receiptNumber,
+                        'student_id' => $student->id,
+                        'fee_type_id' => $examFeeStructure->fee_type_id,
+                        'academic_year_id' => $academicYearId,
+                        'month' => $examStartDate->month,
+                        'year' => $examStartDate->year,
+                        'amount' => $examFeeStructure->amount,
+                        'late_fee' => 0,
+                        'discount' => 0,
+                        'total_amount' => $examFeeStructure->amount,
+                        'paid_amount' => 0,
+                        'payment_date' => $dueDate,
+                        'status' => 'pending',
+                        'remarks' => "Auto-generated for exam: {$exam->name}",
+                        'collected_by' => auth()->id() ?? 1,
+                    ]);
+                }
+
+                \Log::info("Generated exam fees for " . $students->count() . " students in class ID: {$classId}");
+            }
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to generate exam fees: ' . $e->getMessage());
+            throw $e; // Re-throw to trigger transaction rollback
+        }
     }
 }

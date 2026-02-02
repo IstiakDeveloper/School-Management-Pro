@@ -5,11 +5,10 @@ namespace App\Http\Controllers\Accounting\Reports;
 use App\Http\Controllers\Controller;
 use App\Models\Transaction;
 use App\Models\Account;
+use App\Models\FundTransaction;
 use App\Models\IncomeCategory;
 use App\Models\ExpenseCategory;
-use App\Models\FundTransaction;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Carbon\Carbon;
 
@@ -19,245 +18,193 @@ class BankReportController extends Controller
     {
         $this->authorize('manage_accounting');
 
-        $month = $request->month ?? now()->format('Y-m');
-        $accountId = $request->account_id;
+        $startDate = $request->start_date ? Carbon::parse($request->start_date) : now()->startOfMonth();
+        $endDate = $request->end_date ? Carbon::parse($request->end_date) : now()->endOfMonth();
 
-        $startDate = Carbon::parse($month . '-01')->startOfMonth();
-        $endDate = Carbon::parse($month . '-01')->endOfMonth();
+        // Get all active bank/cash accounts
+        $allAccounts = Account::where('status', 'active')
+            ->whereIn('account_type', ['bank', 'cash'])
+            ->get();
 
-        // Get all accounts or specific account
-        $accountsQuery = Account::where('status', 'active');
-        if ($accountId) {
-            $accountsQuery->where('id', $accountId);
+        // Get all income categories from database
+        $incomeCategories = IncomeCategory::where('status', 'active')
+            ->orderBy('name')
+            ->pluck('name')
+            ->toArray();
+
+        // Get all expense categories from database
+        $expenseCategories = ExpenseCategory::where('status', 'active')
+            ->orderBy('name')
+            ->pluck('name')
+            ->toArray();
+
+        // Build credit categories: Fund In + Income Categories
+        $creditCategories = array_merge(['Fund In'], $incomeCategories);
+
+        // Build debit categories: Fund Out + Expense Categories + Asset Purchase
+        $debitCategories = array_merge(['Fund Out'], $expenseCategories, ['Asset Purchase']);
+
+        // Calculate Opening Balance (sum of all accounts before start date)
+        $openingBalance = $this->calculateOpeningBalance($allAccounts, $startDate);
+
+        // Get all dates in the range
+        $dates = [];
+        $currentDate = $startDate->copy();
+        while ($currentDate <= $endDate) {
+            $dates[] = $currentDate->format('Y-m-d');
+            $currentDate->addDay();
         }
-        $accounts = $accountsQuery->get();
 
-        // Get all transactions for the month
-        $transactionsQuery = Transaction::with(['account', 'incomeCategory', 'expenseCategory', 'transferToAccount'])
-            ->whereBetween('transaction_date', [$startDate, $endDate]);
+        // Get all transactions in the date range with categories
+        $transactions = Transaction::with(['incomeCategory', 'expenseCategory'])
+            ->whereBetween('transaction_date', [$startDate, $endDate])
+            ->orderBy('transaction_date')
+            ->get();
 
-        if ($accountId) {
-            $transactionsQuery->where(function ($query) use ($accountId) {
-                $query->where('account_id', $accountId)
-                    ->orWhere('transfer_to_account_id', $accountId);
-            });
+        // Get all fund transactions in the date range
+        $fundTransactions = FundTransaction::whereBetween('transaction_date', [$startDate, $endDate])
+            ->orderBy('transaction_date')
+            ->get();
+
+        // Build daily report data with category breakdown
+        $dailyData = [];
+        $runningBalance = $openingBalance;
+
+        // Initialize totals for each category
+        $creditTotals = array_fill_keys($creditCategories, 0);
+        $debitTotals = array_fill_keys($debitCategories, 0);
+        $grandTotalCredit = 0;
+        $grandTotalDebit = 0;
+
+        foreach ($dates as $date) {
+            // Initialize day data with all categories
+            $dayCredits = array_fill_keys($creditCategories, 0);
+            $dayDebits = array_fill_keys($debitCategories, 0);
+
+            // Process fund transactions for this day
+            foreach ($fundTransactions as $fundTrans) {
+                if ($fundTrans->transaction_date->format('Y-m-d') === $date) {
+                    if ($fundTrans->transaction_type === 'in') {
+                        $dayCredits['Fund In'] += $fundTrans->amount;
+                    } elseif ($fundTrans->transaction_type === 'out') {
+                        $dayDebits['Fund Out'] += $fundTrans->amount;
+                    }
+                }
+            }
+
+            // Process regular transactions for this day
+            foreach ($transactions as $trans) {
+                if ($trans->transaction_date->format('Y-m-d') === $date) {
+                    if ($trans->type === 'income') {
+                        $categoryName = $trans->incomeCategory->name ?? 'Unknown';
+                        if (isset($dayCredits[$categoryName])) {
+                            $dayCredits[$categoryName] += $trans->amount;
+                        }
+                    } elseif ($trans->type === 'expense') {
+                        $categoryName = $trans->expenseCategory->name ?? 'Unknown';
+                        if (isset($dayDebits[$categoryName])) {
+                            $dayDebits[$categoryName] += $trans->amount;
+                        }
+                    } elseif ($trans->type === 'asset_purchase') {
+                        $dayDebits['Asset Purchase'] += $trans->amount;
+                    }
+                }
+            }
+
+            // Calculate totals for the day
+            $dayTotalCredit = array_sum($dayCredits);
+            $dayTotalDebit = array_sum($dayDebits);
+            $runningBalance = $runningBalance + $dayTotalCredit - $dayTotalDebit;
+
+            // Add to grand totals
+            $grandTotalCredit += $dayTotalCredit;
+            $grandTotalDebit += $dayTotalDebit;
+
+            // Add to category totals
+            foreach ($dayCredits as $cat => $amount) {
+                $creditTotals[$cat] += $amount;
+            }
+            foreach ($dayDebits as $cat => $amount) {
+                $debitTotals[$cat] += $amount;
+            }
+
+            // Only include days with activity
+            if ($dayTotalCredit > 0 || $dayTotalDebit > 0) {
+                $dailyData[] = [
+                    'date' => $date,
+                    'credits' => $dayCredits,
+                    'total_credit' => $dayTotalCredit,
+                    'debits' => $dayDebits,
+                    'total_debit' => $dayTotalDebit,
+                    'balance' => $runningBalance,
+                ];
+            }
         }
 
-        $transactions = $transactionsQuery->orderBy('transaction_date', 'asc')->get();
+        $closingBalance = $runningBalance;
 
-        // Get fund transactions for the month
-        $fundTransactionsQuery = FundTransaction::with(['fund', 'account'])
-            ->whereBetween('transaction_date', [$startDate, $endDate]);
+        return Inertia::render('Accounting/Reports/BankReport', [
+            'dailyData' => $dailyData,
+            'openingBalance' => $openingBalance,
+            'closingBalance' => $closingBalance,
+            'grandTotalCredit' => $grandTotalCredit,
+            'grandTotalDebit' => $grandTotalDebit,
+            'creditTotals' => $creditTotals,
+            'debitTotals' => $debitTotals,
+            'creditCategories' => $creditCategories,
+            'debitCategories' => $debitCategories,
+            'filters' => [
+                'start_date' => $startDate->format('Y-m-d'),
+                'end_date' => $endDate->format('Y-m-d'),
+            ],
+            'accounts' => $allAccounts,
+        ]);
+    }
 
-        if ($accountId) {
-            $fundTransactionsQuery->where('account_id', $accountId);
-        }
+    private function calculateOpeningBalance($allAccounts, $startDate)
+    {
+        $openingBalance = 0;
 
-        $fundTransactions = $fundTransactionsQuery->orderBy('transaction_date', 'asc')->get();
+        foreach ($allAccounts as $acc) {
+            $accBalance = $acc->opening_balance;
 
-        // Get income and expense categories
-        $incomeCategories = IncomeCategory::where('status', 'active')->get();
-        $expenseCategories = ExpenseCategory::where('status', 'active')->get();
-
-        // Special categories identification (you may need to adjust these based on your category names)
-        $studentFeeCategoryIds = $incomeCategories->filter(function ($category) {
-            return stripos($category->name, 'Student') !== false ||
-                   stripos($category->name, 'Fee') !== false;
-        })->pluck('id')->toArray();
-
-        $salaryCategoryIds = $expenseCategories->filter(function ($category) {
-            return stripos($category->name, 'Salary') !== false ||
-                   stripos($category->name, 'Wage') !== false;
-        })->pluck('id')->toArray();
-
-        $fixedAssetCategoryIds = $expenseCategories->filter(function ($category) {
-            return stripos($category->name, 'Asset') !== false ||
-                   stripos($category->name, 'Equipment') !== false;
-        })->pluck('id')->toArray();
-
-        // Group transactions by date
-        $reportData = [];
-        $runningBalance = 0;
-
-        // Get opening balance (sum of all transactions before start date)
-        if ($accountId) {
-            $account = Account::find($accountId);
-            $openingBalance = $account->opening_balance;
-
-            $previousTransactions = Transaction::where(function ($query) use ($accountId) {
-                $query->where('account_id', $accountId)
-                    ->orWhere('transfer_to_account_id', $accountId);
+            // Add all previous transactions for this account before start date
+            $prevTrans = Transaction::where(function ($query) use ($acc) {
+                $query->where('account_id', $acc->id)
+                    ->orWhere('transfer_to_account_id', $acc->id);
             })
             ->where('transaction_date', '<', $startDate)
             ->get();
 
-            foreach ($previousTransactions as $trans) {
-                if ($trans->account_id == $accountId) {
+            foreach ($prevTrans as $trans) {
+                if ($trans->account_id == $acc->id) {
                     if ($trans->type === 'income') {
-                        $openingBalance += $trans->amount;
-                    } elseif ($trans->type === 'expense' || $trans->type === 'transfer') {
-                        $openingBalance -= $trans->amount;
+                        $accBalance += $trans->amount;
+                    } elseif ($trans->type === 'expense' || $trans->type === 'transfer' || $trans->type === 'asset_purchase') {
+                        $accBalance -= $trans->amount;
                     }
                 }
-                if ($trans->transfer_to_account_id == $accountId && $trans->type === 'transfer') {
-                    $openingBalance += $trans->amount;
+                if ($trans->transfer_to_account_id == $acc->id && $trans->type === 'transfer') {
+                    $accBalance += $trans->amount;
                 }
             }
 
-            // Add fund transactions to opening balance
-            $previousFundTransactions = FundTransaction::where('account_id', $accountId)
+            // Add fund transactions before start date
+            $prevFundTrans = FundTransaction::where('account_id', $acc->id)
                 ->where('transaction_date', '<', $startDate)
                 ->get();
 
-            foreach ($previousFundTransactions as $fundTrans) {
+            foreach ($prevFundTrans as $fundTrans) {
                 if ($fundTrans->transaction_type === 'in') {
-                    $openingBalance += $fundTrans->amount;
+                    $accBalance += $fundTrans->amount;
                 } elseif ($fundTrans->transaction_type === 'out') {
-                    $openingBalance -= $fundTrans->amount;
+                    $accBalance -= $fundTrans->amount;
                 }
             }
 
-            $runningBalance = $openingBalance;
+            $openingBalance += $accBalance;
         }
 
-        // Generate date-wise report
-        $currentDate = $startDate->copy();
-        while ($currentDate <= $endDate) {
-            $dateString = $currentDate->format('Y-m-d');
-
-            $dayTransactions = $transactions->filter(function ($trans) use ($dateString) {
-                return $trans->transaction_date->format('Y-m-d') === $dateString;
-            });
-
-            $dayFundTransactions = $fundTransactions->filter(function ($trans) use ($dateString) {
-                return $trans->transaction_date->format('Y-m-d') === $dateString;
-            });
-
-            // Initialize daily totals
-            $dailyData = [
-                'date' => $currentDate->format('Y-m-d'),
-                'date_formatted' => $currentDate->format('d M, Y'),
-                'credit' => [
-                    'fund_in' => 0,
-                    'student_fee' => 0,
-                    'other_credit' => 0,
-                    'total' => 0,
-                ],
-                'debit' => [
-                    'fund_out' => 0,
-                    'salary' => 0,
-                    'fixed_asset' => 0,
-                    'other_expense' => 0,
-                    'total' => 0,
-                ],
-                'balance' => 0,
-            ];
-
-            foreach ($dayTransactions as $trans) {
-                // Credit Section
-                if ($trans->type === 'income') {
-                    // Student Fee
-                    if (in_array($trans->income_category_id, $studentFeeCategoryIds)) {
-                        $dailyData['credit']['student_fee'] += $trans->amount;
-                    } else {
-                        // Other Credit
-                        $dailyData['credit']['other_credit'] += $trans->amount;
-                    }
-                    $runningBalance += $trans->amount;
-                } elseif ($trans->type === 'transfer' && $trans->transfer_to_account_id == $accountId) {
-                    // Fund In (transfer to this account)
-                    $dailyData['credit']['fund_in'] += $trans->amount;
-                    $runningBalance += $trans->amount;
-                }
-
-                // Debit Section
-                if ($trans->type === 'expense') {
-                    // Salary
-                    if (in_array($trans->expense_category_id, $salaryCategoryIds)) {
-                        $dailyData['debit']['salary'] += $trans->amount;
-                    }
-                    // Fixed Asset
-                    elseif (in_array($trans->expense_category_id, $fixedAssetCategoryIds)) {
-                        $dailyData['debit']['fixed_asset'] += $trans->amount;
-                    }
-                    // Other Expense
-                    else {
-                        $dailyData['debit']['other_expense'] += $trans->amount;
-                    }
-                    $runningBalance -= $trans->amount;
-                } elseif ($trans->type === 'transfer' && $trans->account_id == $accountId) {
-                    // Fund Out (transfer from this account)
-                    $dailyData['debit']['fund_out'] += $trans->amount;
-                    $runningBalance -= $trans->amount;
-                }
-            }
-
-            // Process Fund Transactions
-            foreach ($dayFundTransactions as $fundTrans) {
-                if ($fundTrans->transaction_type === 'in') {
-                    // Fund In
-                    $dailyData['credit']['fund_in'] += $fundTrans->amount;
-                    $runningBalance += $fundTrans->amount;
-                } elseif ($fundTrans->transaction_type === 'out') {
-                    // Fund Out
-                    $dailyData['debit']['fund_out'] += $fundTrans->amount;
-                    $runningBalance -= $fundTrans->amount;
-                }
-            }
-
-            // Calculate totals
-            $dailyData['credit']['total'] = $dailyData['credit']['fund_in'] +
-                                            $dailyData['credit']['student_fee'] +
-                                            $dailyData['credit']['other_credit'];
-
-            $dailyData['debit']['total'] = $dailyData['debit']['fund_out'] +
-                                          $dailyData['debit']['salary'] +
-                                          $dailyData['debit']['fixed_asset'] +
-                                          $dailyData['debit']['other_expense'];
-
-            $dailyData['balance'] = $runningBalance;
-
-            $reportData[] = $dailyData;
-
-            $currentDate->addDay();
-        }
-
-        // Calculate monthly summary
-        $monthlyTotals = [
-            'credit' => [
-                'fund_in' => array_sum(array_column(array_column($reportData, 'credit'), 'fund_in')),
-                'student_fee' => array_sum(array_column(array_column($reportData, 'credit'), 'student_fee')),
-                'other_credit' => array_sum(array_column(array_column($reportData, 'credit'), 'other_credit')),
-                'total' => 0,
-            ],
-            'debit' => [
-                'fund_out' => array_sum(array_column(array_column($reportData, 'debit'), 'fund_out')),
-                'salary' => array_sum(array_column(array_column($reportData, 'debit'), 'salary')),
-                'fixed_asset' => array_sum(array_column(array_column($reportData, 'debit'), 'fixed_asset')),
-                'other_expense' => array_sum(array_column(array_column($reportData, 'debit'), 'other_expense')),
-                'total' => 0,
-            ],
-        ];
-
-        $monthlyTotals['credit']['total'] = $monthlyTotals['credit']['fund_in'] +
-                                            $monthlyTotals['credit']['student_fee'] +
-                                            $monthlyTotals['credit']['other_credit'];
-
-        $monthlyTotals['debit']['total'] = $monthlyTotals['debit']['fund_out'] +
-                                           $monthlyTotals['debit']['salary'] +
-                                           $monthlyTotals['debit']['fixed_asset'] +
-                                           $monthlyTotals['debit']['other_expense'];
-
-        return Inertia::render('Accounting/Reports/BankReport', [
-            'reportData' => $reportData,
-            'monthlyTotals' => $monthlyTotals,
-            'openingBalance' => $accountId ? $openingBalance : 0,
-            'closingBalance' => $runningBalance,
-            'filters' => [
-                'month' => $month,
-                'account_id' => $accountId,
-            ],
-            'accounts' => Account::where('status', 'active')->get(),
-        ]);
+        return $openingBalance;
     }
 }

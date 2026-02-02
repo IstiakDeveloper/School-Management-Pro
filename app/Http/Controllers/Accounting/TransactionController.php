@@ -72,8 +72,13 @@ class TransactionController extends Controller
 
         DB::beginTransaction();
         try {
-            // Generate transaction number
-            $validated['transaction_number'] = 'TXN-' . date('Ymd') . '-' . str_pad(Transaction::whereDate('created_at', today())->count() + 1, 4, '0', STR_PAD_LEFT);
+            // Generate transaction number (including soft-deleted transactions)
+            $validated['transaction_number'] = 'TXN-' . date('Ymd') . '-' . str_pad(
+                Transaction::withTrashed()->whereDate('created_at', today())->count() + 1,
+                4,
+                '0',
+                STR_PAD_LEFT
+            );
             $validated['created_by'] = auth()->id();
 
             $transaction = Transaction::create($validated);
@@ -129,7 +134,15 @@ class TransactionController extends Controller
                 $transaction->transferToAccount->decrement('current_balance', $transaction->amount);
             }
 
-            $transaction->delete();
+            // Attempt to delete the transaction
+            $deleted = $transaction->delete();
+
+            // Check if deletion was successful (model protection may prevent it)
+            if ($deleted === false) {
+                DB::rollBack();
+                return redirect()->route('accounting.transactions.index')
+                    ->with('error', 'Cannot delete this transaction. Staff Welfare Fund transactions are protected for audit trail.');
+            }
 
             DB::commit();
 

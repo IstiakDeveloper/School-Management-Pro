@@ -50,6 +50,7 @@ use App\Http\Controllers\Accounting\Reports\BankReportController;
 use App\Http\Controllers\Accounting\Reports\ReceiptPaymentReportController;
 use App\Http\Controllers\Accounting\Reports\IncomeExpenditureReportController;
 use App\Http\Controllers\Accounting\Reports\BalanceSheetReportController;
+use App\Http\Controllers\Accounting\Reports\DueReportController;
 use App\Http\Controllers\Communication\NoticeController;
 use App\Http\Controllers\Communication\MessageController;
 use App\Http\Controllers\DeviceSettingController;
@@ -336,11 +337,22 @@ Route::middleware('auth')->group(function () {
         Route::put('funds/transactions/{transaction}', [FundController::class, 'editTransaction'])->name('accounting.funds.transactions.update');
         Route::delete('funds/transactions/{transaction}', [FundController::class, 'deleteTransaction'])->name('accounting.funds.transactions.delete');
 
+        // Staff Welfare Loan Management
+        Route::get('welfare-loans', [App\Http\Controllers\Accounting\StaffWelfareLoanController::class, 'index'])->name('accounting.welfare-loans.index');
+        Route::get('welfare-loans/{loan}', [App\Http\Controllers\Accounting\StaffWelfareLoanController::class, 'show'])->name('accounting.welfare-loans.show');
+        Route::post('welfare-loans', [App\Http\Controllers\Accounting\StaffWelfareLoanController::class, 'store'])->name('accounting.welfare-loans.store');
+        Route::put('welfare-loans/{loan}', [App\Http\Controllers\Accounting\StaffWelfareLoanController::class, 'editLoan'])->name('accounting.welfare-loans.update');
+        Route::post('welfare-loans/donations', [App\Http\Controllers\Accounting\StaffWelfareLoanController::class, 'addDonation'])->name('accounting.welfare-loans.donations.store');
+        Route::delete('welfare-loans/donations/{donation}', [App\Http\Controllers\Accounting\StaffWelfareLoanController::class, 'deleteDonation'])->name('accounting.welfare-loans.donations.destroy');
+        Route::post('welfare-loans/installments/{installment}/pay', [App\Http\Controllers\Accounting\StaffWelfareLoanController::class, 'payInstallment'])->name('accounting.welfare-loans.installments.pay');
+        Route::post('welfare-loans/{loan}/cancel', [App\Http\Controllers\Accounting\StaffWelfareLoanController::class, 'cancel'])->name('accounting.welfare-loans.cancel');
+
         // Reports
         Route::get('reports/bank-report', [BankReportController::class, 'index'])->name('accounting.reports.bank-report');
         Route::get('reports/receipt-payment', [ReceiptPaymentReportController::class, 'index'])->name('accounting.reports.receipt-payment');
         Route::get('reports/income-expenditure', [IncomeExpenditureReportController::class, 'index'])->name('accounting.reports.income-expenditure');
         Route::get('reports/balance-sheet', [BalanceSheetReportController::class, 'index'])->name('accounting.reports.balance-sheet');
+        Route::get('reports/due-report', [DueReportController::class, 'index'])->name('accounting.reports.due-report');
     });
 
     // ============================================

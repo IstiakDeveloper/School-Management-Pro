@@ -29,6 +29,7 @@ class FeeCollectionController extends Controller
         $collectionsQuery = FeeCollection::with([
             'student.user',
             'student.schoolClass',
+            'student.section',
             'feeType',
             'account',
             'collector'
@@ -36,11 +37,26 @@ class FeeCollectionController extends Controller
             ->when($request->status, function ($query, $status) {
                 $query->where('status', $status);
             })
+            ->when($request->class_id, function ($query, $classId) {
+                $query->whereHas('student', function ($q) use ($classId) {
+                    $q->where('class_id', $classId);
+                });
+            })
+            ->when($request->section_id, function ($query, $sectionId) {
+                $query->whereHas('student', function ($q) use ($sectionId) {
+                    $q->where('section_id', $sectionId);
+                });
+            })
             ->when($request->search, function ($query, $search) {
-                $query->whereHas('student.user', function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%");
-                })
-                ->orWhere('receipt_number', 'like', "%{$search}%");
+                $query->where(function ($q) use ($search) {
+                    $q->whereHas('student.user', function ($sq) use ($search) {
+                        $sq->where('name', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('student', function ($sq) use ($search) {
+                        $sq->where('admission_number', 'like', "%{$search}%");
+                    })
+                    ->orWhere('receipt_number', 'like', "%{$search}%");
+                });
             })
             ->latest('created_at')
             ->get();
@@ -141,8 +157,14 @@ class FeeCollectionController extends Controller
                 ->get(),
             'accounts' => Account::where('status', 'active')
                 ->get(['id', 'account_name', 'current_balance']),
+            'classes' => \App\Models\SchoolClass::where('status', 'active')
+                ->orderBy('order')
+                ->get(['id', 'name']),
+            'sections' => \App\Models\Section::with('schoolClass:id,name')
+                ->where('status', 'active')
+                ->get(['id', 'name', 'class_id']),
             'stats' => $stats,
-            'filters' => $request->only(['status', 'search']),
+            'filters' => $request->only(['status', 'search', 'class_id', 'section_id']),
         ]);
     }
 
@@ -312,21 +334,96 @@ class FeeCollectionController extends Controller
                 }
             }
 
-            // Create accounting transaction
+            // Create accounting transactions - ONE FOR EACH FEE TYPE
             if ($totalAmount > 0) {
-                $description = "Fee collection from {$student->user->name} - " . implode(', ', $feeDescriptions);
-                if (!empty($validated['remarks'])) {
-                    $description .= " | {$validated['remarks']}";
+                // Group fees by type to create separate transactions
+                $feesByType = [];
+                $allProcessedFees = [];
+
+                // Collect all processed fees
+                if ($hasPendingFees) {
+                    foreach ($validated['fee_collection_ids'] as $feeId) {
+                        $fee = FeeCollection::with(['feeType'])->find($feeId);
+                        if ($fee) {
+                            $allProcessedFees[] = [
+                                'fee_type_id' => $fee->fee_type_id,
+                                'fee_type_name' => $fee->feeType->name,
+                                'amount' => $fee->paid_amount,
+                                'month' => $fee->month,
+                                'year' => $fee->year,
+                            ];
+                        }
+                    }
                 }
 
-                $this->createFeeIncomeTransaction(
-                    accountId: $validated['account_id'],
-                    amount: $totalAmount,
-                    date: $validated['payment_date'],
-                    paymentMethod: $validated['payment_method'],
-                    referenceNumber: $receiptNumber,
-                    description: $description
-                );
+                if ($hasNewFees) {
+                    // Retrieve newly created fees by receipt number
+                    $newFees = FeeCollection::with(['feeType'])
+                        ->where('receipt_number', $receiptNumber)
+                        ->whereIn('status', ['paid'])
+                        ->get();
+
+                    foreach ($newFees as $fee) {
+                        // Skip if already added from pending fees
+                        $alreadyAdded = false;
+                        foreach ($allProcessedFees as $processed) {
+                            if ($processed['fee_type_id'] === $fee->fee_type_id &&
+                                $processed['month'] === $fee->month &&
+                                $processed['year'] === $fee->year) {
+                                $alreadyAdded = true;
+                                break;
+                            }
+                        }
+
+                        if (!$alreadyAdded) {
+                            $allProcessedFees[] = [
+                                'fee_type_id' => $fee->fee_type_id,
+                                'fee_type_name' => $fee->feeType->name,
+                                'amount' => $fee->paid_amount,
+                                'month' => $fee->month,
+                                'year' => $fee->year,
+                            ];
+                        }
+                    }
+                }
+
+                // Group by fee type
+                foreach ($allProcessedFees as $feeData) {
+                    $feeTypeKey = $feeData['fee_type_id'];
+                    if (!isset($feesByType[$feeTypeKey])) {
+                        $feesByType[$feeTypeKey] = [
+                            'fee_type_id' => $feeData['fee_type_id'],
+                            'fee_type_name' => $feeData['fee_type_name'],
+                            'amount' => 0,
+                            'descriptions' => [],
+                        ];
+                    }
+                    $feesByType[$feeTypeKey]['amount'] += $feeData['amount'];
+                    $monthName = Carbon::create($feeData['year'], $feeData['month'], 1)->format('M Y');
+                    $feesByType[$feeTypeKey]['descriptions'][] = $monthName;
+                }
+
+                // Create separate transaction for each fee type
+                foreach ($feesByType as $feeTypeData) {
+                    $description = "{$feeTypeData['fee_type_name']} from {$student->user->name} - " . implode(', ', $feeTypeData['descriptions']);
+                    if (!empty($validated['remarks'])) {
+                        $description .= " | {$validated['remarks']}";
+                    }
+
+                    $this->createFeeIncomeTransactionByType(
+                        accountId: $validated['account_id'],
+                        feeTypeId: $feeTypeData['fee_type_id'],
+                        feeTypeName: $feeTypeData['fee_type_name'],
+                        amount: $feeTypeData['amount'],
+                        date: $validated['payment_date'],
+                        paymentMethod: $validated['payment_method'],
+                        referenceNumber: $receiptNumber,
+                        description: $description
+                    );
+                }
+
+                // Update account balance ONCE with total amount
+                Account::find($validated['account_id'])->increment('current_balance', $totalAmount);
             }
 
             DB::commit();

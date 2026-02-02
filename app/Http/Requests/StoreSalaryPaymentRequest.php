@@ -63,21 +63,5 @@ class StoreSalaryPaymentRequest extends FormRequest
         ]);
     }
 
-    /**
-     * Configure the validator instance.
-     */
-    public function withValidator($validator)
-    {
-        $validator->after(function ($validator) {
-            // Check for duplicate payment
-            $exists = \App\Models\SalaryPayment::where('staff_id', $this->staff_id)
-                ->where('month', $this->month)
-                ->where('year', $this->year)
-                ->exists();
-
-            if ($exists) {
-                $validator->errors()->add('month', 'Salary already paid for this month and year.');
-            }
-        });
-    }
 }
+

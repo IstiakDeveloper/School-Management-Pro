@@ -3,14 +3,16 @@
 namespace App\Http\Controllers\Accounting\Reports;
 
 use App\Http\Controllers\Controller;
-use App\Models\Transaction;
 use App\Models\Account;
 use App\Models\Fund;
-use App\Models\FundTransaction;
 use App\Models\FixedAsset;
+use App\Models\StaffWelfareLoan;
+use App\Models\ProvidentFundTransaction;
+use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class BalanceSheetReportController extends Controller
 {
@@ -18,110 +20,127 @@ class BalanceSheetReportController extends Controller
     {
         $this->authorize('manage_accounting');
 
-        $asOnDate = $request->as_on_date ? Carbon::parse($request->as_on_date) : now();
+        $endDate = $request->end_date ? Carbon::parse($request->end_date) : now();
 
-        // Calculate Total Fund (Available)
-        $totalFundAvailable = 0;
-        $funds = Fund::where('status', 'active')->get();
+        // ===== FUND AND LIABILITIES (Left Side) =====
 
-        foreach ($funds as $fund) {
-            // Get fund balance up to the selected date
-            $fundTransactions = FundTransaction::where('fund_id', $fund->id)
-                ->where('transaction_date', '<=', $asOnDate)
-                ->get();
+        // 1. Fund Balance (from fund_transactions - investors) as of date
+        $fundTransactionsIn = \App\Models\FundTransaction::where('transaction_type', 'in')
+            ->where('transaction_date', '<=', $endDate)
+            ->sum('amount');
 
-            $fundBalance = 0;
-            foreach ($fundTransactions as $fundTrans) {
-                if ($fundTrans->transaction_type === 'in') {
-                    $fundBalance += $fundTrans->amount;
-                } elseif ($fundTrans->transaction_type === 'out') {
-                    $fundBalance -= $fundTrans->amount;
-                }
-            }
+        $fundTransactionsOut = \App\Models\FundTransaction::where('transaction_type', 'out')
+            ->where('transaction_date', '<=', $endDate)
+            ->sum('amount');
 
-            $totalFundAvailable += $fundBalance;
-        }
+        $fundBalance = $fundTransactionsIn - $fundTransactionsOut;
 
-        // Calculate Surplus/Deficit from Income & Expenditure up to the selected date
-        $transactions = Transaction::where('transaction_date', '<=', $asOnDate)
-            ->whereIn('type', ['income', 'expense'])
-            ->get();
+        // 2. Surplus from Income & Expenditure Statement
+        $excludedIncomeCategories = [
+            'Staff Welfare Fund Donation',
+            'Staff Welfare Loan Recovery',
+            'Provident Fund Contribution',
+        ];
 
-        $totalIncome = 0;
-        $totalExpenditure = 0;
+        $excludedExpenseCategories = [
+            'Staff Welfare Loan',
+            'Provident Fund Withdrawal',
+            'Fixed Asset Purchase',
+        ];
 
-        foreach ($transactions as $trans) {
-            if ($trans->type === 'income') {
-                $totalIncome += $trans->amount;
-            } elseif ($trans->type === 'expense') {
-                $totalExpenditure += $trans->amount;
-            }
-        }
-
-        $surplusDeficit = $totalIncome - $totalExpenditure;
-
-        // Calculate Bank Balance (all accounts)
-        $bankBalance = 0;
-        $accounts = Account::where('status', 'active')->get();
-
-        foreach ($accounts as $account) {
-            $accountBalance = $account->opening_balance;
-
-            // Add all transactions up to the selected date
-            $accountTransactions = Transaction::where(function ($query) use ($account) {
-                $query->where('account_id', $account->id)
-                    ->orWhere('transfer_to_account_id', $account->id);
+        $totalIncome = Transaction::where('type', 'income')
+            ->where('transaction_date', '<=', $endDate)
+            ->whereNotIn('type', ['transfer', 'asset_purchase'])
+            ->whereHas('incomeCategory', function ($query) use ($excludedIncomeCategories) {
+                $query->whereNotIn('name', $excludedIncomeCategories);
             })
-            ->where('transaction_date', '<=', $asOnDate)
+            ->sum('amount');
+
+        $totalExpenditure = Transaction::where('type', 'expense')
+            ->where('transaction_date', '<=', $endDate)
+            ->whereNotIn('type', ['transfer', 'asset_purchase'])
+            ->whereHas('expenseCategory', function ($query) use ($excludedExpenseCategories) {
+                $query->whereNotIn('name', $excludedExpenseCategories);
+            })
+            ->sum('amount');
+
+        $surplus = $totalIncome - $totalExpenditure;
+
+        // 3. Provident Fund Balance
+        $pfContributions = Transaction::where('type', 'income')
+            ->where('transaction_date', '<=', $endDate)
+            ->whereHas('incomeCategory', function ($query) {
+                $query->where('name', 'Provident Fund Contribution');
+            })
+            ->sum('amount');
+
+        $pfWithdrawals = Transaction::where('type', 'expense')
+            ->where('transaction_date', '<=', $endDate)
+            ->whereHas('expenseCategory', function ($query) {
+                $query->where('name', 'Provident Fund Withdrawal');
+            })
+            ->sum('amount');
+
+        $providentFundBalance = $pfContributions - $pfWithdrawals;
+
+        // 4. Staff Welfare Fund Balance (Donations Only)
+        // Note: Loan recoveries are NOT shown here as they reduce the Outstanding Loan Asset
+        $welfareDonations = Transaction::where('type', 'income')
+            ->where('transaction_date', '<=', $endDate)
+            ->whereHas('incomeCategory', function ($query) {
+                $query->where('name', 'Staff Welfare Fund Donation');
+            })
+            ->sum('amount');
+
+        $staffWelfareFundBalance = $welfareDonations;
+
+        // Total Fund and Liabilities
+        $totalFundAndLiabilities = $fundBalance + $surplus + $providentFundBalance + $staffWelfareFundBalance;
+
+        // ===== PROPERTY AND ASSETS (Right Side) =====
+
+        // 1. Fixed Assets (list of all active assets with their current values)
+        $fixedAssets = FixedAsset::where('status', 'active')
+            ->where('purchase_date', '<=', $endDate)
+            ->select('asset_name', 'current_value')
+            ->orderBy('asset_name')
             ->get();
 
-            foreach ($accountTransactions as $trans) {
-                if ($trans->account_id == $account->id) {
-                    if ($trans->type === 'income') {
-                        $accountBalance += $trans->amount;
-                    } elseif ($trans->type === 'expense' || $trans->type === 'transfer') {
-                        $accountBalance -= $trans->amount;
-                    }
-                }
-                if ($trans->transfer_to_account_id == $account->id && $trans->type === 'transfer') {
-                    $accountBalance += $trans->amount;
-                }
-            }
+        $totalFixedAssets = $fixedAssets->sum('current_value');
 
-            // Add fund transactions for this account
-            $accountFundTransactions = FundTransaction::where('account_id', $account->id)
-                ->where('transaction_date', '<=', $asOnDate)
-                ->get();
+        // 2. Staff Welfare Loan Outstanding
+        // This is (Loan Amount - Total Paid) which already accounts for recoveries
+        // As staff repay loans, total_paid increases and outstanding decreases
+        $welfareLoanOutstanding = StaffWelfareLoan::where('status', 'active')
+            ->where('loan_date', '<=', $endDate)
+            ->sum(DB::raw('loan_amount - total_paid'));
 
-            foreach ($accountFundTransactions as $fundTrans) {
-                if ($fundTrans->transaction_type === 'in') {
-                    $accountBalance += $fundTrans->amount;
-                } elseif ($fundTrans->transaction_type === 'out') {
-                    $accountBalance -= $fundTrans->amount;
-                }
-            }
+        // 3. Closing Bank Balance (ALL accounts combined as of the selected date)
+        // This already includes all cash movements including loan recoveries
+        $closingBankBalance = Account::getTotalBalanceAsOfDate($endDate);
 
-            $bankBalance += $accountBalance;
-        }
-
-        // Calculate Fixed Assets (total value of all fixed assets)
-        $fixedAssetsTotal = FixedAsset::where('purchase_date', '<=', $asOnDate)
-            ->sum('purchase_price');
-
-        // Calculate totals
-        $liabilitiesTotal = $totalFundAvailable + $surplusDeficit;
-        $assetsTotal = $bankBalance + $fixedAssetsTotal;
+        // Total Property and Assets
+        $totalPropertyAndAssets = $totalFixedAssets + $welfareLoanOutstanding + $closingBankBalance;
 
         return Inertia::render('Accounting/Reports/BalanceSheet', [
-            'totalFundAvailable' => $totalFundAvailable,
-            'surplusDeficit' => $surplusDeficit,
-            'liabilitiesTotal' => $liabilitiesTotal,
-            'bankBalance' => $bankBalance,
-            'fixedAssetsTotal' => $fixedAssetsTotal,
-            'assetsTotal' => $assetsTotal,
-            'filters' => [
-                'as_on_date' => $asOnDate->format('Y-m-d'),
+            'fundAndLiabilities' => [
+                'fund' => $fundBalance,
+                'surplus' => $surplus,
+                'providentFund' => $providentFundBalance,
+                'staffWelfareFund' => $staffWelfareFundBalance,
+                'total' => $totalFundAndLiabilities,
             ],
+            'propertyAndAssets' => [
+                'fixedAssets' => $fixedAssets,
+                'totalFixedAssets' => $totalFixedAssets,
+                'welfareLoanOutstanding' => $welfareLoanOutstanding,
+                'closingBankBalance' => $closingBankBalance,
+                'total' => $totalPropertyAndAssets,
+            ],
+            'filters' => [
+                'end_date' => $endDate->format('Y-m-d'),
+            ],
+            'balanceDifference' => $totalPropertyAndAssets - $totalFundAndLiabilities,
         ]);
     }
 }

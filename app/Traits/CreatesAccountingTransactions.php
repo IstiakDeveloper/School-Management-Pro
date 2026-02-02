@@ -9,6 +9,69 @@ use App\Models\IncomeCategory;
 trait CreatesAccountingTransactions
 {
     /**
+     * Create an accounting income transaction for fee collection by fee type
+     *
+     * @param int $accountId
+     * @param int $feeTypeId
+     * @param string $feeTypeName
+     * @param float $amount
+     * @param string $date
+     * @param string $paymentMethod
+     * @param string $referenceNumber
+     * @param string $description
+     * @return Transaction
+     */
+    public function createFeeIncomeTransactionByType(
+        int $accountId,
+        int $feeTypeId,
+        string $feeTypeName,
+        float $amount,
+        string $date,
+        string $paymentMethod,
+        string $referenceNumber,
+        string $description
+    ): Transaction {
+        // Get or create income category based on fee type
+        $categoryCode = 'FEE-' . strtoupper(str_replace(' ', '-', $feeTypeName));
+        $incomeCategory = IncomeCategory::firstOrCreate(
+            ['code' => $categoryCode],
+            [
+                'name' => $feeTypeName . ' Income',
+                'description' => 'Income from ' . $feeTypeName,
+                'status' => 'active',
+                'created_by' => auth()->id(),
+            ]
+        );
+
+        // Generate transaction number
+        $transactionNumber = 'TRX-' . date('Ymd') . '-' . str_pad(
+            Transaction::withTrashed()->whereDate('created_at', today())->count() + 1,
+            4,
+            '0',
+            STR_PAD_LEFT
+        );
+
+        // Create income transaction (without updating balance)
+        $transaction = Transaction::create([
+            'transaction_number' => $transactionNumber,
+            'account_id' => $accountId,
+            'type' => 'income',
+            'income_category_id' => $incomeCategory->id,
+            'amount' => $amount,
+            'transaction_date' => $date,
+            'payment_method' => $paymentMethod,
+            'reference_number' => $referenceNumber,
+            'description' => $description,
+            'created_by' => auth()->id(),
+        ]);
+
+        // Note: Balance should be updated by caller after all transactions
+        // to avoid multiple increments
+
+        return $transaction;
+    }
+
+    /**
      * Create an accounting income transaction for fee collection
      *
      * @param int $accountId
@@ -40,7 +103,7 @@ trait CreatesAccountingTransactions
 
         // Generate transaction number
         $transactionNumber = 'TRX-' . date('Ymd') . '-' . str_pad(
-            Transaction::whereDate('created_at', today())->count() + 1,
+            Transaction::withTrashed()->whereDate('created_at', today())->count() + 1,
             4,
             '0',
             STR_PAD_LEFT
@@ -155,6 +218,68 @@ trait CreatesAccountingTransactions
 
         // Update account balance (debit - expense)
         Account::find($accountId)->decrement('current_balance', $amount);
+
+        return $transaction;
+    }
+
+    /**
+     * Create an accounting income transaction
+     *
+     * @param int $accountId
+     * @param float $amount
+     * @param string $date
+     * @param string $paymentMethod
+     * @param string $referenceNumber
+     * @param string $description
+     * @param int|null $incomeCategoryId
+     * @return Transaction
+     */
+    public function createIncomeTransaction(
+        int $accountId,
+        float $amount,
+        string $date,
+        string $paymentMethod,
+        string $referenceNumber,
+        string $description,
+        ?int $incomeCategoryId = null
+    ): Transaction {
+        // If no income category provided, get or create generic "Other Income" category
+        if (!$incomeCategoryId) {
+            $incomeCategory = IncomeCategory::firstOrCreate(
+                ['code' => 'OTHER_INCOME'],
+                [
+                    'name' => 'Other Income',
+                    'description' => 'Miscellaneous income',
+                    'status' => 'active',
+                ]
+            );
+            $incomeCategoryId = $incomeCategory->id;
+        }
+
+        // Generate transaction number
+        $transactionNumber = 'TRX-' . date('Ymd') . '-' . str_pad(
+            Transaction::whereDate('created_at', today())->count() + 1,
+            4,
+            '0',
+            STR_PAD_LEFT
+        );
+
+        // Create income transaction
+        $transaction = Transaction::create([
+            'transaction_number' => $transactionNumber,
+            'account_id' => $accountId,
+            'type' => 'income',
+            'income_category_id' => $incomeCategoryId,
+            'amount' => $amount,
+            'transaction_date' => $date,
+            'payment_method' => $paymentMethod,
+            'reference_number' => $referenceNumber,
+            'description' => $description,
+            'created_by' => auth()->id(),
+        ]);
+
+        // Update account balance (credit - income)
+        Account::find($accountId)->increment('current_balance', $amount);
 
         return $transaction;
     }

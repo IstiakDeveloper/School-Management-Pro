@@ -7,93 +7,88 @@ import { Printer } from 'lucide-react';
 interface Account {
     id: number;
     account_name: string;
+    account_type: string;
 }
 
 interface DailyData {
     date: string;
-    date_formatted: string;
-    credit: {
-        fund_in: number;
-        student_fee: number;
-        other_credit: number;
-        total: number;
-    };
-    debit: {
-        fund_out: number;
-        salary: number;
-        fixed_asset: number;
-        other_expense: number;
-        total: number;
-    };
+    credits: Record<string, number>;
+    total_credit: number;
+    debits: Record<string, number>;
+    total_debit: number;
     balance: number;
 }
 
-interface MonthlyTotals {
-    credit: {
-        fund_in: number;
-        student_fee: number;
-        other_credit: number;
-        total: number;
-    };
-    debit: {
-        fund_out: number;
-        salary: number;
-        fixed_asset: number;
-        other_expense: number;
-        total: number;
-    };
-}
-
 interface BankReportProps {
-    reportData: DailyData[];
-    monthlyTotals: MonthlyTotals;
+    dailyData: DailyData[];
     openingBalance: number;
     closingBalance: number;
+    grandTotalCredit: number;
+    grandTotalDebit: number;
+    creditTotals: Record<string, number>;
+    debitTotals: Record<string, number>;
+    creditCategories: string[];
+    debitCategories: string[];
     filters: {
-        month: string;
-        account_id?: number;
+        start_date: string;
+        end_date: string;
     };
     accounts: Account[];
 }
 
 export default function BankReport({
-    reportData,
-    monthlyTotals,
+    dailyData,
     openingBalance,
     closingBalance,
+    grandTotalCredit,
+    grandTotalDebit,
+    creditTotals,
+    debitTotals,
+    creditCategories,
+    debitCategories,
     filters,
-    accounts,
 }: BankReportProps) {
-    const [month, setMonth] = useState(filters?.month || '');
-    const [accountId, setAccountId] = useState(filters?.account_id || '');
+    const [startDate, setStartDate] = useState(filters?.start_date || '');
+    const [endDate, setEndDate] = useState(filters?.end_date || '');
 
     const handleFilter = () => {
         router.get('/accounting/reports/bank-report',
-            { month, account_id: accountId },
+            { start_date: startDate, end_date: endDate },
             { preserveState: true }
         );
     };
 
     const handleReset = () => {
-        setMonth('');
-        setAccountId('');
+        setStartDate('');
+        setEndDate('');
         router.get('/accounting/reports/bank-report');
     };
 
     const formatCurrency = (amount: number) => {
+        const num = Number(amount) || 0;
         return new Intl.NumberFormat('en-US', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
-        }).format(amount);
+        }).format(num);
+    };
+
+    const formatDate = (dateStr: string) => {
+        return new Date(dateStr).toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'numeric',
+            year: 'numeric',
+        });
     };
 
     const handlePrint = () => {
         window.print();
     };
 
-    const selectedAccount = accounts.find(a => a.id == accountId);
-    const monthDate = filters.month ? new Date(filters.month + '-01') : new Date();
-    const monthYear = monthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const dateRange = `${new Date(filters.start_date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })} to ${new Date(filters.end_date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+
+    // Calculate total columns
+    const totalCreditCols = creditCategories.length + 1; // +1 for Total
+    const totalDebitCols = debitCategories.length + 1; // +1 for Total
 
     return (
         <AuthenticatedLayout>
@@ -107,7 +102,7 @@ export default function BankReport({
                             <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
                                 Bank Report
                             </h1>
-                            <p className="text-gray-600 mt-1">Monthly bank transaction report</p>
+                            <p className="text-gray-600 mt-1">Category-wise daily credit and debit summary</p>
                         </div>
                         <div className="flex gap-2">
                             <Button
@@ -123,262 +118,371 @@ export default function BankReport({
 
                 {/* Filters */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                Month
+                                Start Date
                             </label>
                             <input
-                                type="month"
-                                value={month}
-                                onChange={(e) => setMonth(e.target.value)}
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
                             />
                         </div>
 
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                Account
+                                End Date
                             </label>
-                            <select
-                                value={accountId}
-                                onChange={(e) => setAccountId(e.target.value)}
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                            >
-                                <option value="">All Accounts</option>
-                                {accounts.map((account) => (
-                                    <option key={account.id} value={account.id}>
-                                        {account.account_name}
-                                    </option>
-                                ))}
-                            </select>
+                            />
                         </div>
 
-                        <div className="flex items-end gap-2">
-                            <Button onClick={handleFilter} className="bg-blue-600 text-white hover:bg-blue-700 flex-1">
+                        <div className="flex items-end gap-2 md:col-span-2">
+                            <Button onClick={handleFilter} className="bg-blue-600 text-white hover:bg-blue-700">
                                 Apply Filter
                             </Button>
-                            <Button onClick={handleReset} className="bg-gray-500 text-white hover:bg-gray-600 flex-1">
+                            <Button onClick={handleReset} className="bg-gray-500 text-white hover:bg-gray-600">
                                 Reset
                             </Button>
                         </div>
                     </div>
                 </div>
 
-                {/* Screen Report Container */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    {accountId && (
-                        <div className="mb-4">
-                            <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
-                                <div className="flex justify-between items-center">
-                                    <span className="text-sm font-bold text-gray-900 uppercase">Opening Balance:</span>
-                                    <span className="text-lg font-bold text-blue-900">৳ {formatCurrency(openingBalance)}</span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="overflow-x-auto">
-                        <table className="w-full border-collapse excel-table">
-                            <thead>
-                                <tr className="bg-gray-800 text-white">
-                                    <th rowSpan={2} className="border-2 border-gray-900 px-3 py-3 text-center font-bold text-sm uppercase whitespace-nowrap w-32">
-                                        Date
-                                    </th>
-                                    <th colSpan={4} className="border-2 border-gray-900 px-3 py-3 text-center font-bold text-sm uppercase bg-green-700">
-                                        Credit (৳)
-                                    </th>
-                                    <th colSpan={5} className="border-2 border-gray-900 px-3 py-3 text-center font-bold text-sm uppercase bg-red-700">
-                                        Debit (৳)
-                                    </th>
-                                    <th rowSpan={2} className="border-2 border-gray-900 px-3 py-3 text-center font-bold text-sm uppercase bg-blue-800 whitespace-nowrap w-32">
-                                        Balance (৳)
-                                    </th>
-                                </tr>
-                                <tr className="bg-gray-700 text-white">
-                                    <th className="border-2 border-gray-900 px-3 py-2 text-center font-semibold text-xs uppercase bg-green-600 whitespace-nowrap">Fund In</th>
-                                    <th className="border-2 border-gray-900 px-3 py-2 text-center font-semibold text-xs uppercase bg-green-600 whitespace-nowrap">Student Fee</th>
-                                    <th className="border-2 border-gray-900 px-3 py-2 text-center font-semibold text-xs uppercase bg-green-600 whitespace-nowrap">Other Credit</th>
-                                    <th className="border-2 border-gray-900 px-3 py-2 text-center font-semibold text-xs uppercase bg-green-800 whitespace-nowrap">Total Credit</th>
-                                    <th className="border-2 border-gray-900 px-3 py-2 text-center font-semibold text-xs uppercase bg-red-600 whitespace-nowrap">Fund Out</th>
-                                    <th className="border-2 border-gray-900 px-3 py-2 text-center font-semibold text-xs uppercase bg-red-600 whitespace-nowrap">Salary</th>
-                                    <th className="border-2 border-gray-900 px-3 py-2 text-center font-semibold text-xs uppercase bg-red-600 whitespace-nowrap">Fixed Asset</th>
-                                    <th className="border-2 border-gray-900 px-3 py-2 text-center font-semibold text-xs uppercase bg-red-600 whitespace-nowrap">Other Expense</th>
-                                    <th className="border-2 border-gray-900 px-3 py-2 text-center font-semibold text-xs uppercase bg-red-800 whitespace-nowrap">Total Debit</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {reportData.map((day, index) => (
-                                    <tr key={day.date} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                                        <td className="border border-gray-900 px-3 py-2 text-xs font-semibold text-gray-900 whitespace-nowrap">{day.date_formatted}</td>
-                                        <td className="border border-gray-900 px-3 py-2 text-xs text-right font-mono text-gray-900">{day.credit.fund_in > 0 ? formatCurrency(day.credit.fund_in) : '-'}</td>
-                                        <td className="border border-gray-900 px-3 py-2 text-xs text-right font-mono text-gray-900">{day.credit.student_fee > 0 ? formatCurrency(day.credit.student_fee) : '-'}</td>
-                                        <td className="border border-gray-900 px-3 py-2 text-xs text-right font-mono text-gray-900">{day.credit.other_credit > 0 ? formatCurrency(day.credit.other_credit) : '-'}</td>
-                                        <td className="border-2 border-gray-900 px-3 py-2 text-xs text-right font-bold font-mono bg-green-50 text-green-900">{day.credit.total > 0 ? formatCurrency(day.credit.total) : '-'}</td>
-                                        <td className="border border-gray-900 px-3 py-2 text-xs text-right font-mono text-gray-900">{day.debit.fund_out > 0 ? formatCurrency(day.debit.fund_out) : '-'}</td>
-                                        <td className="border border-gray-900 px-3 py-2 text-xs text-right font-mono text-gray-900">{day.debit.salary > 0 ? formatCurrency(day.debit.salary) : '-'}</td>
-                                        <td className="border border-gray-900 px-3 py-2 text-xs text-right font-mono text-gray-900">{day.debit.fixed_asset > 0 ? formatCurrency(day.debit.fixed_asset) : '-'}</td>
-                                        <td className="border border-gray-900 px-3 py-2 text-xs text-right font-mono text-gray-900">{day.debit.other_expense > 0 ? formatCurrency(day.debit.other_expense) : '-'}</td>
-                                        <td className="border-2 border-gray-900 px-3 py-2 text-xs text-right font-bold font-mono bg-red-50 text-red-900">{day.debit.total > 0 ? formatCurrency(day.debit.total) : '-'}</td>
-                                        <td className="border-2 border-gray-900 px-3 py-2 text-xs text-right font-bold font-mono bg-blue-50 text-blue-900">{formatCurrency(day.balance)}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                            <tfoot>
-                                <tr className="bg-gray-900 text-white font-bold">
-                                    <td className="border-2 border-gray-900 px-3 py-3 text-xs uppercase text-center">Monthly Total</td>
-                                    <td className="border-2 border-gray-900 px-3 py-3 text-xs text-right font-mono">{formatCurrency(monthlyTotals.credit.fund_in)}</td>
-                                    <td className="border-2 border-gray-900 px-3 py-3 text-xs text-right font-mono">{formatCurrency(monthlyTotals.credit.student_fee)}</td>
-                                    <td className="border-2 border-gray-900 px-3 py-3 text-xs text-right font-mono">{formatCurrency(monthlyTotals.credit.other_credit)}</td>
-                                    <td className="border-2 border-gray-900 px-3 py-3 text-xs text-right font-mono bg-green-700">{formatCurrency(monthlyTotals.credit.total)}</td>
-                                    <td className="border-2 border-gray-900 px-3 py-3 text-xs text-right font-mono">{formatCurrency(monthlyTotals.debit.fund_out)}</td>
-                                    <td className="border-2 border-gray-900 px-3 py-3 text-xs text-right font-mono">{formatCurrency(monthlyTotals.debit.salary)}</td>
-                                    <td className="border-2 border-gray-900 px-3 py-3 text-xs text-right font-mono">{formatCurrency(monthlyTotals.debit.fixed_asset)}</td>
-                                    <td className="border-2 border-gray-900 px-3 py-3 text-xs text-right font-mono">{formatCurrency(monthlyTotals.debit.other_expense)}</td>
-                                    <td className="border-2 border-gray-900 px-3 py-3 text-xs text-right font-mono bg-red-700">{formatCurrency(monthlyTotals.debit.total)}</td>
-                                    <td className="border-2 border-gray-900 px-3 py-3 text-xs text-right font-mono bg-blue-700">{formatCurrency(closingBalance)}</td>
-                                </tr>
-                            </tfoot>
-                        </table>
+                {/* Report Table */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                    {/* Header Info */}
+                    <div className="text-center mb-4 pb-3 border-b-2 border-gray-300">
+                        <h2 className="text-xl font-bold mb-1 text-gray-800">BANK REPORT</h2>
+                        <p className="text-sm font-semibold text-gray-600">For the period: {dateRange}</p>
                     </div>
 
-                    {accountId && (
-                        <div className="mt-4">
-                            <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4">
-                                <div className="flex justify-between items-center">
-                                    <span className="text-sm font-bold text-gray-900 uppercase">Closing Balance:</span>
-                                    <span className="text-lg font-bold text-green-900">৳ {formatCurrency(closingBalance)}</span>
-                                </div>
-                            </div>
+                    {/* Main Table - Fixed layout, no scroll */}
+                    <table className="w-full border-collapse border border-gray-400 table-fixed" style={{ fontSize: '10px' }}>
+                        <thead>
+                            {/* First header row - grouped headers */}
+                            <tr>
+                                <th rowSpan={2} className="border border-gray-400 p-1 text-center font-semibold bg-gray-100" style={{ width: '60px' }}>
+                                    Date
+                                </th>
+                                <th colSpan={totalCreditCols} className="border border-gray-400 p-1 text-center font-semibold bg-green-100">
+                                    Credit
+                                </th>
+                                <th colSpan={totalDebitCols} className="border border-gray-400 p-1 text-center font-semibold bg-red-100">
+                                    Debit
+                                </th>
+                                <th rowSpan={2} className="border border-gray-400 p-1 text-center font-semibold bg-blue-100" style={{ width: '70px' }}>
+                                    Balance
+                                </th>
+                            </tr>
+                            {/* Second header row - category names with wrapping */}
+                            <tr>
+                                {/* Credit category headers */}
+                                {creditCategories.map((cat) => (
+                                    <th
+                                        key={`credit-${cat}`}
+                                        className="border border-gray-400 p-1 text-center font-medium bg-green-50"
+                                        style={{ fontSize: '8px', lineHeight: '1.2' }}
+                                    >
+                                        {cat}
+                                    </th>
+                                ))}
+                                <th className="border border-gray-400 p-1 text-center font-semibold bg-green-200" style={{ width: '55px', fontSize: '9px' }}>
+                                    Total
+                                </th>
+
+                                {/* Debit category headers */}
+                                {debitCategories.map((cat) => (
+                                    <th
+                                        key={`debit-${cat}`}
+                                        className="border border-gray-400 p-1 text-center font-medium bg-red-50"
+                                        style={{ fontSize: '8px', lineHeight: '1.2' }}
+                                    >
+                                        {cat}
+                                    </th>
+                                ))}
+                                <th className="border border-gray-400 p-1 text-center font-semibold bg-red-200" style={{ width: '55px', fontSize: '9px' }}>
+                                    Total
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {/* Opening Balance Row */}
+                            <tr className="bg-gray-50">
+                                <td className="border border-gray-400 p-1 font-semibold text-center" style={{ fontSize: '9px' }}>
+                                    Opening
+                                </td>
+                                {/* Empty credit columns */}
+                                {creditCategories.map((cat) => (
+                                    <td key={`open-credit-${cat}`} className="border border-gray-400 p-1 text-center text-gray-400">-</td>
+                                ))}
+                                <td className="border border-gray-400 p-1 text-center text-gray-400">-</td>
+                                {/* Empty debit columns */}
+                                {debitCategories.map((cat) => (
+                                    <td key={`open-debit-${cat}`} className="border border-gray-400 p-1 text-center text-gray-400">-</td>
+                                ))}
+                                <td className="border border-gray-400 p-1 text-center text-gray-400">-</td>
+                                {/* Opening Balance */}
+                                <td className="border border-gray-400 p-1 text-right font-semibold bg-blue-50">
+                                    {formatCurrency(openingBalance)}
+                                </td>
+                            </tr>
+
+                            {/* Daily Data Rows */}
+                            {dailyData.length > 0 ? (
+                                dailyData.map((row, index) => (
+                                    <tr key={index} className="hover:bg-gray-50">
+                                        <td className="border border-gray-400 p-1 text-center">
+                                            {formatDate(row.date)}
+                                        </td>
+                                        {/* Credit columns */}
+                                        {creditCategories.map((cat) => (
+                                            <td key={`row-credit-${cat}`} className="border border-gray-400 p-1 text-right bg-green-50">
+                                                {row.credits[cat] > 0 ? formatCurrency(row.credits[cat]) : '-'}
+                                            </td>
+                                        ))}
+                                        <td className="border border-gray-400 p-1 text-right font-medium bg-green-100 text-green-800">
+                                            {row.total_credit > 0 ? formatCurrency(row.total_credit) : '-'}
+                                        </td>
+                                        {/* Debit columns */}
+                                        {debitCategories.map((cat) => (
+                                            <td key={`row-debit-${cat}`} className="border border-gray-400 p-1 text-right bg-red-50">
+                                                {row.debits[cat] > 0 ? formatCurrency(row.debits[cat]) : '-'}
+                                            </td>
+                                        ))}
+                                        <td className="border border-gray-400 p-1 text-right font-medium bg-red-100 text-red-800">
+                                            {row.total_debit > 0 ? formatCurrency(row.total_debit) : '-'}
+                                        </td>
+                                        {/* Balance */}
+                                        <td className="border border-gray-400 p-1 text-right font-medium bg-blue-50">
+                                            {formatCurrency(row.balance)}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={1 + totalCreditCols + totalDebitCols + 1} className="border border-gray-400 p-3 text-center text-gray-500">
+                                        No transactions found for the selected period
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                        <tfoot>
+                            {/* Total Row */}
+                            <tr className="bg-gray-100 font-bold">
+                                <td className="border border-gray-400 p-1 text-center" style={{ fontSize: '9px' }}>
+                                    TOTAL
+                                </td>
+                                {/* Credit totals by category */}
+                                {creditCategories.map((cat) => (
+                                    <td key={`total-credit-${cat}`} className="border border-gray-400 p-1 text-right bg-green-100">
+                                        {creditTotals[cat] > 0 ? formatCurrency(creditTotals[cat]) : '-'}
+                                    </td>
+                                ))}
+                                <td className="border border-gray-400 p-1 text-right bg-green-200 text-green-900">
+                                    {formatCurrency(grandTotalCredit)}
+                                </td>
+                                {/* Debit totals by category */}
+                                {debitCategories.map((cat) => (
+                                    <td key={`total-debit-${cat}`} className="border border-gray-400 p-1 text-right bg-red-100">
+                                        {debitTotals[cat] > 0 ? formatCurrency(debitTotals[cat]) : '-'}
+                                    </td>
+                                ))}
+                                <td className="border border-gray-400 p-1 text-right bg-red-200 text-red-900">
+                                    {formatCurrency(grandTotalDebit)}
+                                </td>
+                                {/* Closing Balance */}
+                                <td className="border border-gray-400 p-1 text-right bg-blue-200">
+                                    {formatCurrency(closingBalance)}
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+
+                    {/* Summary Cards */}
+                    <div className="mt-4 grid grid-cols-4 gap-3">
+                        <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                            <p className="text-gray-600 text-xs mb-1">Opening Balance</p>
+                            <p className="text-lg font-bold text-green-600">৳ {formatCurrency(openingBalance)}</p>
                         </div>
-                    )}
+                        <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                            <p className="text-gray-600 text-xs mb-1">Total Credit</p>
+                            <p className="text-lg font-bold text-green-600">৳ {formatCurrency(grandTotalCredit)}</p>
+                        </div>
+                        <div className="bg-red-50 p-3 rounded-lg border border-red-200">
+                            <p className="text-gray-600 text-xs mb-1">Total Debit</p>
+                            <p className="text-lg font-bold text-red-600">৳ {formatCurrency(grandTotalDebit)}</p>
+                        </div>
+                        <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                            <p className="text-gray-600 text-xs mb-1">Closing Balance</p>
+                            <p className="text-lg font-bold text-blue-600">৳ {formatCurrency(closingBalance)}</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {/* Print View - Completely Separate */}
+            {/* Print View */}
             <div className="hidden print:block print-container">
-                {/* Professional Header */}
-                <div className="text-center mb-3 pb-2 border-b-2 border-gray-800">
-                    <h1 className="text-xl font-bold text-gray-900 mb-1">School Management Pro</h1>
-                    <h2 className="text-lg font-bold text-gray-800 mb-1">BANK REPORT</h2>
-                    <p className="text-sm font-semibold text-gray-700">Month: {monthYear}</p>
-                    {selectedAccount && (
-                        <p className="text-xs text-gray-600 mt-0.5">Account: {selectedAccount.account_name}</p>
-                    )}
+                {/* Header */}
+                <div className="text-center mb-3 pb-2 border-b-2 border-black">
+                    <h1 className="text-base font-bold mb-1">School Management Pro</h1>
+                    <h2 className="text-sm font-bold mb-1">BANK REPORT</h2>
+                    <p style={{ fontSize: '9px' }} className="font-semibold">For the period: {dateRange}</p>
                 </div>
 
-                {/* Opening Balance */}
-                {accountId && (
-                    <div className="mb-2">
-                        <table className="w-full border-2 border-black">
-                            <tbody>
-                                <tr>
-                                    <td className="border border-black px-2 py-1 font-bold text-xs bg-gray-100">Opening Balance:</td>
-                                    <td className="border border-black px-2 py-1 text-right font-bold text-xs">৳ {formatCurrency(openingBalance)}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-
-                {/* Main Report Table */}
-                <table className="w-full border-collapse border-2 border-black print-table">
+                {/* Main Table - Print Style */}
+                <table className="w-full border-collapse border border-black table-fixed" style={{ fontSize: '6px' }}>
                     <thead>
-                        <tr className="bg-gray-800 text-white">
-                            <th rowSpan={2} className="border-2 border-black px-1 py-1.5 text-center font-bold" style={{fontSize: '8px', width: '70px'}}>Date</th>
-                            <th colSpan={4} className="border-2 border-black px-1 py-1.5 text-center font-bold bg-green-700" style={{fontSize: '8px'}}>Credit (৳)</th>
-                            <th colSpan={5} className="border-2 border-black px-1 py-1.5 text-center font-bold bg-red-700" style={{fontSize: '8px'}}>Debit (৳)</th>
-                            <th rowSpan={2} className="border-2 border-black px-1 py-1.5 text-center font-bold bg-blue-800" style={{fontSize: '8px', width: '80px'}}>Balance (৳)</th>
+                        {/* First header row - grouped headers */}
+                        <tr>
+                            <th rowSpan={2} className="border border-black p-0.5 text-center font-semibold bg-gray-100" style={{ width: '45px' }}>
+                                Date
+                            </th>
+                            <th colSpan={totalCreditCols} className="border border-black p-0.5 text-center font-semibold bg-green-100">
+                                Credit
+                            </th>
+                            <th colSpan={totalDebitCols} className="border border-black p-0.5 text-center font-semibold bg-red-100">
+                                Debit
+                            </th>
+                            <th rowSpan={2} className="border border-black p-0.5 text-center font-semibold bg-blue-100" style={{ width: '50px' }}>
+                                Balance
+                            </th>
                         </tr>
-                        <tr className="bg-gray-700 text-white">
-                            <th className="border-2 border-black px-1 py-1 text-center bg-green-600" style={{fontSize: '7px'}}>Fund In</th>
-                            <th className="border-2 border-black px-1 py-1 text-center bg-green-600" style={{fontSize: '7px'}}>Student Fee</th>
-                            <th className="border-2 border-black px-1 py-1 text-center bg-green-600" style={{fontSize: '7px'}}>Other Credit</th>
-                            <th className="border-2 border-black px-1 py-1 text-center bg-green-800" style={{fontSize: '7px'}}>Total</th>
-                            <th className="border-2 border-black px-1 py-1 text-center bg-red-600" style={{fontSize: '7px'}}>Fund Out</th>
-                            <th className="border-2 border-black px-1 py-1 text-center bg-red-600" style={{fontSize: '7px'}}>Salary</th>
-                            <th className="border-2 border-black px-1 py-1 text-center bg-red-600" style={{fontSize: '7px'}}>Fixed Asset</th>
-                            <th className="border-2 border-black px-1 py-1 text-center bg-red-600" style={{fontSize: '7px'}}>Other Expense</th>
-                            <th className="border-2 border-black px-1 py-1 text-center bg-red-800" style={{fontSize: '7px'}}>Total</th>
+                        {/* Second header row - category names */}
+                        <tr>
+                            {/* Credit category headers */}
+                            {creditCategories.map((cat) => (
+                                <th
+                                    key={`print-credit-${cat}`}
+                                    className="border border-black p-0.5 text-center font-medium bg-green-50"
+                                    style={{ fontSize: '5px', lineHeight: '1.1' }}
+                                >
+                                    {cat}
+                                </th>
+                            ))}
+                            <th className="border border-black p-0.5 text-center font-semibold bg-green-200" style={{ width: '40px', fontSize: '5px' }}>
+                                Total
+                            </th>
+
+                            {/* Debit category headers */}
+                            {debitCategories.map((cat) => (
+                                <th
+                                    key={`print-debit-${cat}`}
+                                    className="border border-black p-0.5 text-center font-medium bg-red-50"
+                                    style={{ fontSize: '5px', lineHeight: '1.1' }}
+                                >
+                                    {cat}
+                                </th>
+                            ))}
+                            <th className="border border-black p-0.5 text-center font-semibold bg-red-200" style={{ width: '40px', fontSize: '5px' }}>
+                                Total
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
-                        {reportData.map((day, index) => {
-                            const hasTransaction = day.credit.total > 0 || day.debit.total > 0;
-                            const rowClass = hasTransaction
-                                ? 'bg-yellow-50'
-                                : (index % 2 === 0 ? 'bg-white' : 'bg-gray-50');
-                            return (
-                            <tr key={day.date} className={rowClass}>
-                                <td className="border border-black px-1 py-0.5 font-semibold" style={{fontSize: '7px'}}>{day.date_formatted}</td>
-                                <td className="border border-black px-1 py-0.5 text-right font-mono" style={{fontSize: '7px'}}>{day.credit.fund_in > 0 ? formatCurrency(day.credit.fund_in) : '-'}</td>
-                                <td className="border border-black px-1 py-0.5 text-right font-mono" style={{fontSize: '7px'}}>{day.credit.student_fee > 0 ? formatCurrency(day.credit.student_fee) : '-'}</td>
-                                <td className="border border-black px-1 py-0.5 text-right font-mono" style={{fontSize: '7px'}}>{day.credit.other_credit > 0 ? formatCurrency(day.credit.other_credit) : '-'}</td>
-                                <td className="border-2 border-black px-1 py-0.5 text-right font-bold font-mono bg-green-50" style={{fontSize: '7px'}}>{day.credit.total > 0 ? formatCurrency(day.credit.total) : '-'}</td>
-                                <td className="border border-black px-1 py-0.5 text-right font-mono" style={{fontSize: '7px'}}>{day.debit.fund_out > 0 ? formatCurrency(day.debit.fund_out) : '-'}</td>
-                                <td className="border border-black px-1 py-0.5 text-right font-mono" style={{fontSize: '7px'}}>{day.debit.salary > 0 ? formatCurrency(day.debit.salary) : '-'}</td>
-                                <td className="border border-black px-1 py-0.5 text-right font-mono" style={{fontSize: '7px'}}>{day.debit.fixed_asset > 0 ? formatCurrency(day.debit.fixed_asset) : '-'}</td>
-                                <td className="border border-black px-1 py-0.5 text-right font-mono" style={{fontSize: '7px'}}>{day.debit.other_expense > 0 ? formatCurrency(day.debit.other_expense) : '-'}</td>
-                                <td className="border-2 border-black px-1 py-0.5 text-right font-bold font-mono bg-red-50" style={{fontSize: '7px'}}>{day.debit.total > 0 ? formatCurrency(day.debit.total) : '-'}</td>
-                                <td className="border-2 border-black px-1 py-0.5 text-right font-bold font-mono bg-blue-50" style={{fontSize: '7px'}}>{formatCurrency(day.balance)}</td>
+                        {/* Opening Balance Row */}
+                        <tr className="bg-gray-100">
+                            <td className="border border-black p-0.5 font-semibold text-center" style={{ fontSize: '5px' }}>
+                                Opening
+                            </td>
+                            {creditCategories.map((cat) => (
+                                <td key={`print-open-credit-${cat}`} className="border border-black p-0.5 text-center">-</td>
+                            ))}
+                            <td className="border border-black p-0.5 text-center">-</td>
+                            {debitCategories.map((cat) => (
+                                <td key={`print-open-debit-${cat}`} className="border border-black p-0.5 text-center">-</td>
+                            ))}
+                            <td className="border border-black p-0.5 text-center">-</td>
+                            <td className="border border-black p-0.5 text-right font-semibold">
+                                {formatCurrency(openingBalance)}
+                            </td>
+                        </tr>
+
+                        {/* Daily Data Rows */}
+                        {dailyData.map((row, index) => (
+                            <tr key={index}>
+                                <td className="border border-black p-0.5 text-center" style={{ fontSize: '5px' }}>
+                                    {formatDate(row.date)}
+                                </td>
+                                {creditCategories.map((cat) => (
+                                    <td key={`print-row-credit-${cat}`} className="border border-black p-0.5 text-right">
+                                        {row.credits[cat] > 0 ? formatCurrency(row.credits[cat]) : '-'}
+                                    </td>
+                                ))}
+                                <td className="border border-black p-0.5 text-right font-medium">
+                                    {row.total_credit > 0 ? formatCurrency(row.total_credit) : '-'}
+                                </td>
+                                {debitCategories.map((cat) => (
+                                    <td key={`print-row-debit-${cat}`} className="border border-black p-0.5 text-right">
+                                        {row.debits[cat] > 0 ? formatCurrency(row.debits[cat]) : '-'}
+                                    </td>
+                                ))}
+                                <td className="border border-black p-0.5 text-right font-medium">
+                                    {row.total_debit > 0 ? formatCurrency(row.total_debit) : '-'}
+                                </td>
+                                <td className="border border-black p-0.5 text-right font-medium">
+                                    {formatCurrency(row.balance)}
+                                </td>
                             </tr>
-                            );
-                        })}
+                        ))}
                     </tbody>
                     <tfoot>
-                        <tr className="bg-gray-900 text-white font-bold">
-                            <td className="border-2 border-black px-1 py-1 text-center" style={{fontSize: '8px'}}>TOTAL</td>
-                            <td className="border-2 border-black px-1 py-1 text-right font-mono" style={{fontSize: '8px'}}>{formatCurrency(monthlyTotals.credit.fund_in)}</td>
-                            <td className="border-2 border-black px-1 py-1 text-right font-mono" style={{fontSize: '8px'}}>{formatCurrency(monthlyTotals.credit.student_fee)}</td>
-                            <td className="border-2 border-black px-1 py-1 text-right font-mono" style={{fontSize: '8px'}}>{formatCurrency(monthlyTotals.credit.other_credit)}</td>
-                            <td className="border-2 border-black px-1 py-1 text-right font-mono bg-green-700" style={{fontSize: '8px'}}>{formatCurrency(monthlyTotals.credit.total)}</td>
-                            <td className="border-2 border-black px-1 py-1 text-right font-mono" style={{fontSize: '8px'}}>{formatCurrency(monthlyTotals.debit.fund_out)}</td>
-                            <td className="border-2 border-black px-1 py-1 text-right font-mono" style={{fontSize: '8px'}}>{formatCurrency(monthlyTotals.debit.salary)}</td>
-                            <td className="border-2 border-black px-1 py-1 text-right font-mono" style={{fontSize: '8px'}}>{formatCurrency(monthlyTotals.debit.fixed_asset)}</td>
-                            <td className="border-2 border-black px-1 py-1 text-right font-mono" style={{fontSize: '8px'}}>{formatCurrency(monthlyTotals.debit.other_expense)}</td>
-                            <td className="border-2 border-black px-1 py-1 text-right font-mono bg-red-700" style={{fontSize: '8px'}}>{formatCurrency(monthlyTotals.debit.total)}</td>
-                            <td className="border-2 border-black px-1 py-1 text-right font-mono bg-blue-700" style={{fontSize: '8px'}}>{formatCurrency(closingBalance)}</td>
+                        {/* Total Row */}
+                        <tr className="bg-gray-100">
+                            <td className="border border-black p-0.5 text-center font-bold" style={{ fontSize: '5px' }}>
+                                TOTAL
+                            </td>
+                            {creditCategories.map((cat) => (
+                                <td key={`print-total-credit-${cat}`} className="border border-black p-0.5 text-right font-bold">
+                                    {creditTotals[cat] > 0 ? formatCurrency(creditTotals[cat]) : '-'}
+                                </td>
+                            ))}
+                            <td className="border border-black p-0.5 text-right font-bold">
+                                {formatCurrency(grandTotalCredit)}
+                            </td>
+                            {debitCategories.map((cat) => (
+                                <td key={`print-total-debit-${cat}`} className="border border-black p-0.5 text-right font-bold">
+                                    {debitTotals[cat] > 0 ? formatCurrency(debitTotals[cat]) : '-'}
+                                </td>
+                            ))}
+                            <td className="border border-black p-0.5 text-right font-bold">
+                                {formatCurrency(grandTotalDebit)}
+                            </td>
+                            <td className="border border-black p-0.5 text-right font-bold">
+                                {formatCurrency(closingBalance)}
+                            </td>
                         </tr>
                     </tfoot>
                 </table>
 
-                {/* Closing Balance */}
-                {accountId && (
-                    <div className="mt-2">
-                        <table className="w-full border-2 border-black">
-                            <tbody>
-                                <tr>
-                                    <td className="border border-black px-2 py-1 font-bold text-xs bg-gray-100">Closing Balance:</td>
-                                    <td className="border border-black px-2 py-1 text-right font-bold text-xs">৳ {formatCurrency(closingBalance)}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-
                 {/* Signature Section */}
-                <div className="mt-6 pt-4">
-                    <div className="grid grid-cols-3 gap-8">
+                <div className="mt-6">
+                    <div className="grid grid-cols-3 gap-12">
                         <div className="text-center">
                             <div className="border-t-2 border-black pt-1 mt-10">
-                                <p className="font-semibold" style={{fontSize: '8px'}}>Prepared By</p>
+                                <p className="font-semibold" style={{ fontSize: '7px' }}>Prepared By</p>
                             </div>
                         </div>
                         <div className="text-center">
                             <div className="border-t-2 border-black pt-1 mt-10">
-                                <p className="font-semibold" style={{fontSize: '8px'}}>Checked By</p>
+                                <p className="font-semibold" style={{ fontSize: '7px' }}>Checked By</p>
                             </div>
                         </div>
                         <div className="text-center">
                             <div className="border-t-2 border-black pt-1 mt-10">
-                                <p className="font-semibold" style={{fontSize: '8px'}}>Approved By</p>
+                                <p className="font-semibold" style={{ fontSize: '7px' }}>Approved By</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Footer */}
-                <div className="text-center mt-4 text-gray-600" style={{fontSize: '7px'}}>
+                <div className="text-center mt-4 text-gray-600" style={{ fontSize: '6px' }}>
                     <p>Printed on: {new Date().toLocaleString('en-US', {
                         year: 'numeric',
                         month: 'long',
@@ -389,12 +493,12 @@ export default function BankReport({
                 </div>
             </div>
 
-            {/* Professional Print Styles */}
+            {/* Print Styles */}
             <style>{`
                 @media print {
                     @page {
                         size: A4 landscape;
-                        margin: 10mm 8mm;
+                        margin: 6mm;
                     }
 
                     * {
@@ -432,53 +536,28 @@ export default function BankReport({
                     }
 
                     table {
-                        page-break-inside: auto;
-                        border-collapse: collapse;
+                        border-collapse: collapse !important;
                         width: 100%;
-                    }
-
-                    tr {
-                        page-break-inside: avoid;
-                        page-break-after: auto;
-                    }
-
-                    thead {
-                        display: table-header-group;
-                    }
-
-                    tfoot {
-                        display: table-footer-group;
+                        table-layout: fixed;
                     }
 
                     th, td {
-                        page-break-inside: avoid;
+                        border: 1px solid #000 !important;
+                        word-wrap: break-word;
+                        overflow-wrap: break-word;
                     }
 
-                    /* Ensure colors print */
-                    .bg-gray-800,
-                    .bg-gray-700,
-                    .bg-gray-900,
-                    .bg-green-700,
-                    .bg-green-600,
-                    .bg-green-800,
-                    .bg-red-700,
-                    .bg-red-600,
-                    .bg-red-800,
-                    .bg-blue-800,
-                    .bg-blue-700,
+                    .bg-green-100,
+                    .bg-green-200,
                     .bg-green-50,
+                    .bg-red-100,
+                    .bg-red-200,
                     .bg-red-50,
-                    .bg-blue-50,
-                    .bg-gray-50,
+                    .bg-blue-100,
                     .bg-gray-100 {
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                     }
-                }
-
-                .excel-table {
-                    border-spacing: 0;
-                    border-collapse: collapse;
                 }
             `}</style>
         </AuthenticatedLayout>

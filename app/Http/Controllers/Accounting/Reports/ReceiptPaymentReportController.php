@@ -20,13 +20,13 @@ class ReceiptPaymentReportController extends Controller
         $endDate = $request->end_date ? Carbon::parse($request->end_date) : now()->endOfMonth();
         $accountId = $request->account_id;
 
-        // Get opening balance (all transactions before start date)
-        $openingBalance = 0;
+        // Calculate Opening Balance
         if ($accountId) {
+            // Single account - calculate its opening balance
             $account = Account::find($accountId);
             $openingBalance = $account->opening_balance;
 
-            // Add all previous transactions
+            // Add all previous transactions before start date
             $previousTransactions = Transaction::where(function ($query) use ($accountId) {
                 $query->where('account_id', $accountId)
                     ->orWhere('transfer_to_account_id', $accountId);
@@ -38,7 +38,7 @@ class ReceiptPaymentReportController extends Controller
                 if ($trans->account_id == $accountId) {
                     if ($trans->type === 'income') {
                         $openingBalance += $trans->amount;
-                    } elseif ($trans->type === 'expense' || $trans->type === 'transfer') {
+                    } elseif ($trans->type === 'expense' || $trans->type === 'transfer' || $trans->type === 'asset_purchase') {
                         $openingBalance -= $trans->amount;
                     }
                 }
@@ -59,9 +59,55 @@ class ReceiptPaymentReportController extends Controller
                     $openingBalance -= $fundTrans->amount;
                 }
             }
+        } else {
+            // All accounts - sum all bank/cash account balances
+            $allAccounts = Account::where('status', 'active')
+                ->whereIn('account_type', ['bank', 'cash'])
+                ->get();
+
+            $openingBalance = 0;
+            foreach ($allAccounts as $acc) {
+                $accBalance = $acc->opening_balance;
+
+                // Add all previous transactions for this account
+                $prevTrans = Transaction::where(function ($query) use ($acc) {
+                    $query->where('account_id', $acc->id)
+                        ->orWhere('transfer_to_account_id', $acc->id);
+                })
+                ->where('transaction_date', '<', $startDate)
+                ->get();
+
+                foreach ($prevTrans as $trans) {
+                    if ($trans->account_id == $acc->id) {
+                        if ($trans->type === 'income') {
+                            $accBalance += $trans->amount;
+                        } elseif ($trans->type === 'expense' || $trans->type === 'transfer' || $trans->type === 'asset_purchase') {
+                            $accBalance -= $trans->amount;
+                        }
+                    }
+                    if ($trans->transfer_to_account_id == $acc->id && $trans->type === 'transfer') {
+                        $accBalance += $trans->amount;
+                    }
+                }
+
+                // Add fund transactions
+                $prevFundTrans = FundTransaction::where('account_id', $acc->id)
+                    ->where('transaction_date', '<', $startDate)
+                    ->get();
+
+                foreach ($prevFundTrans as $fundTrans) {
+                    if ($fundTrans->transaction_type === 'in') {
+                        $accBalance += $fundTrans->amount;
+                    } elseif ($fundTrans->transaction_type === 'out') {
+                        $accBalance -= $fundTrans->amount;
+                    }
+                }
+
+                $openingBalance += $accBalance;
+            }
         }
 
-        // Get transactions for the period
+        // Get transactions for the period (Month)
         $transactionsQuery = Transaction::with(['account', 'incomeCategory', 'expenseCategory', 'transferToAccount'])
             ->whereBetween('transaction_date', [$startDate, $endDate]);
 
@@ -72,138 +118,265 @@ class ReceiptPaymentReportController extends Controller
             });
         }
 
-        $transactions = $transactionsQuery->orderBy('transaction_date', 'asc')->get();
+        $monthTransactions = $transactionsQuery->get();
+
+        // Get cumulative transactions (from beginning to end date)
+        $cumulativeTransactionsQuery = Transaction::with(['account', 'incomeCategory', 'expenseCategory', 'transferToAccount'])
+            ->where('transaction_date', '<=', $endDate);
+
+        if ($accountId) {
+            $cumulativeTransactionsQuery->where(function ($query) use ($accountId) {
+                $query->where('account_id', $accountId)
+                    ->orWhere('transfer_to_account_id', $accountId);
+            });
+        }
+
+        $cumulativeTransactions = $cumulativeTransactionsQuery->get();
 
         // Get fund transactions for the period
-        $fundTransactionsQuery = FundTransaction::with(['fund', 'account'])
+        $fundTransactionsMonthQuery = FundTransaction::with(['fund', 'account'])
             ->whereBetween('transaction_date', [$startDate, $endDate]);
 
         if ($accountId) {
-            $fundTransactionsQuery->where('account_id', $accountId);
+            $fundTransactionsMonthQuery->where('account_id', $accountId);
         }
 
-        $fundTransactions = $fundTransactionsQuery->orderBy('transaction_date', 'asc')->get();
+        $monthFundTransactions = $fundTransactionsMonthQuery->get();
 
-        // Process Receipts (Credits/Income) - Grouped by category
+        // Get cumulative fund transactions
+        $fundTransactionsCumulativeQuery = FundTransaction::with(['fund', 'account'])
+            ->where('transaction_date', '<=', $endDate);
+
+        if ($accountId) {
+            $fundTransactionsCumulativeQuery->where('account_id', $accountId);
+        }
+
+        $cumulativeFundTransactions = $fundTransactionsCumulativeQuery->get();
+
+        // Process RECEIPTS with Month and Cumulative amounts
         $receiptsGrouped = [];
-        $totalReceipts = 0;
+        $totalMonthReceipts = 0;
+        $totalCumulativeReceipts = 0;
 
-        // Income from transactions - Group by category
-        foreach ($transactions as $trans) {
+        // Income - Month
+        foreach ($monthTransactions as $trans) {
             if ($trans->type === 'income' && (!$accountId || $trans->account_id == $accountId)) {
-                $categoryName = $trans->incomeCategory ? $trans->incomeCategory->name : 'Income';
-
+                $categoryName = $trans->incomeCategory ? $trans->incomeCategory->name : 'Other Income';
                 if (!isset($receiptsGrouped[$categoryName])) {
                     $receiptsGrouped[$categoryName] = [
                         'description' => $categoryName,
-                        'amount' => 0,
+                        'month_amount' => 0,
+                        'cumulative_amount' => 0,
                         'type' => 'income'
                     ];
                 }
-                $receiptsGrouped[$categoryName]['amount'] += $trans->amount;
-                $totalReceipts += $trans->amount;
+                $receiptsGrouped[$categoryName]['month_amount'] += $trans->amount;
+                $totalMonthReceipts += $trans->amount;
             }
 
-            // Transfer In - Group by account
+            // Transfer In - Month
             if ($trans->type === 'transfer' && $trans->transfer_to_account_id == $accountId) {
                 $key = 'Transfer In';
                 if (!isset($receiptsGrouped[$key])) {
                     $receiptsGrouped[$key] = [
                         'description' => $key,
-                        'amount' => 0,
+                        'month_amount' => 0,
+                        'cumulative_amount' => 0,
                         'type' => 'transfer_in'
                     ];
                 }
-                $receiptsGrouped[$key]['amount'] += $trans->amount;
-                $totalReceipts += $trans->amount;
+                $receiptsGrouped[$key]['month_amount'] += $trans->amount;
+                $totalMonthReceipts += $trans->amount;
             }
         }
 
-        // Fund In - Group all fund transactions
-        foreach ($fundTransactions as $fundTrans) {
-            if ($fundTrans->transaction_type === 'in') {
-                $key = 'Fund In - Fund received from: ' . ($fundTrans->fund ? $fundTrans->fund->name : 'Fund');
+        // Income - Cumulative
+        foreach ($cumulativeTransactions as $trans) {
+            if ($trans->type === 'income' && (!$accountId || $trans->account_id == $accountId)) {
+                $categoryName = $trans->incomeCategory ? $trans->incomeCategory->name : 'Other Income';
+                if (!isset($receiptsGrouped[$categoryName])) {
+                    $receiptsGrouped[$categoryName] = [
+                        'description' => $categoryName,
+                        'month_amount' => 0,
+                        'cumulative_amount' => 0,
+                        'type' => 'income'
+                    ];
+                }
+                $receiptsGrouped[$categoryName]['cumulative_amount'] += $trans->amount;
+                $totalCumulativeReceipts += $trans->amount;
+            }
 
+            // Transfer In - Cumulative
+            if ($trans->type === 'transfer' && $trans->transfer_to_account_id == $accountId) {
+                $key = 'Transfer In';
                 if (!isset($receiptsGrouped[$key])) {
                     $receiptsGrouped[$key] = [
                         'description' => $key,
-                        'amount' => 0,
-                        'type' => 'fund_in'
+                        'month_amount' => 0,
+                        'cumulative_amount' => 0,
+                        'type' => 'transfer_in'
                     ];
                 }
-                $receiptsGrouped[$key]['amount'] += $fundTrans->amount;
-                $totalReceipts += $fundTrans->amount;
+                $receiptsGrouped[$key]['cumulative_amount'] += $trans->amount;
+                $totalCumulativeReceipts += $trans->amount;
             }
         }
 
-        // Convert grouped data to array
+        // Fund In - Month
+        foreach ($monthFundTransactions as $fundTrans) {
+            if ($fundTrans->transaction_type === 'in') {
+                $key = 'Fund In - ' . ($fundTrans->fund ? $fundTrans->fund->name : 'Fund');
+                if (!isset($receiptsGrouped[$key])) {
+                    $receiptsGrouped[$key] = [
+                        'description' => $key,
+                        'month_amount' => 0,
+                        'cumulative_amount' => 0,
+                        'type' => 'fund_in'
+                    ];
+                }
+                $receiptsGrouped[$key]['month_amount'] += $fundTrans->amount;
+                $totalMonthReceipts += $fundTrans->amount;
+            }
+        }
+
+        // Fund In - Cumulative
+        foreach ($cumulativeFundTransactions as $fundTrans) {
+            if ($fundTrans->transaction_type === 'in') {
+                $key = 'Fund In - ' . ($fundTrans->fund ? $fundTrans->fund->name : 'Fund');
+                if (!isset($receiptsGrouped[$key])) {
+                    $receiptsGrouped[$key] = [
+                        'description' => $key,
+                        'month_amount' => 0,
+                        'cumulative_amount' => 0,
+                        'type' => 'fund_in'
+                    ];
+                }
+                $receiptsGrouped[$key]['cumulative_amount'] += $fundTrans->amount;
+                $totalCumulativeReceipts += $fundTrans->amount;
+            }
+        }
+
         $receipts = array_values($receiptsGrouped);
 
-        // Process Payments (Debits/Expenses) - Grouped by category
+        // Process PAYMENTS with Month and Cumulative amounts
         $paymentsGrouped = [];
-        $totalPayments = 0;
+        $totalMonthPayments = 0;
+        $totalCumulativePayments = 0;
 
-        // Expenses from transactions - Group by category
-        foreach ($transactions as $trans) {
-            if ($trans->type === 'expense' && (!$accountId || $trans->account_id == $accountId)) {
-                $categoryName = $trans->expenseCategory ? $trans->expenseCategory->name : 'Expense';
-
+        // Expenses - Month
+        foreach ($monthTransactions as $trans) {
+            if (in_array($trans->type, ['expense', 'asset_purchase']) && (!$accountId || $trans->account_id == $accountId)) {
+                $categoryName = $trans->expenseCategory ? $trans->expenseCategory->name : 'Other Expense';
                 if (!isset($paymentsGrouped[$categoryName])) {
                     $paymentsGrouped[$categoryName] = [
                         'description' => $categoryName,
-                        'amount' => 0,
+                        'month_amount' => 0,
+                        'cumulative_amount' => 0,
                         'type' => 'expense'
                     ];
                 }
-                $paymentsGrouped[$categoryName]['amount'] += $trans->amount;
-                $totalPayments += $trans->amount;
+                $paymentsGrouped[$categoryName]['month_amount'] += $trans->amount;
+                $totalMonthPayments += $trans->amount;
             }
 
-            // Transfer Out - Group all transfers
+            // Transfer Out - Month
             if ($trans->type === 'transfer' && $trans->account_id == $accountId) {
                 $key = 'Transfer Out';
                 if (!isset($paymentsGrouped[$key])) {
                     $paymentsGrouped[$key] = [
                         'description' => $key,
-                        'amount' => 0,
+                        'month_amount' => 0,
+                        'cumulative_amount' => 0,
                         'type' => 'transfer_out'
                     ];
                 }
-                $paymentsGrouped[$key]['amount'] += $trans->amount;
-                $totalPayments += $trans->amount;
+                $paymentsGrouped[$key]['month_amount'] += $trans->amount;
+                $totalMonthPayments += $trans->amount;
             }
         }
 
-        // Fund Out - Group all fund transactions
-        foreach ($fundTransactions as $fundTrans) {
-            if ($fundTrans->transaction_type === 'out') {
-                $key = 'Fund Out - Fund sent to: ' . ($fundTrans->fund ? $fundTrans->fund->name : 'Fund');
+        // Expenses - Cumulative
+        foreach ($cumulativeTransactions as $trans) {
+            if (in_array($trans->type, ['expense', 'asset_purchase']) && (!$accountId || $trans->account_id == $accountId)) {
+                $categoryName = $trans->expenseCategory ? $trans->expenseCategory->name : 'Other Expense';
+                if (!isset($paymentsGrouped[$categoryName])) {
+                    $paymentsGrouped[$categoryName] = [
+                        'description' => $categoryName,
+                        'month_amount' => 0,
+                        'cumulative_amount' => 0,
+                        'type' => 'expense'
+                    ];
+                }
+                $paymentsGrouped[$categoryName]['cumulative_amount'] += $trans->amount;
+                $totalCumulativePayments += $trans->amount;
+            }
 
+            // Transfer Out - Cumulative
+            if ($trans->type === 'transfer' && $trans->account_id == $accountId) {
+                $key = 'Transfer Out';
                 if (!isset($paymentsGrouped[$key])) {
                     $paymentsGrouped[$key] = [
                         'description' => $key,
-                        'amount' => 0,
-                        'type' => 'fund_out'
+                        'month_amount' => 0,
+                        'cumulative_amount' => 0,
+                        'type' => 'transfer_out'
                     ];
                 }
-                $paymentsGrouped[$key]['amount'] += $fundTrans->amount;
-                $totalPayments += $fundTrans->amount;
+                $paymentsGrouped[$key]['cumulative_amount'] += $trans->amount;
+                $totalCumulativePayments += $trans->amount;
             }
         }
 
-        // Convert grouped data to array
+        // Fund Out - Month
+        foreach ($monthFundTransactions as $fundTrans) {
+            if ($fundTrans->transaction_type === 'out') {
+                $key = 'Fund Out - ' . ($fundTrans->fund ? $fundTrans->fund->name : 'Fund');
+                if (!isset($paymentsGrouped[$key])) {
+                    $paymentsGrouped[$key] = [
+                        'description' => $key,
+                        'month_amount' => 0,
+                        'cumulative_amount' => 0,
+                        'type' => 'fund_out'
+                    ];
+                }
+                $paymentsGrouped[$key]['month_amount'] += $fundTrans->amount;
+                $totalMonthPayments += $fundTrans->amount;
+            }
+        }
+
+        // Fund Out - Cumulative
+        foreach ($cumulativeFundTransactions as $fundTrans) {
+            if ($fundTrans->transaction_type === 'out') {
+                $key = 'Fund Out - ' . ($fundTrans->fund ? $fundTrans->fund->name : 'Fund');
+                if (!isset($paymentsGrouped[$key])) {
+                    $paymentsGrouped[$key] = [
+                        'description' => $key,
+                        'month_amount' => 0,
+                        'cumulative_amount' => 0,
+                        'type' => 'fund_out'
+                    ];
+                }
+                $paymentsGrouped[$key]['cumulative_amount'] += $fundTrans->amount;
+                $totalCumulativePayments += $fundTrans->amount;
+            }
+        }
+
         $payments = array_values($paymentsGrouped);
 
         // Calculate closing balance
-        $closingBalance = $openingBalance + $totalReceipts - $totalPayments;
+        $closingBalance = $openingBalance + $totalMonthReceipts - $totalMonthPayments;
+        $cumulativeClosingBalance = $openingBalance + $totalCumulativeReceipts - $totalCumulativePayments;
 
         return Inertia::render('Accounting/Reports/ReceiptPayment', [
             'receipts' => $receipts,
             'payments' => $payments,
             'openingBalance' => $openingBalance,
-            'totalReceipts' => $totalReceipts,
-            'totalPayments' => $totalPayments,
+            'totalMonthReceipts' => $totalMonthReceipts,
+            'totalMonthPayments' => $totalMonthPayments,
+            'totalCumulativeReceipts' => $totalCumulativeReceipts,
+            'totalCumulativePayments' => $totalCumulativePayments,
             'closingBalance' => $closingBalance,
+            'cumulativeClosingBalance' => $cumulativeClosingBalance,
             'filters' => [
                 'start_date' => $startDate->format('Y-m-d'),
                 'end_date' => $endDate->format('Y-m-d'),

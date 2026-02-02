@@ -10,9 +10,9 @@ interface Account {
 }
 
 interface ReceiptPaymentItem {
-    date: string;
     description: string;
-    amount: number;
+    month_amount: number;
+    cumulative_amount: number;
     type: string;
 }
 
@@ -20,9 +20,12 @@ interface ReceiptPaymentProps {
     receipts: ReceiptPaymentItem[];
     payments: ReceiptPaymentItem[];
     openingBalance: number;
-    totalReceipts: number;
-    totalPayments: number;
+    totalMonthReceipts: number;
+    totalMonthPayments: number;
+    totalCumulativeReceipts: number;
+    totalCumulativePayments: number;
     closingBalance: number;
+    cumulativeClosingBalance: number;
     filters: {
         start_date: string;
         end_date: string;
@@ -35,9 +38,12 @@ export default function ReceiptPayment({
     receipts,
     payments,
     openingBalance,
-    totalReceipts,
-    totalPayments,
+    totalMonthReceipts,
+    totalMonthPayments,
+    totalCumulativeReceipts,
+    totalCumulativePayments,
     closingBalance,
+    cumulativeClosingBalance,
     filters,
     accounts,
 }: ReceiptPaymentProps) {
@@ -74,19 +80,8 @@ export default function ReceiptPayment({
     const selectedAccount = accounts.find(a => a.id == accountId);
     const dateRange = `${new Date(filters.start_date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })} to ${new Date(filters.end_date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}`;
 
-    // Add cumulative amounts
-    const receiptsWithCumulative = receipts.map((receipt, index) => {
-        const cumulative = receipts.slice(0, index + 1).reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
-        return { ...receipt, cumulative };
-    });
-
-    const paymentsWithCumulative = payments.map((payment, index) => {
-        const cumulative = payments.slice(0, index + 1).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-        return { ...payment, cumulative };
-    });
-
     // Calculate max rows for balanced layout
-    const maxRows = Math.max(receiptsWithCumulative.length, paymentsWithCumulative.length);
+    const maxRows = Math.max(receipts.length, payments.length);
 
     return (
         <AuthenticatedLayout>
@@ -183,119 +178,117 @@ export default function ReceiptPayment({
 
                     {/* Main Table */}
                     <div className="overflow-x-auto">
-                        <table className="w-full border-collapse">
+                        <table className="w-full border-collapse border border-gray-400">
                             <thead>
                                 <tr>
                                     {/* Receipts Headers */}
-                                    <th className="border-2 border-gray-400 px-3 py-2 text-center font-bold bg-gray-100 text-sm">
-                                        Particulars
+                                    <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '25%'}}>
+                                        RECEIPTS
                                     </th>
-                                    <th className="border-2 border-gray-400 px-3 py-2 text-center font-bold bg-gray-100 text-sm">
-                                        Month (৳)
+                                    <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '10%'}}>
+                                        Month
                                     </th>
-                                    <th className="border-2 border-gray-400 px-3 py-2 text-center font-bold bg-gray-100 text-sm">
-                                        Cumulative (৳)
+                                    <th className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '10%'}}>
+                                        Cumulative
                                     </th>
 
                                     {/* Payments Headers */}
-                                    <th className="border-2 border-gray-400 px-3 py-2 text-center font-bold bg-gray-100 text-sm">
-                                        Particulars
+                                    <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '25%'}}>
+                                        PAYMENTS
                                     </th>
-                                    <th className="border-2 border-gray-400 px-3 py-2 text-center font-bold bg-gray-100 text-sm">
-                                        Month (৳)
+                                    <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '10%'}}>
+                                        Month
                                     </th>
-                                    <th className="border-2 border-gray-400 px-3 py-2 text-center font-bold bg-gray-100 text-sm">
-                                        Cumulative (৳)
+                                    <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '10%'}}>
+                                        Cumulative
                                     </th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {/* Opening Balance Row */}
-                                <tr className="bg-blue-50">
-                                    <td className="border border-gray-400 px-3 py-2 font-bold text-sm">
+                                <tr>
+                                    <td className="border border-gray-400 px-2 py-1.5 font-semibold text-xs">
                                         Opening Balance
                                     </td>
-                                    <td className="border border-gray-400 px-3 py-2 text-right font-semibold font-mono text-sm">
+                                    <td className="border border-gray-400 px-2 py-1.5 text-right text-xs">
                                         {formatCurrency(openingBalance)}
                                     </td>
-                                    <td className="border border-gray-400 px-3 py-2 text-right font-semibold font-mono text-sm">
+                                    <td className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1.5 text-right text-xs">
                                         {formatCurrency(openingBalance)}
                                     </td>
-                                    <td className="border border-gray-400 px-3 py-2 text-sm">&nbsp;</td>
-                                    <td className="border border-gray-400 px-3 py-2 text-sm">&nbsp;</td>
-                                    <td className="border border-gray-400 px-3 py-2 text-sm">&nbsp;</td>
+                                    <td className="border border-gray-400 px-2 py-1.5"></td>
+                                    <td className="border border-gray-400 px-2 py-1.5"></td>
+                                    <td className="border border-gray-400 px-2 py-1.5"></td>
                                 </tr>
 
                                 {/* Data Rows */}
                                 {Array.from({ length: maxRows }).map((_, index) => {
-                                    const receipt = receiptsWithCumulative[index];
-                                    const payment = paymentsWithCumulative[index];
-                                    const receiptCumulative = receipt ? (Number(openingBalance) || 0) + (Number(receipt.cumulative) || 0) : 0;
-                                    const paymentCumulative = payment ? (Number(payment.cumulative) || 0) : 0;
+                                    const receipt = receipts[index];
+                                    const payment = payments[index];
 
                                     return (
-                                        <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                        <tr key={index}>
                                             {/* Receipt Side */}
-                                            <td className="border border-gray-400 px-3 py-1.5 text-sm">
-                                                {receipt ? receipt.description : <span>&nbsp;</span>}
+                                            <td className="border border-gray-400 px-2 py-1 text-xs">
+                                                {receipt ? receipt.description : ''}
                                             </td>
-                                            <td className="border border-gray-400 px-3 py-1.5 text-right font-mono text-sm">
-                                                {receipt ? formatCurrency(receipt.amount) : <span>&nbsp;</span>}
+                                            <td className="border border-gray-400 px-2 py-1 text-right text-xs">
+                                                {receipt ? formatCurrency(receipt.month_amount) : ''}
                                             </td>
-                                            <td className="border border-gray-400 px-3 py-1.5 text-right font-mono text-sm">
-                                                {receipt ? formatCurrency(receiptCumulative) : <span>&nbsp;</span>}
+                                            <td className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1 text-right text-xs">
+                                                {receipt ? formatCurrency(receipt.cumulative_amount) : ''}
                                             </td>
 
                                             {/* Payment Side */}
-                                            <td className="border border-gray-400 px-3 py-1.5 text-sm">
-                                                {payment ? payment.description : <span>&nbsp;</span>}
+                                            <td className="border border-gray-400 px-2 py-1 text-xs">
+                                                {payment ? payment.description : ''}
                                             </td>
-                                            <td className="border border-gray-400 px-3 py-1.5 text-right font-mono text-sm">
-                                                {payment ? formatCurrency(payment.amount) : <span>&nbsp;</span>}
+                                            <td className="border border-gray-400 px-2 py-1 text-right text-xs">
+                                                {payment ? formatCurrency(payment.month_amount) : ''}
                                             </td>
-                                            <td className="border border-gray-400 px-3 py-1.5 text-right font-mono text-sm">
-                                                {payment ? formatCurrency(paymentCumulative) : <span>&nbsp;</span>}
+                                            <td className="border border-gray-400 px-2 py-1 text-right text-xs">
+                                                {payment ? formatCurrency(payment.cumulative_amount) : ''}
                                             </td>
                                         </tr>
                                     );
                                 })}
 
                                 {/* Closing Balance Row */}
-                                <tr className="bg-blue-50">
-                                    <td className="border border-gray-400 px-3 py-2 text-sm">&nbsp;</td>
-                                    <td className="border border-gray-400 px-3 py-2 text-sm">&nbsp;</td>
-                                    <td className="border border-gray-400 px-3 py-2 text-sm">&nbsp;</td>
-                                    <td className="border border-gray-400 px-3 py-2 font-bold text-sm">
+                                <tr>
+                                    <td className="border border-gray-400 px-2 py-1.5"></td>
+                                    <td className="border border-gray-400 px-2 py-1.5"></td>
+                                    <td className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1.5"></td>
+                                    <td className="border border-gray-400 px-2 py-1.5 font-semibold text-xs">
                                         Closing Balance
                                     </td>
-                                    <td className="border border-gray-400 px-3 py-2 text-right font-semibold font-mono text-sm">
+                                    <td className="border border-gray-400 px-2 py-1.5 text-right text-xs">
                                         {formatCurrency(closingBalance)}
                                     </td>
-                                    <td className="border border-gray-400 px-3 py-2 text-right font-semibold font-mono text-sm">
-                                        {formatCurrency(totalPayments + closingBalance)}
+                                    <td className="border border-gray-400 px-2 py-1.5 text-right text-xs">
+                                        {formatCurrency(cumulativeClosingBalance)}
                                     </td>
                                 </tr>
                             </tbody>
                             <tfoot>
                                 {/* Total Row */}
-                                <tr className="bg-gray-800 text-white font-bold">
-                                    <td className="border-2 border-gray-400 px-3 py-2 text-right text-sm">
+                                <tr className="bg-gray-50">
+                                    <td className="border border-gray-400 px-2 py-1.5 text-right font-bold text-xs">
                                         TOTAL:
                                     </td>
-                                    <td className="border-2 border-gray-400 px-3 py-2 text-right font-mono text-sm">
-                                        {formatCurrency(openingBalance + totalReceipts)}
+                                    <td className="border border-gray-400 px-2 py-1.5 text-right font-bold text-xs">
+                                        {formatCurrency(openingBalance + totalMonthReceipts)}
                                     </td>
-                                    <td className="border-2 border-gray-400 px-3 py-2 text-right font-mono text-sm">
-                                        {formatCurrency(openingBalance + totalReceipts)}
+                                    <td className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1.5 text-right font-bold text-xs">
+                                        {formatCurrency(openingBalance + totalCumulativeReceipts)}
                                     </td>
-                                    <td className="border-2 border-gray-400 px-3 py-2 text-right text-sm">
+                                    <td className="border border-gray-400 px-2 py-1.5 text-right font-bold text-xs">
                                         TOTAL:
                                     </td>
-                                    <td className="border-2 border-gray-400 px-3 py-2 text-right font-mono text-sm">
-                                        {formatCurrency(totalPayments + closingBalance)}
+                                    <td className="border border-gray-400 px-2 py-1.5 text-right font-bold text-xs">
+                                        {formatCurrency(totalMonthPayments + closingBalance)}
                                     </td>
-                                    <td className="border-2 border-gray-400 px-3 py-2 text-right font-mono text-sm">
-                                        {formatCurrency(totalPayments + closingBalance)}
+                                    <td className="border border-gray-400 px-2 py-1.5 text-right font-bold text-xs">
+                                        {formatCurrency(totalCumulativePayments + cumulativeClosingBalance)}
                                     </td>
                                 </tr>
                             </tfoot>
@@ -305,12 +298,12 @@ export default function ReceiptPayment({
                     {/* Summary Info */}
                     <div className="mt-6 grid grid-cols-2 gap-4 text-sm">
                         <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                            <p className="text-gray-600 mb-1">Total Receipts</p>
-                            <p className="text-2xl font-bold text-green-600">৳ {formatCurrency(totalReceipts)}</p>
+                            <p className="text-gray-600 mb-1">Total Month Receipts</p>
+                            <p className="text-2xl font-bold text-green-600">৳ {formatCurrency(totalMonthReceipts)}</p>
                         </div>
                         <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-                            <p className="text-gray-600 mb-1">Total Payments</p>
-                            <p className="text-2xl font-bold text-red-600">৳ {formatCurrency(totalPayments)}</p>
+                            <p className="text-gray-600 mb-1">Total Month Payments</p>
+                            <p className="text-2xl font-bold text-red-600">৳ {formatCurrency(totalMonthPayments)}</p>
                         </div>
                     </div>
                 </div>
@@ -328,120 +321,118 @@ export default function ReceiptPayment({
                     )}
                 </div>
 
-                {/* Main Table - Word Style */}
-                <table className="w-full border-collapse" style={{borderCollapse: 'collapse'}}>
+                {/* Main Table - Print Style */}
+                <table className="w-full border-collapse border border-black">
                     <thead>
                         <tr>
                             {/* Receipts Headers */}
-                            <th className="border-2 border-black px-2 py-2 text-center font-bold bg-gray-100" style={{fontSize: '9px', width: '25%'}}>
-                                Particulars
+                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '25%'}}>
+                                RECEIPTS
                             </th>
-                            <th className="border-2 border-black px-2 py-2 text-center font-bold bg-gray-100" style={{fontSize: '9px', width: '8%'}}>
-                                Month (৳)
+                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '10%'}}>
+                                Month
                             </th>
-                            <th className="border-2 border-black px-2 py-2 text-center font-bold bg-gray-100" style={{fontSize: '9px', width: '8%'}}>
-                                Cumulative (৳)
+                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '10%', borderRightWidth: '3px'}}>
+                                Cumulative
                             </th>
 
                             {/* Payments Headers */}
-                            <th className="border-2 border-black px-2 py-2 text-center font-bold bg-gray-100" style={{fontSize: '9px', width: '25%'}}>
-                                Particulars
+                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '25%'}}>
+                                PAYMENTS
                             </th>
-                            <th className="border-2 border-black px-2 py-2 text-center font-bold bg-gray-100" style={{fontSize: '9px', width: '8%'}}>
-                                Month (৳)
+                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '10%'}}>
+                                Month
                             </th>
-                            <th className="border-2 border-black px-2 py-2 text-center font-bold bg-gray-100" style={{fontSize: '9px', width: '8%'}}>
-                                Cumulative (৳)
+                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '10%'}}>
+                                Cumulative
                             </th>
                         </tr>
                     </thead>
                     <tbody>
                         {/* Opening Balance Row */}
-                        <tr className="bg-blue-50">
-                            <td className="border border-black px-2 py-1.5 font-bold" style={{fontSize: '8px'}}>
+                        <tr>
+                            <td className="border border-black px-2 py-0.5 font-semibold" style={{fontSize: '7px'}}>
                                 Opening Balance
                             </td>
-                            <td className="border border-black px-2 py-1.5 text-right font-semibold font-mono" style={{fontSize: '8px'}}>
+                            <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '7px'}}>
                                 {formatCurrency(openingBalance)}
                             </td>
-                            <td className="border border-black px-2 py-1.5 text-right font-semibold font-mono" style={{fontSize: '8px'}}>
+                            <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '7px', borderRightWidth: '3px'}}>
                                 {formatCurrency(openingBalance)}
                             </td>
-                            <td className="border border-black px-2 py-1.5" style={{fontSize: '8px'}}>&nbsp;</td>
-                            <td className="border border-black px-2 py-1.5" style={{fontSize: '8px'}}>&nbsp;</td>
-                            <td className="border border-black px-2 py-1.5" style={{fontSize: '8px'}}>&nbsp;</td>
+                            <td className="border border-black px-2 py-0.5" style={{fontSize: '7px'}}></td>
+                            <td className="border border-black px-2 py-0.5" style={{fontSize: '7px'}}></td>
+                            <td className="border border-black px-2 py-0.5" style={{fontSize: '7px'}}></td>
                         </tr>
 
                         {/* Data Rows */}
                         {Array.from({ length: maxRows }).map((_, index) => {
-                            const receipt = receiptsWithCumulative[index];
-                            const payment = paymentsWithCumulative[index];
-                            const receiptCumulative = receipt ? (Number(openingBalance) || 0) + (Number(receipt.cumulative) || 0) : 0;
-                            const paymentCumulative = payment ? (Number(payment.cumulative) || 0) : 0;
+                            const receipt = receipts[index];
+                            const payment = payments[index];
 
                             return (
                                 <tr key={index}>
                                     {/* Receipt Side */}
-                                    <td className="border border-black px-2 py-1" style={{fontSize: '7.5px'}}>
-                                        {receipt ? receipt.description : <span>&nbsp;</span>}
+                                    <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px'}}>
+                                        {receipt ? receipt.description : ''}
                                     </td>
-                                    <td className="border border-black px-2 py-1 text-right font-mono" style={{fontSize: '7.5px'}}>
-                                        {receipt ? formatCurrency(receipt.amount) : <span>&nbsp;</span>}
+                                    <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px'}}>
+                                        {receipt ? formatCurrency(receipt.month_amount) : ''}
                                     </td>
-                                    <td className="border border-black px-2 py-1 text-right font-mono" style={{fontSize: '7.5px'}}>
-                                        {receipt ? formatCurrency(receiptCumulative) : <span>&nbsp;</span>}
+                                    <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px', borderRightWidth: '3px'}}>
+                                        {receipt ? formatCurrency(receipt.cumulative_amount) : ''}
                                     </td>
 
                                     {/* Payment Side */}
-                                    <td className="border border-black px-2 py-1" style={{fontSize: '7.5px'}}>
-                                        {payment ? payment.description : <span>&nbsp;</span>}
+                                    <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px'}}>
+                                        {payment ? payment.description : ''}
                                     </td>
-                                    <td className="border border-black px-2 py-1 text-right font-mono" style={{fontSize: '7.5px'}}>
-                                        {payment ? formatCurrency(payment.amount) : <span>&nbsp;</span>}
+                                    <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px'}}>
+                                        {payment ? formatCurrency(payment.month_amount) : ''}
                                     </td>
-                                    <td className="border border-black px-2 py-1 text-right font-mono" style={{fontSize: '7.5px'}}>
-                                        {payment ? formatCurrency(paymentCumulative) : <span>&nbsp;</span>}
+                                    <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px'}}>
+                                        {payment ? formatCurrency(payment.cumulative_amount) : ''}
                                     </td>
                                 </tr>
                             );
                         })}
 
                         {/* Closing Balance Row */}
-                        <tr className="bg-blue-50">
-                            <td className="border border-black px-2 py-1.5" style={{fontSize: '8px'}}>&nbsp;</td>
-                            <td className="border border-black px-2 py-1.5" style={{fontSize: '8px'}}>&nbsp;</td>
-                            <td className="border border-black px-2 py-1.5" style={{fontSize: '8px'}}>&nbsp;</td>
-                            <td className="border border-black px-2 py-1.5 font-bold" style={{fontSize: '8px'}}>
+                        <tr>
+                            <td className="border border-black px-2 py-0.5" style={{fontSize: '7px'}}></td>
+                            <td className="border border-black px-2 py-0.5" style={{fontSize: '7px'}}></td>
+                            <td className="border border-black px-2 py-0.5" style={{fontSize: '7px', borderRightWidth: '3px'}}></td>
+                            <td className="border border-black px-2 py-0.5 font-semibold" style={{fontSize: '7px'}}>
                                 Closing Balance
                             </td>
-                            <td className="border border-black px-2 py-1.5 text-right font-semibold font-mono" style={{fontSize: '8px'}}>
+                            <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '7px'}}>
                                 {formatCurrency(closingBalance)}
                             </td>
-                            <td className="border border-black px-2 py-1.5 text-right font-semibold font-mono" style={{fontSize: '8px'}}>
-                                {formatCurrency(totalPayments + closingBalance)}
+                            <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '7px'}}>
+                                {formatCurrency(cumulativeClosingBalance)}
                             </td>
                         </tr>
                     </tbody>
                     <tfoot>
                         {/* Total Row */}
-                        <tr className="bg-gray-800 text-white font-bold">
-                            <td className="border-2 border-black px-2 py-2 text-right" style={{fontSize: '9px'}}>
+                        <tr className="bg-gray-100">
+                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px'}}>
                                 TOTAL:
                             </td>
-                            <td className="border-2 border-black px-2 py-2 text-right font-mono" style={{fontSize: '9px'}}>
-                                {formatCurrency(openingBalance + totalReceipts)}
+                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px'}}>
+                                {formatCurrency(openingBalance + totalMonthReceipts)}
                             </td>
-                            <td className="border-2 border-black px-2 py-2 text-right font-mono" style={{fontSize: '9px'}}>
-                                {formatCurrency(openingBalance + totalReceipts)}
+                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px', borderRightWidth: '3px'}}>
+                                {formatCurrency(openingBalance + totalCumulativeReceipts)}
                             </td>
-                            <td className="border-2 border-black px-2 py-2 text-right" style={{fontSize: '9px'}}>
+                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px'}}>
                                 TOTAL:
                             </td>
-                            <td className="border-2 border-black px-2 py-2 text-right font-mono" style={{fontSize: '9px'}}>
-                                {formatCurrency(totalPayments + closingBalance)}
+                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px'}}>
+                                {formatCurrency(totalMonthPayments + closingBalance)}
                             </td>
-                            <td className="border-2 border-black px-2 py-2 text-right font-mono" style={{fontSize: '9px'}}>
-                                {formatCurrency(totalPayments + closingBalance)}
+                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px'}}>
+                                {formatCurrency(totalCumulativePayments + cumulativeClosingBalance)}
                             </td>
                         </tr>
                     </tfoot>
@@ -529,6 +520,12 @@ export default function ReceiptPayment({
 
                     th, td {
                         border: 1px solid #000 !important;
+                    }
+
+                    /* Bold divider between Receipt and Payment sections */
+                    th:nth-child(3),
+                    td:nth-child(3) {
+                        border-right: 3px solid #000 !important;
                     }
 
                     .bg-gray-800,

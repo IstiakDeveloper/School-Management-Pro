@@ -12,7 +12,7 @@ interface Section {
     room_number: string;
     status: string;
     students_count: number;
-    class?: {
+    school_class?: {
         id: number;
         name: string;
     };
@@ -35,7 +35,7 @@ export default function Index({ sections }: IndexProps) {
 
     const filteredSections = sections.data.filter(section =>
         section.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        section.class?.name.toLowerCase().includes(searchTerm.toLowerCase())
+        section.school_class?.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     return (
@@ -139,7 +139,7 @@ export default function Index({ sections }: IndexProps) {
                                             <span className="font-semibold text-gray-900">Section {section.name}</span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-gray-900">{section.class?.name || 'N/A'}</td>
+                                    <td className="px-6 py-4 text-gray-900">{section.school_class?.name || 'N/A'}</td>
                                     <td className="px-6 py-4 text-gray-900">Room {section.room_number}</td>
                                     <td className="px-6 py-4 text-gray-900">{section.capacity}</td>
                                     <td className="px-6 py-4 text-gray-900">{section.students_count}</td>

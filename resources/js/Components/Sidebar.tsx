@@ -139,6 +139,7 @@ const menuItems: MenuItem[] = [
             { name: 'Fixed Assets', href: '/accounting/fixed-assets', icon: <Building2 className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
             { name: 'Investors', href: '/accounting/investors', icon: <UserPlus className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
             { name: 'Funds', href: '/accounting/funds', icon: <Briefcase className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+            { name: 'Welfare Loans', href: '/accounting/welfare-loans', icon: <Wallet className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
             { name: 'Income Categories', href: '/accounting/income-categories', icon: <TrendingUp className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
             { name: 'Expense Categories', href: '/accounting/expense-categories', icon: <TrendingDown className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
         ],
@@ -181,7 +182,19 @@ const menuItems: MenuItem[] = [
     { name: 'Notices', href: '/student/notices', icon: <Bell className="w-5 h-5" />, roles: ['Student'] },
     { name: 'Events', href: '/student/events', icon: <Calendar className="w-5 h-5" />, roles: ['Student'] },
 
-    { name: 'Reports', href: '/reports', icon: <BarChart3 className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
+    {
+        name: 'Reports',
+        icon: <BarChart3 className="w-5 h-5" />,
+        roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'],
+        children: [
+            { name: 'All Reports', href: '/reports', icon: <BarChart3 className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
+            { name: 'Due Report', href: '/accounting/reports/due-report', icon: <TrendingDown className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+            { name: 'Bank Report', href: '/accounting/reports/bank-report', icon: <Wallet className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+            { name: 'Receipt Payment', href: '/accounting/reports/receipt-payment', icon: <DollarSign className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+            { name: 'Income Expenditure', href: '/accounting/reports/income-expenditure', icon: <TrendingUp className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+            { name: 'Balance Sheet', href: '/accounting/reports/balance-sheet', icon: <FileText className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+        ],
+    },
     { name: 'Settings', href: '/settings', icon: <Settings className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
 ];
 
