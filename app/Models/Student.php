@@ -144,6 +144,11 @@ class Student extends Model
         return $this->belongsTo(Section::class);
     }
 
+    public function parent()
+    {
+        return $this->belongsTo(StudentParent::class, 'parent_id');
+    }
+
     public function parents()
     {
         return $this->hasMany(StudentParent::class);
@@ -218,7 +223,7 @@ class Student extends Model
     // Accessors
     public function getFullNameAttribute()
     {
-        return $this->first_name . ' ' . $this->last_name;
+        return $this->first_name.' '.$this->last_name;
     }
 
     public function getAgeAttribute()
@@ -228,6 +233,6 @@ class Student extends Model
 
     public function getPhotoUrlAttribute()
     {
-        return $this->photo ? asset('storage/' . $this->photo) : null;
+        return $this->photo ? asset('storage/'.$this->photo) : null;
     }
 }

@@ -82,7 +82,7 @@ export default function Receipt({ collection, relatedCollections, totalAmount }:
                 <p className="school-contact">Phone: +8801713-758424 | Email: mubn2020@gmail.com</p>
                 <div className="title-bar">
                     <span className="title">FEE PAYMENT RECEIPT</span>
-                    <span className="copy-badge">{copyType}</span>
+
                 </div>
             </div>
 

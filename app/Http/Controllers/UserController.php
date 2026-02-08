@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
 use App\Models\Role;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
@@ -16,10 +16,10 @@ class UserController extends Controller
         $this->authorize('view_users');
 
         $users = User::with('roles')
-            ->when($request->search, fn($q) => $q->where('name', 'like', "%{$request->search}%")
+            ->when($request->search, fn ($q) => $q->where('name', 'like', "%{$request->search}%")
                 ->orWhere('email', 'like', "%{$request->search}%"))
-            ->when($request->role, fn($q) => $q->byRole($request->role))
-            ->when($request->status, fn($q) => $q->where('status', $request->status))
+            ->when($request->role, fn ($q) => $q->byRole($request->role))
+            ->when($request->status, fn ($q) => $q->where('status', $request->status))
             ->latest()
             ->paginate(20);
 
@@ -100,9 +100,9 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
             'phone' => 'nullable|string|max:20',
-            'password' => 'nullable|string|min:8',
-            'roles' => 'required|array',
-            'roles.*' => 'exists:roles,id',
+            'password' => 'nullable|string|min:8|confirmed',
+            'role_ids' => 'required|array',
+            'role_ids.*' => 'exists:roles,id',
             'status' => 'required|in:active,inactive,suspended',
         ]);
 
@@ -113,11 +113,11 @@ class UserController extends Controller
             'status' => $validated['status'],
         ]);
 
-        if (!empty($validated['password'])) {
+        if (! empty($validated['password'])) {
             $user->update(['password' => Hash::make($validated['password'])]);
         }
 
-        $user->roles()->sync($validated['roles']);
+        $user->roles()->sync($validated['role_ids']);
 
         logActivity('update', "Updated user: {$user->name}", User::class, $user->id);
 

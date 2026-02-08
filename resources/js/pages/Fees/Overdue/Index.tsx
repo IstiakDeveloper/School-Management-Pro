@@ -17,19 +17,19 @@ import {
 interface OverdueItem {
     id: string;
     student_id: number;
-    student_name: string;
-    student_roll: string;
-    class_name: string;
-    fee_type: string;
-    fee_frequency: string;
-    fee_period: string;
+    student_name: string | null;
+    student_roll: string | null;
+    class_name: string | null;
+    fee_type: string | null;
+    fee_frequency: string | null;
+    fee_period: string | null;
     amount: number;
     due_date: string;
     days_overdue: number;
-    academic_year: string;
+    academic_year: string | null;
     fee_structure_id: number;
-    student_email: string;
-    student_phone: string;
+    student_email: string | null;
+    student_phone: string | null;
 }
 
 interface Stats {
@@ -54,9 +54,9 @@ export default function Index({ overdueList, stats }: Props) {
     // Filter overdue list
     const filteredList = overdueList.filter((item) => {
         const matchesSearch =
-            item.student_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.student_roll.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.class_name.toLowerCase().includes(searchTerm.toLowerCase());
+            item.student_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.student_roll?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.class_name?.toLowerCase().includes(searchTerm.toLowerCase());
 
         const matchesDays =
             filterDays === 'all' ||
@@ -299,26 +299,26 @@ export default function Index({ overdueList, stats }: Props) {
                                             <td className="px-6 py-4">
                                                 <div>
                                                     <div className="font-medium text-gray-900">
-                                                        {item.student_name}
+                                                        {item.student_name || 'N/A'}
                                                     </div>
                                                     <div className="text-sm text-gray-500">
-                                                        Roll: {item.student_roll}
+                                                        Roll: {item.student_roll || 'N/A'}
                                                     </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-sm text-gray-900">
-                                                {item.class_name}
+                                                {item.class_name || 'N/A'}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div>
                                                     <div className="text-sm font-medium text-gray-900">
-                                                        {item.fee_type}
+                                                        {item.fee_type || 'N/A'}
                                                     </div>
                                                     <div className="text-xs text-gray-500">
-                                                        {item.fee_period}
+                                                        {item.fee_period || 'N/A'}
                                                     </div>
                                                     <div className="text-xs text-gray-400 capitalize">
-                                                        {item.fee_frequency}
+                                                        {item.fee_frequency || 'N/A'}
                                                     </div>
                                                 </div>
                                             </td>

@@ -8,17 +8,17 @@ import { Plus, Search, Edit, Trash2, Mail, Phone, User as UserIcon, Eye, Shield 
 
 interface User {
     id: number;
-    name: string;
-    email: string;
-    phone?: string;
-    roles: Array<{ name: string }>;
+    name: string | null;
+    email: string | null;
+    phone?: string | null;
+    roles: Array<{ name: string | null }>;
     status: string;
     created_at: string;
 }
 
 interface UsersIndexProps {
     users: {
-        data: User[];
+        data: User[] | null;
         current_page: number;
         last_page: number;
         total: number;
@@ -105,7 +105,7 @@ export default function Index({ users, filters }: UsersIndexProps) {
                             <div>
                                 <p className="text-sm text-gray-600">Active Users</p>
                                 <p className="text-2xl font-bold text-gray-900">
-                                    {users.data.filter(u => u.status === 'active').length}
+                                    {users.data?.filter(u => u?.status === 'active').length || 0}
                                 </p>
                             </div>
                         </div>
@@ -191,7 +191,7 @@ export default function Index({ users, filters }: UsersIndexProps) {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
-                                {users.data.map((user, index) => (
+                                {users.data?.map((user, index) => (
                                     <tr
                                         key={user.id}
                                         className="hover:bg-blue-50/50 transition-colors duration-150 animate-fade-in"
@@ -203,10 +203,10 @@ export default function Index({ users, filters }: UsersIndexProps) {
                                                     <UserIcon className="w-5 h-5 text-white" />
                                                 </div>
                                                 <div>
-                                                    <p className="font-semibold text-gray-900">{user.name}</p>
+                                                    <p className="font-semibold text-gray-900">{user.name || 'N/A'}</p>
                                                     <div className="flex items-center gap-1 text-sm text-gray-600">
                                                         <Mail className="w-3 h-3" />
-                                                        {user.email}
+                                                        {user.email || 'N/A'}
                                                     </div>
                                                 </div>
                                             </div>
@@ -220,9 +220,9 @@ export default function Index({ users, filters }: UsersIndexProps) {
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex flex-wrap gap-1">
-                                                {user.roles.map((role, i) => (
-                                                    <Badge key={i} variant={getRoleBadgeColor(role.name)} size="sm">
-                                                        {role.name}
+                                                {user.roles?.map((role, i) => (
+                                                    <Badge key={i} variant={getRoleBadgeColor(role?.name || '')} size="sm">
+                                                        {role?.name || 'N/A'}
                                                     </Badge>
                                                 ))}
                                             </div>
@@ -272,7 +272,7 @@ export default function Index({ users, filters }: UsersIndexProps) {
                     <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
                         <div className="flex items-center justify-between">
                             <p className="text-sm text-gray-600">
-                                Showing <span className="font-medium text-gray-900">{users.data.length}</span> of{' '}
+                                Showing <span className="font-medium text-gray-900">{users.data?.length || 0}</span> of{' '}
                                 <span className="font-medium text-gray-900">{users.total}</span> users
                             </p>
                             {users.last_page > 1 && (
