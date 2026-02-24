@@ -3,16 +3,16 @@
 namespace App\Http\Controllers\Fee;
 
 use App\Http\Controllers\Controller;
+use App\Models\Account;
 use App\Models\FeeCollection;
 use App\Models\FeeStructure;
+use App\Models\FeeType;
 use App\Models\Student;
-use App\Models\Account;
-use App\Models\AcademicYear;
 use App\Traits\CreatesAccountingTransactions;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
-use Carbon\Carbon;
 
 class FeeCollectionController extends Controller
 {
@@ -25,6 +25,14 @@ class FeeCollectionController extends Controller
     {
         $this->authorize('manage_fees');
 
+        // Date range: support date_from/date_to or month+year (monthly filter)
+        $dateFrom = $request->date_from;
+        $dateTo = $request->date_to;
+        if ($request->filled('month') && $request->filled('year')) {
+            $dateFrom = Carbon::create($request->year, $request->month, 1)->format('Y-m-d');
+            $dateTo = Carbon::create($request->year, $request->month, 1)->endOfMonth()->format('Y-m-d');
+        }
+
         // Get collections with relationships
         $collectionsQuery = FeeCollection::with([
             'student.user',
@@ -32,10 +40,19 @@ class FeeCollectionController extends Controller
             'student.section',
             'feeType',
             'account',
-            'collector'
+            'collector',
         ])
             ->when($request->status, function ($query, $status) {
                 $query->where('status', $status);
+            })
+            ->when($request->fee_type_id, function ($query, $feeTypeId) {
+                $query->where('fee_type_id', $feeTypeId);
+            })
+            ->when($dateFrom, function ($query) use ($dateFrom) {
+                $query->whereDate('payment_date', '>=', $dateFrom);
+            })
+            ->when($dateTo, function ($query) use ($dateTo) {
+                $query->whereDate('payment_date', '<=', $dateTo);
             })
             ->when($request->class_id, function ($query, $classId) {
                 $query->whereHas('student', function ($q) use ($classId) {
@@ -52,12 +69,13 @@ class FeeCollectionController extends Controller
                     $q->whereHas('student.user', function ($sq) use ($search) {
                         $sq->where('name', 'like', "%{$search}%");
                     })
-                    ->orWhereHas('student', function ($sq) use ($search) {
-                        $sq->where('admission_number', 'like', "%{$search}%");
-                    })
-                    ->orWhere('receipt_number', 'like', "%{$search}%");
+                        ->orWhereHas('student', function ($sq) use ($search) {
+                            $sq->where('admission_number', 'like', "%{$search}%");
+                        })
+                        ->orWhere('receipt_number', 'like', "%{$search}%");
                 });
             })
+            ->whereHas('student') // Exclude fee records for soft-deleted students
             ->latest('created_at')
             ->get();
 
@@ -100,6 +118,9 @@ class FeeCollectionController extends Controller
             ];
         })->values();
 
+        // Unique students in this result (one student can have multiple receipts)
+        $uniqueStudentCount = $collectionsQuery->pluck('student_id')->unique()->count();
+
         // Paginate manually
         $page = $request->get('page', 1);
         $perPage = 20;
@@ -116,8 +137,9 @@ class FeeCollectionController extends Controller
         $pendingFees = FeeCollection::with([
             'student.user',
             'student.schoolClass',
-            'feeType'
+            'feeType',
         ])
+            ->whereHas('student') // Exclude fee records for soft-deleted students
             ->whereIn('status', ['pending', 'overdue'])
             ->orderBy('year', 'desc')
             ->orderBy('month', 'desc')
@@ -140,17 +162,27 @@ class FeeCollectionController extends Controller
                 ];
             });
 
-        // Calculate statistics
+        // Calculate statistics (apply same filters for consistency)
+        $statsQueryPaid = FeeCollection::where('status', 'paid')
+            ->whereHas('student') // Exclude soft-deleted students
+            ->when($request->fee_type_id, fn ($q, $id) => $q->where('fee_type_id', $id))
+            ->when($dateFrom, fn ($q) => $q->whereDate('payment_date', '>=', $dateFrom))
+            ->when($dateTo, fn ($q) => $q->whereDate('payment_date', '<=', $dateTo));
+        $statsQueryPending = FeeCollection::whereIn('status', ['pending', 'overdue'])
+            ->whereHas('student') // Exclude soft-deleted students
+            ->when($request->fee_type_id, fn ($q, $id) => $q->where('fee_type_id', $id));
+
         $stats = [
-            'total_collected' => FeeCollection::where('status', 'paid')->sum('paid_amount'),
-            'pending_fees' => FeeCollection::where('status', 'pending')->sum('total_amount'),
-            'overdue_fees' => FeeCollection::where('status', 'overdue')->sum('total_amount'),
-            'pending_count' => FeeCollection::where('status', 'pending')->count(),
-            'overdue_count' => FeeCollection::where('status', 'overdue')->count(),
+            'total_collected' => (clone $statsQueryPaid)->sum('paid_amount'),
+            'pending_fees' => (clone $statsQueryPending)->where('status', 'pending')->sum('total_amount'),
+            'overdue_fees' => (clone $statsQueryPending)->where('status', 'overdue')->sum('total_amount'),
+            'pending_count' => (clone $statsQueryPending)->where('status', 'pending')->count(),
+            'overdue_count' => (clone $statsQueryPending)->where('status', 'overdue')->count(),
         ];
 
         return Inertia::render('Fees/Collections/Index', [
             'collections' => $collections,
+            'uniqueStudentCount' => $uniqueStudentCount,
             'pendingFees' => $pendingFees,
             'students' => Student::with(['user', 'schoolClass'])
                 ->where('status', 'active')
@@ -163,8 +195,12 @@ class FeeCollectionController extends Controller
             'sections' => \App\Models\Section::with('schoolClass:id,name')
                 ->where('status', 'active')
                 ->get(['id', 'name', 'class_id']),
+            'feeTypes' => FeeType::active()->orderBy('name')->get(['id', 'name']),
             'stats' => $stats,
-            'filters' => $request->only(['status', 'search', 'class_id', 'section_id']),
+            'filters' => $request->only([
+                'status', 'search', 'class_id', 'section_id',
+                'fee_type_id', 'date_from', 'date_to', 'month', 'year',
+            ]),
         ]);
     }
 
@@ -195,7 +231,7 @@ class FeeCollectionController extends Controller
         $hasPendingFees = $request->has('fee_collection_ids') && count($request->fee_collection_ids) > 0;
         $hasNewFees = $request->has('fee_structures') && count($request->fee_structures) > 0;
 
-        if (!$hasPendingFees && !$hasNewFees) {
+        if (! $hasPendingFees && ! $hasNewFees) {
             return redirect()->back()
                 ->with('error', 'Please select at least one fee to collect');
         }
@@ -222,17 +258,17 @@ class FeeCollectionController extends Controller
             $discount = floatval($validated['discount'] ?? 0);
 
             // Generate ONE unique receipt number for this entire payment
-            $todayPrefix = 'RCP-' . date('Ymd');
+            $todayPrefix = 'RCP-'.date('Ymd');
             $receiptNumber = null;
 
             // Simple increment without sequence table
             $maxExisting = DB::table('fee_collections')
-                ->where('receipt_number', 'LIKE', $todayPrefix . '-%')
+                ->where('receipt_number', 'LIKE', $todayPrefix.'-%')
                 ->lockForUpdate()
                 ->max(DB::raw('CAST(SUBSTRING(receipt_number, 15) AS UNSIGNED)'));
 
             $nextNumber = ($maxExisting ?? 0) + 1;
-            $receiptNumber = $todayPrefix . '-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+            $receiptNumber = $todayPrefix.'-'.str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
 
             $totalAmount = 0;
             $feeDescriptions = [];
@@ -272,7 +308,7 @@ class FeeCollectionController extends Controller
                     ]);
 
                     $monthName = Carbon::create($fee->year, $fee->month, 1)->format('M Y');
-                    $feeDescriptions[] = $fee->feeType->name . ' (' . $monthName . ')';
+                    $feeDescriptions[] = $fee->feeType->name.' ('.$monthName.')';
                 }
             }
 
@@ -330,7 +366,7 @@ class FeeCollectionController extends Controller
                     ]);
 
                     $monthName = Carbon::create($year, $month, 1)->format('M Y');
-                    $feeDescriptions[] = $feeStructure->feeType->name . ' (' . $monthName . ')';
+                    $feeDescriptions[] = $feeStructure->feeType->name.' ('.$monthName.')';
                 }
             }
 
@@ -375,7 +411,7 @@ class FeeCollectionController extends Controller
                             }
                         }
 
-                        if (!$alreadyAdded) {
+                        if (! $alreadyAdded) {
                             $allProcessedFees[] = [
                                 'fee_type_id' => $fee->fee_type_id,
                                 'fee_type_name' => $fee->feeType->name,
@@ -390,7 +426,7 @@ class FeeCollectionController extends Controller
                 // Group by fee type
                 foreach ($allProcessedFees as $feeData) {
                     $feeTypeKey = $feeData['fee_type_id'];
-                    if (!isset($feesByType[$feeTypeKey])) {
+                    if (! isset($feesByType[$feeTypeKey])) {
                         $feesByType[$feeTypeKey] = [
                             'fee_type_id' => $feeData['fee_type_id'],
                             'fee_type_name' => $feeData['fee_type_name'],
@@ -405,8 +441,8 @@ class FeeCollectionController extends Controller
 
                 // Create separate transaction for each fee type
                 foreach ($feesByType as $feeTypeData) {
-                    $description = "{$feeTypeData['fee_type_name']} from {$student->user->name} - " . implode(', ', $feeTypeData['descriptions']);
-                    if (!empty($validated['remarks'])) {
+                    $description = "{$feeTypeData['fee_type_name']} from {$student->user->name} - ".implode(', ', $feeTypeData['descriptions']);
+                    if (! empty($validated['remarks'])) {
                         $description .= " | {$validated['remarks']}";
                     }
 
@@ -439,9 +475,10 @@ class FeeCollectionController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+
             return redirect()->back()
                 ->withInput()
-                ->with('error', 'Failed to collect fees: ' . $e->getMessage());
+                ->with('error', 'Failed to collect fees: '.$e->getMessage());
         }
     }
 
@@ -457,7 +494,7 @@ class FeeCollectionController extends Controller
             'student.schoolClass',
             'feeType',
             'academicYear',
-            'collector'
+            'collector',
         ]);
 
         // Get all collections with same receipt number
@@ -507,8 +544,9 @@ class FeeCollectionController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+
             return redirect()->back()
-                ->with('error', 'Failed to delete fee collection: ' . $e->getMessage());
+                ->with('error', 'Failed to delete fee collection: '.$e->getMessage());
         }
     }
 
@@ -519,7 +557,7 @@ class FeeCollectionController extends Controller
     {
         $classId = $request->query('class_id');
 
-        if (!$classId) {
+        if (! $classId) {
             return response()->json([]);
         }
 
@@ -557,7 +595,7 @@ class FeeCollectionController extends Controller
     {
         $studentId = $request->query('student_id');
 
-        if (!$studentId) {
+        if (! $studentId) {
             return response()->json(['dues' => [], 'next_month' => date('n'), 'next_year' => date('Y')]);
         }
 
@@ -642,7 +680,7 @@ class FeeCollectionController extends Controller
                     ->where('status', 'paid')
                     ->exists();
 
-                if (!$paid) {
+                if (! $paid) {
                     $totalOverdue += floatval($feeStructure->amount);
                 }
             }

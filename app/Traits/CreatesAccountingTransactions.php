@@ -3,23 +3,13 @@
 namespace App\Traits;
 
 use App\Models\Account;
-use App\Models\Transaction;
 use App\Models\IncomeCategory;
+use App\Models\Transaction;
 
 trait CreatesAccountingTransactions
 {
     /**
      * Create an accounting income transaction for fee collection by fee type
-     *
-     * @param int $accountId
-     * @param int $feeTypeId
-     * @param string $feeTypeName
-     * @param float $amount
-     * @param string $date
-     * @param string $paymentMethod
-     * @param string $referenceNumber
-     * @param string $description
-     * @return Transaction
      */
     public function createFeeIncomeTransactionByType(
         int $accountId,
@@ -31,20 +21,20 @@ trait CreatesAccountingTransactions
         string $referenceNumber,
         string $description
     ): Transaction {
-        // Get or create income category based on fee type
-        $categoryCode = 'FEE-' . strtoupper(str_replace(' ', '-', $feeTypeName));
+        // Step 1: ফি টাইপের নাম থেকে ক্যাটেগরি কোড তৈরি
+        $categoryCode = 'FEE-'.strtoupper(str_replace(' ', '-', $feeTypeName));
         $incomeCategory = IncomeCategory::firstOrCreate(
             ['code' => $categoryCode],
             [
-                'name' => $feeTypeName . ' Income',
-                'description' => 'Income from ' . $feeTypeName,
+                'name' => $feeTypeName.' Income',
+                'description' => 'Income from '.$feeTypeName,
                 'status' => 'active',
                 'created_by' => auth()->id(),
             ]
         );
 
         // Generate transaction number
-        $transactionNumber = 'TRX-' . date('Ymd') . '-' . str_pad(
+        $transactionNumber = 'TRX-'.date('Ymd').'-'.str_pad(
             Transaction::withTrashed()->whereDate('created_at', today())->count() + 1,
             4,
             '0',
@@ -73,14 +63,6 @@ trait CreatesAccountingTransactions
 
     /**
      * Create an accounting income transaction for fee collection
-     *
-     * @param int $accountId
-     * @param float $amount
-     * @param string $date
-     * @param string $paymentMethod
-     * @param string $referenceNumber
-     * @param string $description
-     * @return Transaction
      */
     public function createFeeIncomeTransaction(
         int $accountId,
@@ -102,7 +84,7 @@ trait CreatesAccountingTransactions
         );
 
         // Generate transaction number
-        $transactionNumber = 'TRX-' . date('Ymd') . '-' . str_pad(
+        $transactionNumber = 'TRX-'.date('Ymd').'-'.str_pad(
             Transaction::withTrashed()->whereDate('created_at', today())->count() + 1,
             4,
             '0',
@@ -131,15 +113,12 @@ trait CreatesAccountingTransactions
 
     /**
      * Reverse an accounting transaction
-     *
-     * @param int $transactionId
-     * @return bool
      */
     public function reverseAccountingTransaction(int $transactionId): bool
     {
         $transaction = Transaction::find($transactionId);
 
-        if (!$transaction) {
+        if (! $transaction) {
             return false;
         }
 
@@ -162,15 +141,6 @@ trait CreatesAccountingTransactions
 
     /**
      * Create an accounting expense transaction (for salary, expenses etc.)
-     *
-     * @param int $accountId
-     * @param float $amount
-     * @param string $date
-     * @param string $paymentMethod
-     * @param string $referenceNumber
-     * @param string $description
-     * @param int|null $expenseCategoryId
-     * @return Transaction
      */
     public function createExpenseTransaction(
         int $accountId,
@@ -182,7 +152,7 @@ trait CreatesAccountingTransactions
         ?int $expenseCategoryId = null
     ): Transaction {
         // If no expense category provided, get or create "Salary & Wages" category
-        if (!$expenseCategoryId) {
+        if (! $expenseCategoryId) {
             $expenseCategory = \App\Models\ExpenseCategory::firstOrCreate(
                 ['name' => 'Salary & Wages'],
                 [
@@ -195,7 +165,7 @@ trait CreatesAccountingTransactions
         }
 
         // Generate transaction number
-        $transactionNumber = 'TRX-' . date('Ymd') . '-' . str_pad(
+        $transactionNumber = 'TRX-'.date('Ymd').'-'.str_pad(
             Transaction::whereDate('created_at', today())->count() + 1,
             4,
             '0',
@@ -224,15 +194,6 @@ trait CreatesAccountingTransactions
 
     /**
      * Create an accounting income transaction
-     *
-     * @param int $accountId
-     * @param float $amount
-     * @param string $date
-     * @param string $paymentMethod
-     * @param string $referenceNumber
-     * @param string $description
-     * @param int|null $incomeCategoryId
-     * @return Transaction
      */
     public function createIncomeTransaction(
         int $accountId,
@@ -244,7 +205,7 @@ trait CreatesAccountingTransactions
         ?int $incomeCategoryId = null
     ): Transaction {
         // If no income category provided, get or create generic "Other Income" category
-        if (!$incomeCategoryId) {
+        if (! $incomeCategoryId) {
             $incomeCategory = IncomeCategory::firstOrCreate(
                 ['code' => 'OTHER_INCOME'],
                 [
@@ -257,7 +218,7 @@ trait CreatesAccountingTransactions
         }
 
         // Generate transaction number
-        $transactionNumber = 'TRX-' . date('Ymd') . '-' . str_pad(
+        $transactionNumber = 'TRX-'.date('Ymd').'-'.str_pad(
             Transaction::whereDate('created_at', today())->count() + 1,
             4,
             '0',

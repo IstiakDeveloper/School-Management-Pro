@@ -43,16 +43,13 @@ export default function Edit({ account }: EditProps) {
         <AuthenticatedLayout>
             <Head title="Edit Account" />
 
-            <div className="space-y-6 animate-fade-in">
-                <div className="flex items-center justify-between">
+            <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                        <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-                            Edit Account
-                        </h1>
-                        <p className="text-gray-600 mt-1">Update account information</p>
+                        <h1 className="text-xl font-semibold text-gray-900">Edit Account</h1>
+                        <p className="text-xs text-emerald-700/80 mt-0.5">Update account information</p>
                     </div>
-                    <Button
-                        variant="ghost"
+                    <Button variant="outline" size="sm"
                         onClick={() => router.visit('/accounting/accounts')}
                         icon={<ArrowLeft className="w-5 h-5" />}
                     >

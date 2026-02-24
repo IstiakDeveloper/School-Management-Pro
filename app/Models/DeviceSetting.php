@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Carbon\Carbon;
 
 class DeviceSetting extends Model
 {
@@ -62,7 +62,7 @@ class DeviceSetting extends Model
     {
         $setting = static::first();
 
-        if (!$setting) {
+        if (! $setting) {
             $setting = static::create([
                 'device_name' => 'ZKTeco F10',
                 'device_ip' => '192.168.0.21',
@@ -80,6 +80,7 @@ class DeviceSetting extends Model
     public function isWeekend($date)
     {
         $dayOfWeek = Carbon::parse($date)->dayOfWeek;
+
         return in_array($dayOfWeek, $this->weekend_days ?? []);
     }
 
@@ -98,7 +99,7 @@ class DeviceSetting extends Model
      */
     public function isWorkingDay($date)
     {
-        return !$this->isWeekend($date) && !$this->isHoliday($date);
+        return ! $this->isWeekend($date) && ! $this->isHoliday($date);
     }
 
     /**
@@ -122,27 +123,58 @@ class DeviceSetting extends Model
         return 'present';
     }
 
+    /** Early leave tolerance (minutes before out_time) */
+    const EARLY_LEAVE_TOLERANCE_MINUTES = 15;
+
     /**
      * Check if should mark as early leave
      */
     public function isEarlyLeave($outTime, $type = 'teacher')
     {
-        if (!$this->auto_mark_early_leave) {
+        if (! $this->auto_mark_early_leave) {
             return false;
         }
 
-        // Students don't have out time requirement
         if ($type === 'student') {
             return false;
         }
 
-        $expectedTime = $this->teacher_out_time;
-        $expected = Carbon::parse($expectedTime);
+        if (! $this->teacher_out_time) {
+            return false;
+        }
+
+        $expected = Carbon::parse($this->teacher_out_time);
         $actual = Carbon::parse($outTime);
 
-        $diffInMinutes = $expected->diffInMinutes($actual, false);
+        return $actual->lessThan($expected->copy()->subMinutes(self::EARLY_LEAVE_TOLERANCE_MINUTES));
+    }
 
-        return $diffInMinutes > $earlyThreshold;
+    /**
+     * Compute teacher attendance status from in_time/out_time using current device settings.
+     * Returns: 'present' | 'late' | 'early_leave'
+     */
+    public function computeTeacherStatus($inTime, $outTime, $date = null)
+    {
+        $date = $date ? Carbon::parse($date)->toDateString() : now()->toDateString();
+        $status = 'present';
+
+        if ($outTime && $this->teacher_out_time && $this->auto_mark_early_leave) {
+            $expectedOut = Carbon::parse($date.' '.$this->teacher_out_time);
+            $actualOut = Carbon::parse($outTime);
+            if ($actualOut->lessThan($expectedOut->copy()->subMinutes(self::EARLY_LEAVE_TOLERANCE_MINUTES))) {
+                $status = 'early_leave';
+            }
+        }
+
+        if ($inTime && $this->teacher_late_time && $this->auto_mark_late) {
+            $lateCutoff = Carbon::parse($date.' '.$this->teacher_late_time);
+            $actualIn = Carbon::parse($inTime);
+            if ($actualIn->greaterThan($lateCutoff)) {
+                $status = 'late';
+            }
+        }
+
+        return $status;
     }
 
     /**
@@ -163,7 +195,7 @@ class DeviceSetting extends Model
      */
     public function getLastSyncFormatted()
     {
-        if (!$this->last_sync_at) {
+        if (! $this->last_sync_at) {
             return 'Never';
         }
 

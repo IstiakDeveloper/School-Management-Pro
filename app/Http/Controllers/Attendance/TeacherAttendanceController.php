@@ -3,8 +3,9 @@
 namespace App\Http\Controllers\Attendance;
 
 use App\Http\Controllers\Controller;
-use App\Models\TeacherAttendance;
+use App\Models\DeviceSetting;
 use App\Models\Teacher;
+use App\Models\TeacherAttendance;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -18,29 +19,96 @@ class TeacherAttendanceController extends Controller
         // Default to today's date if no date provided
         $selectedDate = $request->date ?? now()->format('Y-m-d');
 
-        $attendances = TeacherAttendance::with('teacher.user')
-            ->when($selectedDate, fn($q) => $q->where('date', $selectedDate))
-            ->when($request->status, fn($q) => $q->where('status', $request->status))
+        $attendances = TeacherAttendance::with(['teacher' => function ($q) {
+            $q->withTrashed()->with('user');
+        }])
+            ->when($selectedDate, fn ($q) => $q->where('date', $selectedDate))
+            ->when($request->status, fn ($q) => $q->where('status', $request->status))
             ->latest('date')
             ->paginate(50);
 
-        // Calculate stats for the selected date
+        $deviceSetting = DeviceSetting::first();
+
+        // Teachers who have no attendance record for this date (so they appear on page and can be marked)
+        $teacherIdsWithRecord = TeacherAttendance::where('date', $selectedDate)->pluck('teacher_id')->toArray();
+        $teachersNotMarked = Teacher::with('user')
+            ->where('status', 'active')
+            ->whereNotIn('id', $teacherIdsWithRecord)
+            ->orderBy('id')
+            ->get(['id', 'user_id', 'employee_id', 'designation'])
+            ->map(function ($t) {
+                return [
+                    'id' => $t->id,
+                    'name' => $t->user?->name ?? ('Employee '.($t->employee_id ?: $t->id)),
+                    'employee_id' => $t->employee_id,
+                    'designation' => $t->designation,
+                ];
+            });
+
+        // Dynamic status from device settings (in_time, out_time, late_time)
+        if ($deviceSetting) {
+            $attendances->getCollection()->transform(function ($att) use ($deviceSetting) {
+                if (in_array($att->status, ['present', 'late', 'early_leave']) && $att->in_time) {
+                    $att->status = $deviceSetting->computeTeacherStatus(
+                        $att->in_time,
+                        $att->out_time,
+                        $att->date
+                    );
+                }
+
+                return $att;
+            });
+        }
+
+        // Stats: use computed status when device setting exists
         $statsQuery = TeacherAttendance::where('date', $selectedDate);
-        $stats = [
-            'total' => $statsQuery->count(),
-            'present' => (clone $statsQuery)->where('status', 'present')->count(),
-            'absent' => (clone $statsQuery)->where('status', 'absent')->count(),
-            'late' => (clone $statsQuery)->where('status', 'late')->count(),
-            'leave' => (clone $statsQuery)->where('status', 'leave')->count(),
-        ];
+        if ($deviceSetting) {
+            $allForDate = TeacherAttendance::where('date', $selectedDate)->get();
+            $present = $late = $earlyLeave = 0;
+            foreach ($allForDate as $att) {
+                $s = in_array($att->status, ['present', 'late', 'early_leave']) && $att->in_time
+                    ? $deviceSetting->computeTeacherStatus($att->in_time, $att->out_time, $att->date)
+                    : $att->status;
+                if ($s === 'present') {
+                    $present++;
+                } elseif ($s === 'late') {
+                    $late++;
+                } elseif ($s === 'early_leave') {
+                    $earlyLeave++;
+                }
+            }
+            $stats = [
+                'total' => $allForDate->count(),
+                'present' => $present,
+                'absent' => (clone $statsQuery)->where('status', 'absent')->count(),
+                'late' => $late,
+                'leave' => (clone $statsQuery)->where('status', 'leave')->count(),
+                'early_leave' => $earlyLeave,
+            ];
+        } else {
+            $stats = [
+                'total' => $statsQuery->count(),
+                'present' => (clone $statsQuery)->where('status', 'present')->count(),
+                'absent' => (clone $statsQuery)->where('status', 'absent')->count(),
+                'late' => (clone $statsQuery)->where('status', 'late')->count(),
+                'leave' => (clone $statsQuery)->where('status', 'leave')->count(),
+                'early_leave' => (clone $statsQuery)->where('status', 'early_leave')->count(),
+            ];
+        }
 
         return Inertia::render('Attendance/Teachers/Index', [
             'attendances' => $attendances,
+            'teachersNotMarked' => $teachersNotMarked,
             'filters' => [
                 'date' => $selectedDate,
                 'status' => $request->status,
             ],
             'stats' => $stats,
+            'deviceSetting' => $deviceSetting ? [
+                'device_name' => $deviceSetting->device_name,
+                'device_ip' => $deviceSetting->device_ip,
+                'last_sync_at' => $deviceSetting->last_sync_at?->toIso8601String(),
+            ] : null,
         ]);
     }
 
@@ -48,7 +116,7 @@ class TeacherAttendanceController extends Controller
     {
         $this->authorize('mark_attendance');
 
-        $teachers = Teacher::with(['user', 'attendance' => function($q) use ($request) {
+        $teachers = Teacher::with(['user', 'attendance' => function ($q) use ($request) {
             $q->where('date', $request->date ?? now()->format('Y-m-d'));
         }])->where('status', 'active')->get();
 
@@ -92,14 +160,15 @@ class TeacherAttendanceController extends Controller
 
             DB::commit();
 
-            logActivity('create', "Marked attendance for " . count($validated['attendances']) . " teachers", TeacherAttendance::class);
+            logActivity('create', 'Marked attendance for '.count($validated['attendances']).' teachers', TeacherAttendance::class);
 
             return redirect()->route('teacher-attendance.index')
                 ->with('success', 'Attendance marked successfully');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withInput()->with('error', 'Failed to mark attendance: ' . $e->getMessage());
+
+            return back()->withInput()->with('error', 'Failed to mark attendance: '.$e->getMessage());
         }
     }
 
@@ -107,10 +176,12 @@ class TeacherAttendanceController extends Controller
     {
         $this->authorize('view_attendance');
 
-        $query = TeacherAttendance::with('teacher.user')
-            ->when($request->teacher_id, fn($q) => $q->where('teacher_id', $request->teacher_id))
-            ->when($request->from_date, fn($q) => $q->where('date', '>=', $request->from_date))
-            ->when($request->to_date, fn($q) => $q->where('date', '<=', $request->to_date));
+        $query = TeacherAttendance::with(['teacher' => function ($q) {
+            $q->withTrashed()->with('user');
+        }])
+            ->when($request->teacher_id, fn ($q) => $q->where('teacher_id', $request->teacher_id))
+            ->when($request->from_date, fn ($q) => $q->where('date', '>=', $request->from_date))
+            ->when($request->to_date, fn ($q) => $q->where('date', '<=', $request->to_date));
 
         $attendances = $query->latest('date')->paginate(50);
 
@@ -136,7 +207,7 @@ class TeacherAttendanceController extends Controller
 
         $teacherAttendance->delete();
 
-        logActivity('delete', "Deleted teacher attendance", TeacherAttendance::class, $teacherAttendance->id);
+        logActivity('delete', 'Deleted teacher attendance', TeacherAttendance::class, $teacherAttendance->id);
 
         return back()->with('success', 'Attendance deleted successfully');
     }
@@ -153,60 +224,62 @@ class TeacherAttendanceController extends Controller
         $endDate = date('Y-m-t', strtotime($startDate));
 
         // Get all teachers with their attendance for the month
-        $teachers = Teacher::with(['user', 'attendance' => function($q) use ($startDate, $endDate) {
+        $teachers = Teacher::with(['user', 'attendance' => function ($q) use ($startDate, $endDate) {
             $q->whereBetween('date', [$startDate, $endDate]);
         }])
-        ->where('status', 'active')
-        ->when($request->search, function($q) use ($request) {
-            $q->whereHas('user', function($q) use ($request) {
-                $q->where('name', 'like', "%{$request->search}%");
-            })->orWhere('employee_id', 'like', "%{$request->search}%");
-        })
-        ->when($request->department, function($q) use ($request) {
-            $q->where('department', $request->department);
-        })
-        ->get()
-        ->map(function($teacher) use ($startDate, $endDate) {
-            $attendanceByDate = $teacher->attendance->keyBy(function($att) {
-                return $att->date->format('Y-m-d');
-            });
+            ->where('status', 'active')
+            ->when($request->search, function ($q) use ($request) {
+                $q->whereHas('user', function ($q) use ($request) {
+                    $q->where('name', 'like', "%{$request->search}%");
+                })->orWhere('employee_id', 'like', "%{$request->search}%");
+            })
+            ->when($request->department, function ($q) use ($request) {
+                $q->where('department', $request->department);
+            })
+            ->get()
+            ->map(function ($teacher) use ($startDate) {
+                $attendanceByDate = $teacher->attendance->keyBy(function ($att) {
+                    return $att->date->format('Y-m-d');
+                });
 
-            $daysInMonth = date('t', strtotime($startDate));
-            $attendanceGrid = [];
-            $presentCount = 0;
+                $daysInMonth = date('t', strtotime($startDate));
+                $attendanceGrid = [];
+                $presentCount = 0;
 
-            for ($day = 1; $day <= $daysInMonth; $day++) {
-                $date = date('Y-m-d', strtotime("{$startDate} +".($day-1)." days"));
-                $dayOfWeek = date('N', strtotime($date));
+                for ($day = 1; $day <= $daysInMonth; $day++) {
+                    $date = date('Y-m-d', strtotime("{$startDate} +".($day - 1).' days'));
+                    $dayOfWeek = date('N', strtotime($date));
 
-                if (isset($attendanceByDate[$date])) {
-                    $status = $attendanceByDate[$date]->status;
-                    $attendanceGrid[$day] = [
-                        'status' => $status,
-                        'in_time' => $attendanceByDate[$date]->in_time,
-                        'out_time' => $attendanceByDate[$date]->out_time,
-                    ];
-                    if ($status === 'present') $presentCount++;
-                } else {
-                    // Check if weekend (Friday/Saturday)
-                    $attendanceGrid[$day] = [
-                        'status' => ($dayOfWeek == 5 || $dayOfWeek == 6) ? 'weekend' : null,
-                        'in_time' => null,
-                        'out_time' => null,
-                    ];
+                    if (isset($attendanceByDate[$date])) {
+                        $status = $attendanceByDate[$date]->status;
+                        $attendanceGrid[$day] = [
+                            'status' => $status,
+                            'in_time' => $attendanceByDate[$date]->in_time,
+                            'out_time' => $attendanceByDate[$date]->out_time,
+                        ];
+                        if ($status === 'present') {
+                            $presentCount++;
+                        }
+                    } else {
+                        // Check if weekend (Friday/Saturday)
+                        $attendanceGrid[$day] = [
+                            'status' => ($dayOfWeek == 5 || $dayOfWeek == 6) ? 'weekend' : null,
+                            'in_time' => null,
+                            'out_time' => null,
+                        ];
+                    }
                 }
-            }
 
-            return [
-                'id' => $teacher->id,
-                'name' => $teacher->user->name,
-                'employee_id' => $teacher->employee_id,
-                'designation' => $teacher->designation,
-                'department' => $teacher->department,
-                'attendance' => $attendanceGrid,
-                'present_count' => $presentCount,
-            ];
-        });
+                return [
+                    'id' => $teacher->id,
+                    'name' => $teacher->user->name,
+                    'employee_id' => $teacher->employee_id,
+                    'designation' => $teacher->designation,
+                    'department' => $teacher->department,
+                    'attendance' => $attendanceGrid,
+                    'present_count' => $presentCount,
+                ];
+            });
 
         return Inertia::render('Attendance/Teachers/Calendar', [
             'teachers' => $teachers,
@@ -216,7 +289,7 @@ class TeacherAttendanceController extends Controller
             'filters' => [
                 'search' => $request->search,
                 'department' => $request->department,
-            ]
+            ],
         ]);
     }
 }

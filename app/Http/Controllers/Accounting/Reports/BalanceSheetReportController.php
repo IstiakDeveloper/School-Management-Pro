@@ -4,15 +4,15 @@ namespace App\Http\Controllers\Accounting\Reports;
 
 use App\Http\Controllers\Controller;
 use App\Models\Account;
-use App\Models\Fund;
 use App\Models\FixedAsset;
+use App\Models\Fund;
+use App\Models\Setting;
 use App\Models\StaffWelfareLoan;
-use App\Models\ProvidentFundTransaction;
 use App\Models\Transaction;
-use Illuminate\Http\Request;
-use Inertia\Inertia;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
 
 class BalanceSheetReportController extends Controller
 {
@@ -122,6 +122,9 @@ class BalanceSheetReportController extends Controller
         // Total Property and Assets
         $totalPropertyAndAssets = $totalFixedAssets + $welfareLoanOutstanding + $closingBankBalance;
 
+        $schoolName = Setting::where('key', 'school_name')->value('value') ?: 'School Management Pro';
+        $schoolAddress = Setting::where('key', 'school_address')->value('value') ?: '';
+
         return Inertia::render('Accounting/Reports/BalanceSheet', [
             'fundAndLiabilities' => [
                 'fund' => $fundBalance,
@@ -141,6 +144,8 @@ class BalanceSheetReportController extends Controller
                 'end_date' => $endDate->format('Y-m-d'),
             ],
             'balanceDifference' => $totalPropertyAndAssets - $totalFundAndLiabilities,
+            'schoolName' => $schoolName,
+            'schoolAddress' => $schoolAddress,
         ]);
     }
 }

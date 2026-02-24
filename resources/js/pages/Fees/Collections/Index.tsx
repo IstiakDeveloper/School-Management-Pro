@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Plus, DollarSign, AlertCircle, Clock, CheckCircle, Printer, Download, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, DollarSign, AlertCircle, Clock, CheckCircle, Printer, Eye, ChevronLeft, ChevronRight, Search, X, CalendarDays, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import FeeCollectionModal from './FeeCollectionModal';
 
 function formatDate(dateString: string): string {
@@ -16,6 +16,7 @@ function getMonthName(month: number): string {
 interface Student {
     id: number;
     admission_number: string;
+    roll_number: string;
     user: { name: string };
     school_class: { id: number; name: string };
 }
@@ -36,6 +37,11 @@ interface Section {
     name: string;
     class_id: number;
     school_class?: { name: string };
+}
+
+interface FeeType {
+    id: number;
+    name: string;
 }
 
 interface Collection {
@@ -73,19 +79,34 @@ interface PaginatedData<T> {
 
 interface Props {
     collections: PaginatedData<Collection>;
+    uniqueStudentCount?: number;
     students: Student[];
     accounts: Account[];
     classes: SchoolClass[];
     sections: Section[];
+    feeTypes: FeeType[];
     stats: { total_collected: number; pending_fees: number; overdue_fees: number };
-    filters: { status?: string; search?: string; class_id?: number; section_id?: number };
+    filters: {
+        status?: string;
+        search?: string;
+        class_id?: number;
+        section_id?: number;
+        fee_type_id?: number;
+        date_from?: string;
+        date_to?: string;
+        month?: number;
+        year?: number;
+    };
 }
 
-export default function Index({ collections, students, accounts, classes, sections, stats, filters }: Props) {
+export default function Index({ collections, uniqueStudentCount, students, accounts, classes, sections, feeTypes = [], stats, filters }: Props) {
     const [showModal, setShowModal] = useState(false);
     const [filterStatus, setFilterStatus] = useState<string>(filters.status || 'all');
     const [filterClass, setFilterClass] = useState<string>(filters.class_id?.toString() || 'all');
     const [filterSection, setFilterSection] = useState<string>(filters.section_id?.toString() || 'all');
+    const [filterFeeType, setFilterFeeType] = useState<string>(filters.fee_type_id?.toString() || 'all');
+    const [dateFrom, setDateFrom] = useState(filters.date_from || '');
+    const [dateTo, setDateTo] = useState(filters.date_to || '');
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
 
     // Sync local state with URL params when filters prop changes
@@ -93,78 +114,99 @@ export default function Index({ collections, students, accounts, classes, sectio
         setFilterStatus(filters.status || 'all');
         setFilterClass(filters.class_id?.toString() || 'all');
         setFilterSection(filters.section_id?.toString() || 'all');
+        setFilterFeeType(filters.fee_type_id?.toString() || 'all');
+        setDateFrom(filters.date_from || '');
+        setDateTo(filters.date_to || '');
         setSearchTerm(filters.search || '');
     }, [filters]);
 
-    // Debounced search effect
+    const isFirstRender = useRef(true);
+
+    // Mark after first render so debounce doesn't fire on mount
     useEffect(() => {
-        if (!filters) return; // Guard against undefined filters
+        isFirstRender.current = false;
+    }, []);
 
-        const timer = setTimeout(() => {
-            if (searchTerm !== (filters.search || '')) {
-                applyFilters();
-            }
-        }, 500);
-
+    // Debounced search
+    useEffect(() => {
+        if (isFirstRender.current) return;
+        if (searchTerm === (filters.search || '')) return;
+        const timer = setTimeout(() => applyFilters(), 500);
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
-    // Apply filters when status, class, or section changes
-    useEffect(() => {
-        if (!filters) return; // Guard against undefined filters
-
-        // Only apply filters if values have actually changed from initial state
-        const hasChanged =
-            (filterStatus !== 'all' && filterStatus !== (filters.status || 'all')) ||
-            (filterClass !== 'all' && filterClass !== (filters.class_id?.toString() || 'all')) ||
-            (filterSection !== 'all' && filterSection !== (filters.section_id?.toString() || 'all'));
-
-        if (hasChanged) {
-            applyFilters();
-        }
-    }, [filterStatus, filterClass, filterSection]);
+    // Status pill click applies immediately
+    const handleStatusClick = (status: string) => {
+        setFilterStatus(status);
+        const params: Record<string, any> = {};
+        if (status !== 'all') params.status = status;
+        if (filterClass !== 'all') params.class_id = filterClass;
+        if (filterSection !== 'all') params.section_id = filterSection;
+        if (filterFeeType !== 'all') params.fee_type_id = filterFeeType;
+        if (dateFrom) params.date_from = dateFrom;
+        if (dateTo) params.date_to = dateTo;
+        if (searchTerm) params.search = searchTerm;
+        router.get(typeof route !== 'undefined' ? route('fee-collections.index') : '/fee-collections', params, {
+            preserveState: true, preserveScroll: true,
+            only: ['collections', 'uniqueStudentCount', 'filters', 'stats'],
+        });
+    };
 
     // Filter sections based on selected class
     const filteredSections = filterClass === 'all'
         ? sections
         : sections.filter(section => section.class_id === parseInt(filterClass));
 
-    // Handle filter changes with URL update
     const applyFilters = () => {
         const params: Record<string, any> = {};
 
         if (filterStatus !== 'all') params.status = filterStatus;
         if (filterClass !== 'all') params.class_id = filterClass;
         if (filterSection !== 'all') params.section_id = filterSection;
+        if (filterFeeType !== 'all') params.fee_type_id = filterFeeType;
+        if (dateFrom) params.date_from = dateFrom;
+        if (dateTo) params.date_to = dateTo;
         if (searchTerm) params.search = searchTerm;
 
-        // Use window.route or direct URL path
         const routeName = typeof route !== 'undefined' ? route('fee-collections.index') : '/fee-collections';
 
         router.get(routeName, params, {
             preserveState: true,
             preserveScroll: true,
-            only: ['collections', 'filters']
+            only: ['collections', 'uniqueStudentCount', 'filters', 'stats']
         });
     };
 
-    const handleFilterChange = (status: string) => {
-        setFilterStatus(status);
+    const resetFilters = () => {
+        setFilterStatus('all');
+        setFilterClass('all');
+        setFilterSection('all');
+        setFilterFeeType('all');
+        setDateFrom('');
+        setDateTo('');
+        setSearchTerm('');
+        const routeName = typeof route !== 'undefined' ? route('fee-collections.index') : '/fee-collections';
+        router.get(routeName, {}, { preserveState: true, only: ['collections', 'uniqueStudentCount', 'filters', 'stats'] });
+    };
+
+    const setPresetMonth = (preset: 'this_month' | 'last_month') => {
+        const now = new Date();
+        let start: Date;
+        let end: Date;
+        if (preset === 'this_month') {
+            start = new Date(now.getFullYear(), now.getMonth(), 1);
+            end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        } else {
+            start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            end = new Date(now.getFullYear(), now.getMonth(), 0);
+        }
+        setDateFrom(start.toISOString().slice(0, 10));
+        setDateTo(end.toISOString().slice(0, 10));
     };
 
     const handleClassChange = (classId: string) => {
         setFilterClass(classId);
-        if (classId === 'all') {
-            setFilterSection('all');
-        }
-    };
-
-    const handleSectionChange = (sectionId: string) => {
-        setFilterSection(sectionId);
-    };
-
-    const handleSearchChange = (search: string) => {
-        setSearchTerm(search);
+        if (classId === 'all') setFilterSection('all');
     };
 
     const handlePageChange = (url: string | null) => {
@@ -238,53 +280,153 @@ export default function Index({ collections, students, accounts, classes, sectio
                     </div>
                 </div>
 
-                {/* Filters & Search */}
-                <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-                        <div className="md:col-span-2">
-                            <input
-                                type="text"
-                                placeholder="Search by student, receipt..."
-                                value={searchTerm}
-                                onChange={(e) => handleSearchChange(e.target.value)}
-                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            />
+                {/* Filters */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 overflow-hidden">
+                    {/* Status Pills */}
+                    <div className="flex items-center gap-1 px-4 pt-3 pb-2 border-b border-gray-100 flex-wrap">
+                        <SlidersHorizontal className="w-3.5 h-3.5 text-gray-400 mr-1 shrink-0" />
+                        {[
+                            { value: 'all',     label: 'All',     color: 'gray' },
+                            { value: 'paid',    label: 'Paid',    color: 'green' },
+                            { value: 'pending', label: 'Pending', color: 'yellow' },
+                            { value: 'overdue', label: 'Overdue', color: 'red' },
+                            { value: 'partial', label: 'Partial', color: 'blue' },
+                        ].map(({ value, label, color }) => (
+                            <button
+                                key={value}
+                                type="button"
+                                onClick={() => handleStatusClick(value)}
+                                className={`px-3 py-1 rounded-full text-xs font-semibold transition border ${
+                                    filterStatus === value
+                                        ? color === 'gray'   ? 'bg-gray-700   text-white border-gray-700'
+                                        : color === 'green'  ? 'bg-green-600  text-white border-green-600'
+                                        : color === 'yellow' ? 'bg-yellow-500 text-white border-yellow-500'
+                                        : color === 'red'    ? 'bg-red-600    text-white border-red-600'
+                                        :                      'bg-blue-600   text-white border-blue-600'
+                                        : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                                }`}
+                            >
+                                {label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Filter Fields */}
+                    <div className="p-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                            {/* Search */}
+                            <div className="col-span-2 sm:col-span-1 lg:col-span-2 relative">
+                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Student name, receipt no..."
+                                    value={searchTerm}
+                                    onChange={(e) => { isFirstRender.current = false; setSearchTerm(e.target.value); }}
+                                    className="w-full pl-8 pr-8 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 focus:bg-white transition"
+                                />
+                                {searchTerm && (
+                                    <button onClick={() => { isFirstRender.current = false; setSearchTerm(''); }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                        <X className="w-3.5 h-3.5" />
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Fee Type */}
+                            <div>
+                                <select
+                                    value={filterFeeType}
+                                    onChange={(e) => setFilterFeeType(e.target.value)}
+                                    className="w-full px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 focus:bg-white transition"
+                                >
+                                    <option value="all">All Fee Types</option>
+                                    {feeTypes.map((ft) => (
+                                        <option key={ft.id} value={ft.id}>{ft.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Class */}
+                            <div>
+                                <select
+                                    value={filterClass}
+                                    onChange={(e) => handleClassChange(e.target.value)}
+                                    className="w-full px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 focus:bg-white transition"
+                                >
+                                    <option value="all">All Classes</option>
+                                    {classes.map((cls) => (
+                                        <option key={cls.id} value={cls.id}>{cls.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Section */}
+                            <div>
+                                <select
+                                    value={filterSection}
+                                    onChange={(e) => setFilterSection(e.target.value)}
+                                    disabled={filterClass === 'all'}
+                                    className="w-full px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 focus:bg-white transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <option value="all">All Sections</option>
+                                    {filteredSections.map((section) => (
+                                        <option key={section.id} value={section.id}>{section.name}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
-                        <select
-                            value={filterStatus}
-                            onChange={(e) => handleFilterChange(e.target.value)}
-                            className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        >
-                            <option value="all">All Status</option>
-                            <option value="paid">Paid</option>
-                            <option value="partial">Partial</option>
-                            <option value="pending">Pending</option>
-                        </select>
-                        <select
-                            value={filterClass}
-                            onChange={(e) => handleClassChange(e.target.value)}
-                            className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        >
-                            <option value="all">All Classes</option>
-                            {classes.map((cls) => (
-                                <option key={cls.id} value={cls.id}>
-                                    {cls.name}
-                                </option>
-                            ))}
-                        </select>
-                        <select
-                            value={filterSection}
-                            onChange={(e) => handleSectionChange(e.target.value)}
-                            disabled={filterClass === 'all'}
-                            className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                        >
-                            <option value="all">All Sections</option>
-                            {filteredSections.map((section) => (
-                                <option key={section.id} value={section.id}>
-                                    {section.name}
-                                </option>
-                            ))}
-                        </select>
+
+                        {/* Date Row */}
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                            <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5">
+                                <CalendarDays className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                <input
+                                    type="date"
+                                    value={dateFrom}
+                                    onChange={(e) => setDateFrom(e.target.value)}
+                                    className="text-sm bg-transparent border-0 focus:ring-0 focus:outline-none p-0 text-gray-700 w-32"
+                                />
+                                <span className="text-gray-400 text-xs">—</span>
+                                <input
+                                    type="date"
+                                    value={dateTo}
+                                    onChange={(e) => setDateTo(e.target.value)}
+                                    className="text-sm bg-transparent border-0 focus:ring-0 focus:outline-none p-0 text-gray-700 w-32"
+                                />
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setPresetMonth('this_month')}
+                                className="px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 transition"
+                            >
+                                This Month
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setPresetMonth('last_month')}
+                                className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 transition"
+                            >
+                                Last Month
+                            </button>
+
+                            <div className="flex items-center gap-1.5 ml-auto">
+                                <button
+                                    type="button"
+                                    onClick={resetFilters}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+                                >
+                                    <RotateCcw className="w-3.5 h-3.5" />
+                                    Reset
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={applyFilters}
+                                    className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition"
+                                >
+                                    <Search className="w-3.5 h-3.5" />
+                                    Apply
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -356,25 +498,17 @@ export default function Index({ collections, students, accounts, classes, sectio
                                                 {formatDate(collection.payment_date)}
                                             </td>
                                             <td className="px-4 py-3">
-                                                <span
-                                                    className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                                        collection.status === 'paid'
-                                                            ? 'bg-green-100 text-green-800'
-                                                            : collection.status === 'partial'
-                                                            ? 'bg-yellow-100 text-yellow-800'
-                                                            : 'bg-red-100 text-red-800'
-                                                    }`}
-                                                >
-                                                    {collection.status === 'paid' && (
-                                                        <CheckCircle className="w-3 h-3 inline mr-1" />
-                                                    )}
-                                                    {collection.status === 'partial' && (
-                                                        <Clock className="w-3 h-3 inline mr-1" />
-                                                    )}
-                                                    {collection.status === 'pending' && (
-                                                        <AlertCircle className="w-3 h-3 inline mr-1" />
-                                                    )}
-                                                    {collection.status.toUpperCase()}
+                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                                    collection.status === 'paid'    ? 'bg-green-100  text-green-800' :
+                                                    collection.status === 'partial' ? 'bg-blue-100   text-blue-800' :
+                                                    collection.status === 'overdue' ? 'bg-red-100    text-red-800' :
+                                                                                      'bg-yellow-100 text-yellow-800'
+                                                }`}>
+                                                    {collection.status === 'paid'    && <CheckCircle className="w-3 h-3" />}
+                                                    {collection.status === 'partial' && <Clock className="w-3 h-3" />}
+                                                    {collection.status === 'pending' && <Clock className="w-3 h-3" />}
+                                                    {collection.status === 'overdue' && <AlertCircle className="w-3 h-3" />}
+                                                    {collection.status.charAt(0).toUpperCase() + collection.status.slice(1)}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3">
@@ -422,7 +556,10 @@ export default function Index({ collections, students, accounts, classes, sectio
                                 <div className="text-xs text-gray-700">
                                     Showing <span className="font-semibold">{collections.from}</span> to{' '}
                                     <span className="font-semibold">{collections.to}</span> of{' '}
-                                    <span className="font-semibold">{collections.total}</span> results
+                                    <span className="font-semibold">{collections.total}</span> receipts
+                                    {uniqueStudentCount != null && uniqueStudentCount !== collections.total && (
+                                        <span className="text-gray-500"> ({uniqueStudentCount} unique students)</span>
+                                    )}
                                 </div>
                                 <div className="flex items-center gap-1">
                                     <button

@@ -3,12 +3,13 @@
 namespace App\Http\Controllers\Accounting\Reports;
 
 use App\Http\Controllers\Controller;
-use App\Models\Transaction;
 use App\Models\Account;
 use App\Models\FundTransaction;
+use App\Models\Setting;
+use App\Models\Transaction;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Carbon\Carbon;
 
 class ReceiptPaymentReportController extends Controller
 {
@@ -31,8 +32,8 @@ class ReceiptPaymentReportController extends Controller
                 $query->where('account_id', $accountId)
                     ->orWhere('transfer_to_account_id', $accountId);
             })
-            ->where('transaction_date', '<', $startDate)
-            ->get();
+                ->where('transaction_date', '<', $startDate)
+                ->get();
 
             foreach ($previousTransactions as $trans) {
                 if ($trans->account_id == $accountId) {
@@ -74,8 +75,8 @@ class ReceiptPaymentReportController extends Controller
                     $query->where('account_id', $acc->id)
                         ->orWhere('transfer_to_account_id', $acc->id);
                 })
-                ->where('transaction_date', '<', $startDate)
-                ->get();
+                    ->where('transaction_date', '<', $startDate)
+                    ->get();
 
                 foreach ($prevTrans as $trans) {
                     if ($trans->account_id == $acc->id) {
@@ -160,14 +161,14 @@ class ReceiptPaymentReportController extends Controller
 
         // Income - Month
         foreach ($monthTransactions as $trans) {
-            if ($trans->type === 'income' && (!$accountId || $trans->account_id == $accountId)) {
+            if ($trans->type === 'income' && (! $accountId || $trans->account_id == $accountId)) {
                 $categoryName = $trans->incomeCategory ? $trans->incomeCategory->name : 'Other Income';
-                if (!isset($receiptsGrouped[$categoryName])) {
+                if (! isset($receiptsGrouped[$categoryName])) {
                     $receiptsGrouped[$categoryName] = [
                         'description' => $categoryName,
                         'month_amount' => 0,
                         'cumulative_amount' => 0,
-                        'type' => 'income'
+                        'type' => 'income',
                     ];
                 }
                 $receiptsGrouped[$categoryName]['month_amount'] += $trans->amount;
@@ -177,12 +178,12 @@ class ReceiptPaymentReportController extends Controller
             // Transfer In - Month
             if ($trans->type === 'transfer' && $trans->transfer_to_account_id == $accountId) {
                 $key = 'Transfer In';
-                if (!isset($receiptsGrouped[$key])) {
+                if (! isset($receiptsGrouped[$key])) {
                     $receiptsGrouped[$key] = [
                         'description' => $key,
                         'month_amount' => 0,
                         'cumulative_amount' => 0,
-                        'type' => 'transfer_in'
+                        'type' => 'transfer_in',
                     ];
                 }
                 $receiptsGrouped[$key]['month_amount'] += $trans->amount;
@@ -192,14 +193,14 @@ class ReceiptPaymentReportController extends Controller
 
         // Income - Cumulative
         foreach ($cumulativeTransactions as $trans) {
-            if ($trans->type === 'income' && (!$accountId || $trans->account_id == $accountId)) {
+            if ($trans->type === 'income' && (! $accountId || $trans->account_id == $accountId)) {
                 $categoryName = $trans->incomeCategory ? $trans->incomeCategory->name : 'Other Income';
-                if (!isset($receiptsGrouped[$categoryName])) {
+                if (! isset($receiptsGrouped[$categoryName])) {
                     $receiptsGrouped[$categoryName] = [
                         'description' => $categoryName,
                         'month_amount' => 0,
                         'cumulative_amount' => 0,
-                        'type' => 'income'
+                        'type' => 'income',
                     ];
                 }
                 $receiptsGrouped[$categoryName]['cumulative_amount'] += $trans->amount;
@@ -209,12 +210,12 @@ class ReceiptPaymentReportController extends Controller
             // Transfer In - Cumulative
             if ($trans->type === 'transfer' && $trans->transfer_to_account_id == $accountId) {
                 $key = 'Transfer In';
-                if (!isset($receiptsGrouped[$key])) {
+                if (! isset($receiptsGrouped[$key])) {
                     $receiptsGrouped[$key] = [
                         'description' => $key,
                         'month_amount' => 0,
                         'cumulative_amount' => 0,
-                        'type' => 'transfer_in'
+                        'type' => 'transfer_in',
                     ];
                 }
                 $receiptsGrouped[$key]['cumulative_amount'] += $trans->amount;
@@ -225,13 +226,13 @@ class ReceiptPaymentReportController extends Controller
         // Fund In - Month
         foreach ($monthFundTransactions as $fundTrans) {
             if ($fundTrans->transaction_type === 'in') {
-                $key = 'Fund In - ' . ($fundTrans->fund ? $fundTrans->fund->name : 'Fund');
-                if (!isset($receiptsGrouped[$key])) {
+                $key = 'Fund In - '.($fundTrans->fund ? $fundTrans->fund->name : 'Fund');
+                if (! isset($receiptsGrouped[$key])) {
                     $receiptsGrouped[$key] = [
                         'description' => $key,
                         'month_amount' => 0,
                         'cumulative_amount' => 0,
-                        'type' => 'fund_in'
+                        'type' => 'fund_in',
                     ];
                 }
                 $receiptsGrouped[$key]['month_amount'] += $fundTrans->amount;
@@ -242,13 +243,13 @@ class ReceiptPaymentReportController extends Controller
         // Fund In - Cumulative
         foreach ($cumulativeFundTransactions as $fundTrans) {
             if ($fundTrans->transaction_type === 'in') {
-                $key = 'Fund In - ' . ($fundTrans->fund ? $fundTrans->fund->name : 'Fund');
-                if (!isset($receiptsGrouped[$key])) {
+                $key = 'Fund In - '.($fundTrans->fund ? $fundTrans->fund->name : 'Fund');
+                if (! isset($receiptsGrouped[$key])) {
                     $receiptsGrouped[$key] = [
                         'description' => $key,
                         'month_amount' => 0,
                         'cumulative_amount' => 0,
-                        'type' => 'fund_in'
+                        'type' => 'fund_in',
                     ];
                 }
                 $receiptsGrouped[$key]['cumulative_amount'] += $fundTrans->amount;
@@ -265,14 +266,14 @@ class ReceiptPaymentReportController extends Controller
 
         // Expenses - Month
         foreach ($monthTransactions as $trans) {
-            if (in_array($trans->type, ['expense', 'asset_purchase']) && (!$accountId || $trans->account_id == $accountId)) {
+            if (in_array($trans->type, ['expense', 'asset_purchase']) && (! $accountId || $trans->account_id == $accountId)) {
                 $categoryName = $trans->expenseCategory ? $trans->expenseCategory->name : 'Other Expense';
-                if (!isset($paymentsGrouped[$categoryName])) {
+                if (! isset($paymentsGrouped[$categoryName])) {
                     $paymentsGrouped[$categoryName] = [
                         'description' => $categoryName,
                         'month_amount' => 0,
                         'cumulative_amount' => 0,
-                        'type' => 'expense'
+                        'type' => 'expense',
                     ];
                 }
                 $paymentsGrouped[$categoryName]['month_amount'] += $trans->amount;
@@ -282,12 +283,12 @@ class ReceiptPaymentReportController extends Controller
             // Transfer Out - Month
             if ($trans->type === 'transfer' && $trans->account_id == $accountId) {
                 $key = 'Transfer Out';
-                if (!isset($paymentsGrouped[$key])) {
+                if (! isset($paymentsGrouped[$key])) {
                     $paymentsGrouped[$key] = [
                         'description' => $key,
                         'month_amount' => 0,
                         'cumulative_amount' => 0,
-                        'type' => 'transfer_out'
+                        'type' => 'transfer_out',
                     ];
                 }
                 $paymentsGrouped[$key]['month_amount'] += $trans->amount;
@@ -297,14 +298,14 @@ class ReceiptPaymentReportController extends Controller
 
         // Expenses - Cumulative
         foreach ($cumulativeTransactions as $trans) {
-            if (in_array($trans->type, ['expense', 'asset_purchase']) && (!$accountId || $trans->account_id == $accountId)) {
+            if (in_array($trans->type, ['expense', 'asset_purchase']) && (! $accountId || $trans->account_id == $accountId)) {
                 $categoryName = $trans->expenseCategory ? $trans->expenseCategory->name : 'Other Expense';
-                if (!isset($paymentsGrouped[$categoryName])) {
+                if (! isset($paymentsGrouped[$categoryName])) {
                     $paymentsGrouped[$categoryName] = [
                         'description' => $categoryName,
                         'month_amount' => 0,
                         'cumulative_amount' => 0,
-                        'type' => 'expense'
+                        'type' => 'expense',
                     ];
                 }
                 $paymentsGrouped[$categoryName]['cumulative_amount'] += $trans->amount;
@@ -314,12 +315,12 @@ class ReceiptPaymentReportController extends Controller
             // Transfer Out - Cumulative
             if ($trans->type === 'transfer' && $trans->account_id == $accountId) {
                 $key = 'Transfer Out';
-                if (!isset($paymentsGrouped[$key])) {
+                if (! isset($paymentsGrouped[$key])) {
                     $paymentsGrouped[$key] = [
                         'description' => $key,
                         'month_amount' => 0,
                         'cumulative_amount' => 0,
-                        'type' => 'transfer_out'
+                        'type' => 'transfer_out',
                     ];
                 }
                 $paymentsGrouped[$key]['cumulative_amount'] += $trans->amount;
@@ -330,13 +331,13 @@ class ReceiptPaymentReportController extends Controller
         // Fund Out - Month
         foreach ($monthFundTransactions as $fundTrans) {
             if ($fundTrans->transaction_type === 'out') {
-                $key = 'Fund Out - ' . ($fundTrans->fund ? $fundTrans->fund->name : 'Fund');
-                if (!isset($paymentsGrouped[$key])) {
+                $key = 'Fund Out - '.($fundTrans->fund ? $fundTrans->fund->name : 'Fund');
+                if (! isset($paymentsGrouped[$key])) {
                     $paymentsGrouped[$key] = [
                         'description' => $key,
                         'month_amount' => 0,
                         'cumulative_amount' => 0,
-                        'type' => 'fund_out'
+                        'type' => 'fund_out',
                     ];
                 }
                 $paymentsGrouped[$key]['month_amount'] += $fundTrans->amount;
@@ -347,13 +348,13 @@ class ReceiptPaymentReportController extends Controller
         // Fund Out - Cumulative
         foreach ($cumulativeFundTransactions as $fundTrans) {
             if ($fundTrans->transaction_type === 'out') {
-                $key = 'Fund Out - ' . ($fundTrans->fund ? $fundTrans->fund->name : 'Fund');
-                if (!isset($paymentsGrouped[$key])) {
+                $key = 'Fund Out - '.($fundTrans->fund ? $fundTrans->fund->name : 'Fund');
+                if (! isset($paymentsGrouped[$key])) {
                     $paymentsGrouped[$key] = [
                         'description' => $key,
                         'month_amount' => 0,
                         'cumulative_amount' => 0,
-                        'type' => 'fund_out'
+                        'type' => 'fund_out',
                     ];
                 }
                 $paymentsGrouped[$key]['cumulative_amount'] += $fundTrans->amount;
@@ -366,6 +367,9 @@ class ReceiptPaymentReportController extends Controller
         // Calculate closing balance
         $closingBalance = $openingBalance + $totalMonthReceipts - $totalMonthPayments;
         $cumulativeClosingBalance = $openingBalance + $totalCumulativeReceipts - $totalCumulativePayments;
+
+        $schoolName = Setting::where('key', 'school_name')->value('value') ?: 'School Management Pro';
+        $schoolAddress = Setting::where('key', 'school_address')->value('value') ?: '';
 
         return Inertia::render('Accounting/Reports/ReceiptPayment', [
             'receipts' => $receipts,
@@ -383,6 +387,8 @@ class ReceiptPaymentReportController extends Controller
                 'account_id' => $accountId,
             ],
             'accounts' => Account::where('status', 'active')->get(),
+            'schoolName' => $schoolName,
+            'schoolAddress' => $schoolAddress,
         ]);
     }
 }

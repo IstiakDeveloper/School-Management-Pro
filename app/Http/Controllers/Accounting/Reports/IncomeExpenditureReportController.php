@@ -3,11 +3,12 @@
 namespace App\Http\Controllers\Accounting\Reports;
 
 use App\Http\Controllers\Controller;
-use App\Models\Transaction;
 use App\Models\Account;
+use App\Models\Setting;
+use App\Models\Transaction;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Carbon\Carbon;
 
 class IncomeExpenditureReportController extends Controller
 {
@@ -69,7 +70,7 @@ class IncomeExpenditureReportController extends Controller
                     continue;
                 }
 
-                if (!isset($incomeGrouped[$categoryName])) {
+                if (! isset($incomeGrouped[$categoryName])) {
                     $incomeGrouped[$categoryName] = [
                         'description' => $categoryName,
                         'month_amount' => 0,
@@ -91,7 +92,7 @@ class IncomeExpenditureReportController extends Controller
                     continue;
                 }
 
-                if (!isset($incomeGrouped[$categoryName])) {
+                if (! isset($incomeGrouped[$categoryName])) {
                     $incomeGrouped[$categoryName] = [
                         'description' => $categoryName,
                         'month_amount' => 0,
@@ -120,7 +121,7 @@ class IncomeExpenditureReportController extends Controller
                     continue;
                 }
 
-                if (!isset($expenditureGrouped[$categoryName])) {
+                if (! isset($expenditureGrouped[$categoryName])) {
                     $expenditureGrouped[$categoryName] = [
                         'description' => $categoryName,
                         'month_amount' => 0,
@@ -142,7 +143,7 @@ class IncomeExpenditureReportController extends Controller
                     continue;
                 }
 
-                if (!isset($expenditureGrouped[$categoryName])) {
+                if (! isset($expenditureGrouped[$categoryName])) {
                     $expenditureGrouped[$categoryName] = [
                         'description' => $categoryName,
                         'month_amount' => 0,
@@ -160,6 +161,9 @@ class IncomeExpenditureReportController extends Controller
         $monthSurplus = $totalMonthIncome - $totalMonthExpenditure;
         $cumulativeSurplus = $totalCumulativeIncome - $totalCumulativeExpenditure;
 
+        $schoolName = Setting::where('key', 'school_name')->value('value') ?: 'School Management Pro';
+        $schoolAddress = Setting::where('key', 'school_address')->value('value') ?: '';
+
         return Inertia::render('Accounting/Reports/IncomeExpenditure', [
             'income' => $income,
             'expenditure' => $expenditure,
@@ -175,6 +179,8 @@ class IncomeExpenditureReportController extends Controller
                 'account_id' => $accountId,
             ],
             'accounts' => Account::where('status', 'active')->get(),
+            'schoolName' => $schoolName,
+            'schoolAddress' => $schoolAddress,
         ]);
     }
 }

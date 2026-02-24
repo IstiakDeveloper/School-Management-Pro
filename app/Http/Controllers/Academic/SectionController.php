@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Academic;
 
 use App\Http\Controllers\Controller;
-use App\Models\Section;
 use App\Models\SchoolClass;
+use App\Models\Section;
 use App\Models\Teacher;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -17,13 +17,14 @@ class SectionController extends Controller
 
         $sections = Section::with('schoolClass')
             ->withCount('students')
-            ->when($request->class_id, fn($q) => $q->where('class_id', $request->class_id))
+            ->when($request->class_id, fn ($q) => $q->where('class_id', $request->class_id))
             ->orderBy('name')
             ->paginate(20);
 
         return Inertia::render('Academic/Sections/Index', [
             'sections' => $sections,
             'classes' => SchoolClass::where('status', 'active')->get(),
+            'filters' => $request->only(['class_id']),
         ]);
     }
 
@@ -66,9 +67,9 @@ class SectionController extends Controller
         $section->load([
             'schoolClass',
             'teacher.user',
-            'students' => function($query) {
+            'students' => function ($query) {
                 $query->select('id', 'section_id', 'first_name', 'last_name', 'roll_number', 'email', 'phone');
-            }
+            },
         ]);
 
         return Inertia::render('Academic/Sections/Show', [

@@ -13,7 +13,7 @@ import {
     Bell,
     BarChart3,
     Settings,
-    ChevronDown,
+    ChevronRight,
     Wallet,
     Building2,
     TrendingUp,
@@ -22,6 +22,30 @@ import {
     Briefcase,
     User,
     Award,
+    ShieldCheck,
+    KeyRound,
+    Layers,
+    LayoutList,
+    BookMarked,
+    UserCircle2,
+    PenLine,
+    Trophy,
+    Tag,
+    Banknote,
+    AlertCircle,
+    HandCoins,
+    Landmark,
+    Receipt,
+    PieChart,
+    Scale,
+    Megaphone,
+    CalendarDays,
+    Cpu,
+    UserCheck,
+    ClipboardList,
+    CalendarClock,
+    BookCopy,
+    ArrowLeftRight,
 } from 'lucide-react';
 
 interface User {
@@ -39,163 +63,158 @@ interface MenuItem {
     children?: MenuItem[];
 }
 
+const iconClass = 'w-4 h-4 shrink-0';
+
 const menuItems: MenuItem[] = [
-    { name: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
-    { name: 'Dashboard', href: '/teacher/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, roles: ['Teacher'] },
-    { name: 'Dashboard', href: '/student/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, roles: ['Student'] },
+    { name: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
+    { name: 'Dashboard', href: '/teacher/dashboard', icon: <LayoutDashboard className={iconClass} />, roles: ['Teacher'] },
+    { name: 'Dashboard', href: '/student/dashboard', icon: <LayoutDashboard className={iconClass} />, roles: ['Student'] },
     {
         name: 'Users',
-        icon: <Users className="w-5 h-5" />,
+        icon: <Users className={iconClass} />,
         roles: ['Super Admin', 'Admin'],
         children: [
-            { name: 'All Users', href: '/users', icon: <Users className="w-5 h-5" />, roles: ['Super Admin', 'Admin'] },
-            { name: 'Roles', href: '/roles', icon: <Users className="w-5 h-5" />, roles: ['Super Admin', 'Admin'] },
-            { name: 'Permissions', href: '/permissions', icon: <Users className="w-5 h-5" />, roles: ['Super Admin', 'Admin'] },
+            { name: 'All Users', href: '/users', icon: <Users className={iconClass} />, roles: ['Super Admin', 'Admin'] },
+            { name: 'Roles', href: '/roles', icon: <ShieldCheck className={iconClass} />, roles: ['Super Admin', 'Admin'] },
+            { name: 'Permissions', href: '/permissions', icon: <KeyRound className={iconClass} />, roles: ['Super Admin', 'Admin'] },
         ],
     },
     {
         name: 'Academic',
-        icon: <BookOpen className="w-5 h-5" />,
+        icon: <BookOpen className={iconClass} />,
         roles: ['Super Admin', 'Admin', 'Principal'],
         children: [
-            { name: 'Academic Years', href: '/academic-years', icon: <Calendar className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
-            { name: 'Classes', href: '/classes', icon: <BookOpen className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
-            { name: 'Sections', href: '/sections', icon: <BookOpen className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
-            { name: 'Subjects', href: '/subjects', icon: <BookOpen className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
+            { name: 'Academic Years', href: '/academic-years', icon: <Calendar className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
+            { name: 'Classes', href: '/classes', icon: <Layers className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
+            { name: 'Sections', href: '/sections', icon: <LayoutList className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
+            { name: 'Subjects', href: '/subjects', icon: <BookMarked className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
         ],
     },
     {
         name: 'Students',
-        icon: <GraduationCap className="w-5 h-5" />,
+        icon: <GraduationCap className={iconClass} />,
         roles: ['Super Admin', 'Admin', 'Principal', 'Teacher'],
         children: [
-            { name: 'All Students', href: '/students', icon: <GraduationCap className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
-            { name: 'My Students', href: '/teacher/students', icon: <GraduationCap className="w-5 h-5" />, roles: ['Teacher'] },
-            { name: 'Promotions', href: '/student-promotions', icon: <GraduationCap className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
-            { name: 'Parents', href: '/student-parents', icon: <Users className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
+            { name: 'All Students', href: '/students', icon: <GraduationCap className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
+            { name: 'My Students', href: '/teacher/students', icon: <Users className={iconClass} />, roles: ['Teacher'] },
+            { name: 'Promotions', href: '/student-promotions', icon: <ArrowLeftRight className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
+            { name: 'Parents', href: '/student-parents', icon: <UserCircle2 className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
         ],
     },
     {
         name: 'Teachers',
-        icon: <Users className="w-5 h-5" />,
+        icon: <GraduationCap className={iconClass} />,
         roles: ['Super Admin', 'Admin', 'Principal'],
         children: [
-            { name: 'All Teachers', href: '/teachers', icon: <Users className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
-            { name: 'Teacher Subjects', href: '/teacher-subjects', icon: <BookOpen className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
+            { name: 'All Teachers', href: '/teachers', icon: <GraduationCap className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
+            { name: 'Teacher Subjects', href: '/teacher-subjects', icon: <BookMarked className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
         ],
     },
     {
         name: 'Staff & Salary',
-        icon: <Briefcase className="w-5 h-5" />,
+        icon: <Briefcase className={iconClass} />,
         roles: ['Super Admin', 'Admin', 'Principal'],
         children: [
-            // { name: 'Staff', href: '/staff', icon: <Users className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
-            { name: 'Salary Payments', href: '/salary-payments', icon: <DollarSign className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
-            { name: 'Provident Fund', href: '/provident-fund', icon: <Wallet className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
+            { name: 'Salary Payments', href: '/salary-payments', icon: <DollarSign className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
+            { name: 'Provident Fund', href: '/provident-fund', icon: <Wallet className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
         ],
     },
     {
         name: 'Attendance',
-        icon: <ClipboardCheck className="w-5 h-5" />,
+        icon: <ClipboardCheck className={iconClass} />,
         roles: ['Super Admin', 'Admin', 'Principal', 'Teacher'],
         children: [
-            { name: 'Student Attendance', href: '/student-attendance', icon: <ClipboardCheck className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
-            { name: 'View Attendance', href: '/teacher/attendance', icon: <ClipboardCheck className="w-5 h-5" />, roles: ['Teacher'] },
-            { name: 'My Attendance', href: '/teacher/attendance/my', icon: <ClipboardCheck className="w-5 h-5" />, roles: ['Teacher'] },
-            { name: 'Teacher Attendance', href: '/teacher-attendance', icon: <ClipboardCheck className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
-            { name: 'Device Settings', href: '/device-settings', icon: <Settings className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
+            { name: 'Student Attendance', href: '/student-attendance', icon: <UserCheck className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
+            { name: 'View Attendance', href: '/teacher/attendance', icon: <ClipboardList className={iconClass} />, roles: ['Teacher'] },
+            { name: 'My Attendance', href: '/teacher/attendance/my', icon: <UserCheck className={iconClass} />, roles: ['Teacher'] },
+            { name: 'Teacher Attendance', href: '/teacher-attendance', icon: <ClipboardCheck className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
+            { name: 'Device Settings', href: '/device-settings', icon: <Cpu className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
         ],
     },
     {
         name: 'Exams',
-        icon: <FileText className="w-5 h-5" />,
+        icon: <FileText className={iconClass} />,
         roles: ['Super Admin', 'Admin', 'Principal', 'Teacher'],
         children: [
-            { name: 'All Exams', href: '/exams', icon: <FileText className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
-            { name: 'My Exams', href: '/teacher/exams', icon: <FileText className="w-5 h-5" />, roles: ['Teacher'] },
-            { name: 'Schedules', href: '/exam-schedules', icon: <Calendar className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
-            { name: 'Marks', href: '/marks', icon: <FileText className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
-            { name: 'Results', href: '/results', icon: <FileText className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
+            { name: 'All Exams', href: '/exams', icon: <FileText className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
+            { name: 'My Exams', href: '/teacher/exams', icon: <BookCopy className={iconClass} />, roles: ['Teacher'] },
+            { name: 'Schedules', href: '/exam-schedules', icon: <Calendar className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
+            { name: 'Marks', href: '/marks', icon: <PenLine className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
+            { name: 'Results', href: '/results', icon: <Trophy className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
         ],
     },
     {
         name: 'Fees',
-        icon: <DollarSign className="w-5 h-5" />,
+        icon: <DollarSign className={iconClass} />,
         roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'],
         children: [
-            { name: 'Fee Types', href: '/fee-types', icon: <DollarSign className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
-            { name: 'Collections', href: '/fee-collections', icon: <DollarSign className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
-            { name: 'Overdue Fees', href: '/overdue-fees', icon: <TrendingDown className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+            { name: 'Fee Types', href: '/fee-types', icon: <Tag className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+            { name: 'Collections', href: '/fee-collections', icon: <Banknote className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+            { name: 'Overdue Fees', href: '/overdue-fees', icon: <AlertCircle className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
         ],
     },
     {
         name: 'Accounting',
-        icon: <DollarSign className="w-5 h-5" />,
+        icon: <Wallet className={iconClass} />,
         roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'],
         children: [
-            { name: 'Dashboard', href: '/accounting/dashboard', icon: <LayoutDashboard className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
-            { name: 'Accounts', href: '/accounting/accounts', icon: <Wallet className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
-            { name: 'Transactions', href: '/accounting/transactions', icon: <DollarSign className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
-            { name: 'Fixed Assets', href: '/accounting/fixed-assets', icon: <Building2 className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
-            { name: 'Investors', href: '/accounting/investors', icon: <UserPlus className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
-            { name: 'Funds', href: '/accounting/funds', icon: <Briefcase className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
-            { name: 'Welfare Loans', href: '/accounting/welfare-loans', icon: <Wallet className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
-            { name: 'Income Categories', href: '/accounting/income-categories', icon: <TrendingUp className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
-            { name: 'Expense Categories', href: '/accounting/expense-categories', icon: <TrendingDown className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+            { name: 'Dashboard', href: '/accounting/dashboard', icon: <LayoutDashboard className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+            { name: 'Accounts', href: '/accounting/accounts', icon: <Landmark className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+            { name: 'Transactions', href: '/accounting/transactions', icon: <ArrowLeftRight className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+            { name: 'Fixed Assets', href: '/accounting/fixed-assets', icon: <Building2 className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+            { name: 'Investors', href: '/accounting/investors', icon: <UserPlus className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+            { name: 'Funds', href: '/accounting/funds', icon: <Briefcase className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+            { name: 'Welfare Loans', href: '/accounting/welfare-loans', icon: <HandCoins className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+            { name: 'Income Categories', href: '/accounting/income-categories', icon: <TrendingUp className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+            { name: 'Expense Categories', href: '/accounting/expense-categories', icon: <TrendingDown className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
         ],
     },
     {
         name: 'Library',
-        icon: <Library className="w-5 h-5" />,
+        icon: <Library className={iconClass} />,
         roles: ['Super Admin', 'Admin', 'Principal', 'Librarian'],
         children: [
-            { name: 'Books', href: '/books', icon: <Library className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Librarian'] },
-            { name: 'Issue/Return', href: '/book-issues', icon: <Library className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Librarian'] },
+            { name: 'Books', href: '/books', icon: <BookCopy className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Librarian'] },
+            { name: 'Issue/Return', href: '/book-issues', icon: <ArrowLeftRight className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Librarian'] },
         ],
     },
     {
         name: 'Messages',
-        icon: <Bell className="w-5 h-5" />,
+        icon: <Bell className={iconClass} />,
         roles: ['Teacher'],
         href: '/teacher/messages',
     },
-    { name: 'Notices', href: '/notices', icon: <Bell className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
-    { name: 'Notices', href: '/teacher/notices', icon: <Bell className="w-5 h-5" />, roles: ['Teacher'] },
-
-    // ============================================
-    // STUDENT PORTAL MENU ITEMS
-    // ============================================
-    { name: 'Profile', href: '/student/profile', icon: <User className="w-5 h-5" />, roles: ['Student'] },
-    { name: 'Attendance', href: '/student/attendance', icon: <ClipboardCheck className="w-5 h-5" />, roles: ['Student'] },
+    { name: 'Notices', href: '/notices', icon: <Megaphone className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
+    { name: 'Notices', href: '/teacher/notices', icon: <Megaphone className={iconClass} />, roles: ['Teacher'] },
+    { name: 'Profile', href: '/student/profile', icon: <User className={iconClass} />, roles: ['Student'] },
+    { name: 'Attendance', href: '/student/attendance', icon: <ClipboardCheck className={iconClass} />, roles: ['Student'] },
     {
         name: 'Exams & Results',
-        icon: <Award className="w-5 h-5" />,
+        icon: <Award className={iconClass} />,
         roles: ['Student'],
         children: [
-            { name: 'My Exams', href: '/student/exams', icon: <FileText className="w-5 h-5" />, roles: ['Student'] },
-            { name: 'My Results', href: '/student/results', icon: <Award className="w-5 h-5" />, roles: ['Student'] },
+            { name: 'My Exams', href: '/student/exams', icon: <FileText className={iconClass} />, roles: ['Student'] },
+            { name: 'My Results', href: '/student/results', icon: <Trophy className={iconClass} />, roles: ['Student'] },
         ],
     },
-    { name: 'Fees', href: '/student/fees', icon: <DollarSign className="w-5 h-5" />, roles: ['Student'] },
-    { name: 'Library', href: '/student/library', icon: <Library className="w-5 h-5" />, roles: ['Student'] },
-    { name: 'Messages', href: '/student/messages', icon: <Bell className="w-5 h-5" />, roles: ['Student'] },
-    { name: 'Notices', href: '/student/notices', icon: <Bell className="w-5 h-5" />, roles: ['Student'] },
-    { name: 'Events', href: '/student/events', icon: <Calendar className="w-5 h-5" />, roles: ['Student'] },
-
+    { name: 'Fees', href: '/student/fees', icon: <DollarSign className={iconClass} />, roles: ['Student'] },
+    { name: 'Library', href: '/student/library', icon: <Library className={iconClass} />, roles: ['Student'] },
+    { name: 'Messages', href: '/student/messages', icon: <Bell className={iconClass} />, roles: ['Student'] },
+    { name: 'Notices', href: '/student/notices', icon: <Megaphone className={iconClass} />, roles: ['Student'] },
+    { name: 'Events', href: '/student/events', icon: <CalendarDays className={iconClass} />, roles: ['Student'] },
     {
         name: 'Reports',
-        icon: <BarChart3 className="w-5 h-5" />,
+        icon: <BarChart3 className={iconClass} />,
         roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'],
         children: [
-            { name: 'All Reports', href: '/reports', icon: <BarChart3 className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
-            { name: 'Due Report', href: '/accounting/reports/due-report', icon: <TrendingDown className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
-            { name: 'Bank Report', href: '/accounting/reports/bank-report', icon: <Wallet className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
-            { name: 'Receipt Payment', href: '/accounting/reports/receipt-payment', icon: <DollarSign className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
-            { name: 'Income Expenditure', href: '/accounting/reports/income-expenditure', icon: <TrendingUp className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
-            { name: 'Balance Sheet', href: '/accounting/reports/balance-sheet', icon: <FileText className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+            { name: 'Due Report', href: '/accounting/reports/due-report', icon: <CalendarClock className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+            { name: 'Bank Report', href: '/accounting/reports/bank-report', icon: <Landmark className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+            { name: 'Receipt Payment', href: '/accounting/reports/receipt-payment', icon: <Receipt className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+            { name: 'Income Expenditure', href: '/accounting/reports/income-expenditure', icon: <PieChart className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+            { name: 'Balance Sheet', href: '/accounting/reports/balance-sheet', icon: <Scale className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
         ],
     },
-    { name: 'Settings', href: '/settings', icon: <Settings className="w-5 h-5" />, roles: ['Super Admin', 'Admin', 'Principal'] },
+    { name: 'Settings', href: '/settings', icon: <Settings className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
 ];
 
 export default function Sidebar() {
@@ -205,7 +224,6 @@ export default function Sidebar() {
     const user = props.auth?.user;
     const userRoles = user?.roles?.map(role => role.name) || [];
 
-    // Auto-expand parent menu if child is active
     React.useEffect(() => {
         menuItems.forEach((item) => {
             if (item.children) {
@@ -225,19 +243,15 @@ export default function Sidebar() {
 
     const isActive = (href?: string) => {
         if (!href) return false;
-        // Exact match for dashboard
         if (href === '/dashboard') return url === '/dashboard';
-        // For other routes, check if current URL starts with the href
         return url.startsWith(href);
     };
 
-    // Check if user has access to menu item
     const hasAccess = (itemRoles?: string[]) => {
         if (!itemRoles || itemRoles.length === 0) return true;
         return itemRoles.some(role => userRoles.includes(role));
     };
 
-    // Filter menu items based on user roles
     const filteredMenuItems = menuItems
         .filter(item => hasAccess(item.roles))
         .map(item => {
@@ -251,86 +265,77 @@ export default function Sidebar() {
         });
 
     return (
-        <aside className="w-64 bg-gradient-to-b from-slate-900 via-purple-900/90 to-slate-900 text-white h-screen fixed left-0 top-0 overflow-y-auto shadow-2xl backdrop-blur-xl border-r border-white/10">
-            {/* Logo Section with Gradient */}
-            <div className="p-6 border-b border-white/10 bg-gradient-to-r from-blue-600/20 to-purple-600/20 backdrop-blur-sm">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg animate-pulse">
-                        <GraduationCap className="w-6 h-6 text-white" />
+        <aside className="w-56 bg-white border-r border-emerald-200/80 h-screen fixed left-0 top-0 flex flex-col z-30 shadow-sm">
+            <div className="p-3 border-b border-emerald-100 shrink-0 bg-emerald-600">
+                <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center shrink-0">
+                        <GraduationCap className="w-4 h-4 text-white" />
                     </div>
-                    <div>
-                        <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                            School Pro
-                        </h1>
-                        <p className="text-xs text-gray-400">Management System</p>
+                    <div className="min-w-0">
+                        <p className="text-sm font-semibold text-white truncate">School Pro</p>
+                        <p className="text-[11px] text-emerald-100">Management</p>
                     </div>
                 </div>
             </div>
 
-            {/* Navigation Menu */}
-            <nav className="px-3 py-4 space-y-1">
-                {filteredMenuItems.map((item, index) => (
-                    <div key={item.name} className="animate-fade-in" style={{ animationDelay: `${index * 50}ms` }}>
-                        {item.children ? (
-                            <>
-                                <button
-                                    onClick={() => toggleMenu(item.name)}
-                                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white/10 transition-all duration-300 group hover:translate-x-1"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="group-hover:scale-110 transition-transform duration-300">
+            <nav className="flex-1 overflow-y-auto py-2 px-2 bg-white">
+                <ul className="space-y-0.5">
+                    {filteredMenuItems.map((item) => (
+                        <li key={item.name}>
+                            {item.children ? (
+                                <>
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleMenu(item.name)}
+                                        className="w-full flex items-center justify-between gap-2 py-1.5 px-2 rounded-lg text-left text-gray-700 hover:bg-emerald-50 hover:text-emerald-800 transition-colors"
+                                    >
+                                        <div className="flex items-center gap-2 min-w-0">
                                             {item.icon}
+                                            <span className="text-xs font-medium truncate">{item.name}</span>
                                         </div>
-                                        <span className="font-medium">{item.name}</span>
-                                    </div>
-                                    <ChevronDown
-                                        className={`w-4 h-4 transition-transform duration-300 ${
-                                            openMenus.includes(item.name) ? 'rotate-180' : ''
-                                        }`}
-                                    />
-                                </button>
-                                {openMenus.includes(item.name) && (
-                                    <div className="ml-4 mt-1 space-y-1 animate-fade-in-down">
-                                        {item.children.map((child) => (
-                                            <Link
-                                                key={child.name}
-                                                href={child.href!}
-                                                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-300 group hover:translate-x-1 ${
-                                                    isActive(child.href)
-                                                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/50'
-                                                        : 'hover:bg-white/10 text-gray-300 hover:text-white'
-                                                }`}
-                                            >
-                                                <div className="group-hover:scale-110 transition-transform duration-300">
-                                                    {child.icon}
-                                                </div>
-                                                <span className="text-sm font-medium">{child.name}</span>
-                                            </Link>
-                                        ))}
-                                    </div>
-                                )}
-                            </>
-                        ) : (
-                            <Link
-                                href={item.href!}
-                                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group hover:translate-x-1 ${
-                                    isActive(item.href)
-                                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/50'
-                                        : 'hover:bg-white/10 text-gray-300 hover:text-white'
-                                }`}
-                            >
-                                <div className="group-hover:scale-110 transition-transform duration-300">
+                                        <ChevronRight
+                                            className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform ${
+                                                openMenus.includes(item.name) ? 'rotate-90' : ''
+                                            }`}
+                                        />
+                                    </button>
+                                    {openMenus.includes(item.name) && (
+                                        <ul className="mt-0.5 ml-4 pl-2 border-l-2 border-emerald-200 space-y-0.5">
+                                            {item.children.map((child) => (
+                                                <li key={child.name}>
+                                                    <Link
+                                                        href={child.href!}
+                                                        className={`flex items-center gap-2 py-1.5 px-2 rounded-lg text-xs transition-colors ${
+                                                            isActive(child.href)
+                                                                ? 'bg-emerald-50 text-emerald-800 font-medium border-l-2 -ml-0.5 pl-2.5 border-emerald-600'
+                                                                : 'text-gray-600 hover:bg-emerald-50/70 hover:text-emerald-700'
+                                                        }`}
+                                                    >
+                                                        {child.icon}
+                                                        <span className="truncate">{child.name}</span>
+                                                    </Link>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </>
+                            ) : (
+                                <Link
+                                    href={item.href!}
+                                    className={`flex items-center gap-2 py-1.5 px-2 rounded-lg text-xs transition-colors ${
+                                        isActive(item.href)
+                                            ? 'bg-emerald-50 text-emerald-800 font-medium border-l-2 border-emerald-600 -ml-0.5 pl-2.5'
+                                            : 'text-gray-600 hover:bg-emerald-50/70 hover:text-emerald-700'
+                                    }`}
+                                >
                                     {item.icon}
-                                </div>
-                                <span className="font-medium">{item.name}</span>
-                            </Link>
-                        )}
-                    </div>
-                ))}
+                                    <span className="truncate">{item.name}</span>
+                                </Link>
+                            )}
+                        </li>
+                    ))}
+                </ul>
             </nav>
-
-            {/* Bottom Decoration */}
-            <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-purple-600/20 to-transparent pointer-events-none" />
         </aside>
     );
 }

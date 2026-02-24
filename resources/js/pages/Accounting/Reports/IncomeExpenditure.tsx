@@ -30,6 +30,8 @@ interface IncomeExpenditureProps {
         account_id?: number;
     };
     accounts: Account[];
+    schoolName?: string;
+    schoolAddress?: string;
 }
 
 export default function IncomeExpenditure({
@@ -43,6 +45,8 @@ export default function IncomeExpenditure({
     cumulativeSurplus,
     filters,
     accounts,
+    schoolName = 'School Management Pro',
+    schoolAddress = '',
 }: IncomeExpenditureProps) {
     const [startDate, setStartDate] = useState(filters?.start_date || '');
     const [endDate, setEndDate] = useState(filters?.end_date || '');
@@ -316,7 +320,8 @@ export default function IncomeExpenditure({
             <div className="hidden print:block print-container">
                 {/* Header */}
                 <div className="text-center mb-4 pb-2 border-b-2 border-black">
-                    <h1 className="text-xl font-bold mb-1">School Management Pro</h1>
+                    <h1 className="text-xl font-bold mb-1">{schoolName}</h1>
+                    {schoolAddress && <p className="text-xs mb-0.5">{schoolAddress}</p>}
                     <h2 className="text-lg font-bold mb-1">Comprehensive Statement of Income and Expenditure</h2>
                     <p className="text-sm font-semibold">For the period: {dateRange}</p>
                     {selectedAccount && (

@@ -39,24 +39,18 @@ export default function Create() {
         <AuthenticatedLayout>
             <Head title="Create Account" />
 
-            <div className="space-y-6 animate-fade-in">
-                <div className="flex items-center justify-between">
+            <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                        <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-                            Create Account
-                        </h1>
-                        <p className="text-gray-600 mt-1">Add a new account to the system</p>
+                        <h1 className="text-xl font-semibold text-gray-900">Create Account</h1>
+                        <p className="text-xs text-emerald-700/80 mt-0.5">Add a new bank, cash or mobile banking account</p>
                     </div>
-                    <Button
-                        variant="ghost"
-                        onClick={() => router.visit('/accounting/accounts')}
-                        icon={<ArrowLeft className="w-5 h-5" />}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => router.visit('/accounting/accounts')} icon={<ArrowLeft className="w-4 h-4" />}>
                         Back
                     </Button>
                 </div>
 
-                <Card>
+                <Card className="border-emerald-100">
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <Input
@@ -84,7 +78,7 @@ export default function Create() {
                                 <select
                                     value={formData.account_type}
                                     onChange={(e) => setFormData({ ...formData, account_type: e.target.value })}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                    className="w-full text-sm px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-emerald-500"
                                     required
                                 >
                                     <option value="bank">Bank Account</option>
@@ -132,7 +126,7 @@ export default function Create() {
                                 <select
                                     value={formData.status}
                                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                    className="w-full text-sm px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-emerald-500"
                                     required
                                 >
                                     <option value="active">Active</option>
@@ -147,7 +141,7 @@ export default function Create() {
                             <textarea
                                 value={formData.description}
                                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                                className="w-full text-sm px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-emerald-500"
                                 rows={4}
                                 placeholder="Additional details about this account..."
                             />
@@ -157,9 +151,9 @@ export default function Create() {
                         <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
                             <Button
                                 type="submit"
-                                className="bg-gradient-to-r from-green-600 to-blue-600 text-white"
+                                size="sm"
                                 loading={isSubmitting}
-                                icon={<Save className="w-5 h-5" />}
+                                icon={<Save className="w-4 h-4" />}
                             >
                                 Create Account
                             </Button>

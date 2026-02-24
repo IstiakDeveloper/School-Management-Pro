@@ -108,59 +108,40 @@ export default function Index({ investors, filters, stats }: Props) {
         <AuthenticatedLayout>
             <Head title="Investors" />
 
-            <div className="py-12">
-                <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                    {/* Header */}
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-3xl font-bold text-gray-800">Fund Investors</h2>
-                        <Link
-                            href={route('accounting.investors.create')}
-                            className="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-md transition"
-                        >
-                            <UserPlus className="w-5 h-5 mr-2" />
-                            Add New Investor
-                        </Link>
+            <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                            <Briefcase className="w-5 h-5 text-emerald-600" />
+                            Fund Investors
+                        </h1>
+                        <p className="text-xs text-emerald-700/80 mt-0.5">Manage investors and fund allocations</p>
                     </div>
+                    <Link
+                        href={route('accounting.investors.create')}
+                        className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700"
+                    >
+                        <UserPlus className="w-4 h-4" />
+                        Add Investor
+                    </Link>
+                </div>
 
-                    {/* Stats Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                        <div className="bg-white overflow-hidden shadow-sm rounded-lg p-6">
-                            <div className="flex items-center">
-                                <div className="p-3 bg-blue-100 rounded-full">
-                                    <Users className="w-6 h-6 text-blue-600" />
-                                </div>
-                                <div className="ml-4">
-                                    <p className="text-gray-500 text-sm">Total Investors</p>
-                                    <p className="text-2xl font-bold text-gray-800">{stats.total_investors}</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="bg-white overflow-hidden shadow-sm rounded-lg p-6">
-                            <div className="flex items-center">
-                                <div className="p-3 bg-green-100 rounded-full">
-                                    <UserPlus className="w-6 h-6 text-green-600" />
-                                </div>
-                                <div className="ml-4">
-                                    <p className="text-gray-500 text-sm">Active Investors</p>
-                                    <p className="text-2xl font-bold text-gray-800">{stats.active_investors}</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="bg-white overflow-hidden shadow-sm rounded-lg p-6">
-                            <div className="flex items-center">
-                                <div className="p-3 bg-purple-100 rounded-full">
-                                    <Briefcase className="w-6 h-6 text-purple-600" />
-                                </div>
-                                <div className="ml-4">
-                                    <p className="text-gray-500 text-sm">With Funds</p>
-                                    <p className="text-2xl font-bold text-gray-800">{stats.total_funds}</p>
-                                </div>
-                            </div>
-                        </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div className="bg-white rounded-lg border border-emerald-100 shadow-sm px-4 py-3 flex items-center gap-3">
+                        <div className="p-1.5 rounded bg-emerald-100 text-emerald-700"><Users className="w-4 h-4" /></div>
+                        <div><p className="text-xs text-gray-500">Total Investors</p><p className="text-sm font-semibold text-gray-900">{stats.total_investors}</p></div>
                     </div>
+                    <div className="bg-white rounded-lg border border-emerald-100 shadow-sm px-4 py-3 flex items-center gap-3">
+                        <div className="p-1.5 rounded bg-green-100 text-green-700"><UserPlus className="w-4 h-4" /></div>
+                        <div><p className="text-xs text-gray-500">Active</p><p className="text-sm font-semibold text-gray-900">{stats.active_investors}</p></div>
+                    </div>
+                    <div className="bg-white rounded-lg border border-emerald-100 shadow-sm px-4 py-3 flex items-center gap-3">
+                        <div className="p-1.5 rounded bg-emerald-100 text-emerald-700"><Briefcase className="w-4 h-4" /></div>
+                        <div><p className="text-xs text-gray-500">With Funds</p><p className="text-sm font-semibold text-gray-900">{stats.total_funds}</p></div>
+                    </div>
+                </div>
 
-                    {/* Filters */}
-                    <div className="bg-white shadow-sm rounded-lg p-6 mb-6">
+                <div className="bg-white rounded-lg border border-emerald-100 shadow-sm p-4">
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
@@ -219,10 +200,9 @@ export default function Index({ investors, filters, stats }: Props) {
                         </div>
                     </div>
 
-                    {/* Investors Table */}
-                    <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
+                <div className="bg-white rounded-lg border border-emerald-100 overflow-hidden">
+                    <table className="w-full">
+                            <thead className="bg-emerald-50/70 border-b border-emerald-100">
                                 <tr>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Investor</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
@@ -317,7 +297,6 @@ export default function Index({ investors, filters, stats }: Props) {
                                 </div>
                             </div>
                         )}
-                    </div>
                 </div>
             </div>
         </AuthenticatedLayout>

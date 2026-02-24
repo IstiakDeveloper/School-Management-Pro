@@ -18,7 +18,7 @@ export default function Notification({ settings }: Props) {
     const { props } = usePage();
     const flash = (props as any).flash;
 
-    const { data, setData, put, errors, processing } = useForm({
+    const { data, setData, post, errors, processing } = useForm({
         settings: [
             { key: 'enable_email_notifications', value: settings.enable_email_notifications || '1' },
             { key: 'enable_sms_notifications', value: settings.enable_sms_notifications || '0' },
@@ -30,7 +30,7 @@ export default function Notification({ settings }: Props) {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        put('/settings/update');
+        post('/settings');
     };
 
     const updateSetting = (key: string, value: string) => {

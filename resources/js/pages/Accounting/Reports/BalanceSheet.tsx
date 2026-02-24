@@ -28,6 +28,8 @@ interface BalanceSheetProps {
         end_date: string;
     };
     balanceDifference: number;
+    schoolName?: string;
+    schoolAddress?: string;
 }
 
 export default function BalanceSheet({
@@ -35,6 +37,8 @@ export default function BalanceSheet({
     propertyAndAssets,
     filters,
     balanceDifference,
+    schoolName = 'School Management Pro',
+    schoolAddress = '',
 }: BalanceSheetProps) {
     const [endDate, setEndDate] = useState(filters?.end_date || '');
 
@@ -367,7 +371,8 @@ export default function BalanceSheet({
             <div className="hidden print:block print-container">
                 {/* Header */}
                 <div className="text-center mb-4 pb-2 border-b-2 border-black">
-                    <h1 className="text-xl font-bold mb-1">School Management Pro</h1>
+                    <h1 className="text-xl font-bold mb-1">{schoolName}</h1>
+                    {schoolAddress && <p className="text-xs mb-0.5">{schoolAddress}</p>}
                     <h2 className="text-lg font-bold mb-1">Balance Sheet</h2>
                     <p className="text-sm font-semibold">As at {reportDate}</p>
                 </div>

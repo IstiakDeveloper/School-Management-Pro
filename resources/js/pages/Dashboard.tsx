@@ -1,9 +1,65 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import {
-    Users, GraduationCap, BookOpen, DollarSign, TrendingUp, TrendingDown,
-    Calendar, Clock, Award, UserCheck, AlertCircle, Sparkles, ArrowRight
+    Users,
+    GraduationCap,
+    BookOpen,
+    DollarSign,
+    UserCheck,
+    ClipboardList,
+    CalendarDays,
+    ChevronRight,
+    FileText,
+    UserCircle2,
+    Mail,
+    ShieldCheck,
+    LayoutDashboard,
+    Clock,
+    Zap,
+    BarChart3,
+    Bell,
+    Megaphone,
+    Settings,
 } from 'lucide-react';
+
+interface TodayAttendance {
+    student_present: number;
+    student_total: number;
+    teacher_present: number;
+    teacher_absent: number;
+    teacher_total: number;
+}
+
+interface ExamItem {
+    id: number;
+    name: string;
+    exam_type: string;
+    start_date: string;
+    end_date: string;
+}
+
+interface NoticeItem {
+    id: number;
+    title: string;
+    published_at: string | null;
+}
+
+interface EventItem {
+    id: number;
+    title: string;
+    start_date: string;
+    end_date: string | null;
+    type: string | null;
+}
+
+interface DashboardUser {
+    id: number;
+    name: string;
+    email: string;
+    roles: string[];
+    permissions?: string[];
+    avatar?: string | null;
+}
 
 interface DashboardProps {
     stats: {
@@ -14,311 +70,321 @@ interface DashboardProps {
         pending_fees?: number;
         today_attendance?: number;
     };
+    todayAttendance?: TodayAttendance;
+    upcomingExams?: ExamItem[];
+    recentNotices?: NoticeItem[];
+    upcomingEvents?: EventItem[];
+    user?: DashboardUser;
 }
 
-export default function Dashboard({ stats }: DashboardProps) {
+function formatDate(s: string) {
+    const d = new Date(s);
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function getGreeting() {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+}
+
+export default function Dashboard({
+    stats,
+    todayAttendance,
+    upcomingExams = [],
+    recentNotices = [],
+    upcomingEvents = [],
+    user,
+}: DashboardProps) {
     const statCards = [
-        {
-            title: 'Total Students',
-            value: stats.total_students || 0,
-            icon: Users,
-            gradient: 'from-blue-500 to-cyan-500',
-            bg: 'from-blue-50 to-cyan-50',
-            iconBg: 'bg-gradient-to-br from-blue-500 to-cyan-500',
-            trend: '+12%',
-            trendUp: true,
-        },
-        {
-            title: 'Total Teachers',
-            value: stats.total_teachers || 0,
-            icon: GraduationCap,
-            gradient: 'from-purple-500 to-pink-500',
-            bg: 'from-purple-50 to-pink-50',
-            iconBg: 'bg-gradient-to-br from-purple-500 to-pink-500',
-            trend: '+5%',
-            trendUp: true,
-        },
-        {
-            title: 'Active Classes',
-            value: stats.total_classes || 0,
-            icon: BookOpen,
-            gradient: 'from-emerald-500 to-teal-500',
-            bg: 'from-emerald-50 to-teal-50',
-            iconBg: 'bg-gradient-to-br from-emerald-500 to-teal-500',
-            trend: '+3',
-            trendUp: true,
-        },
-        {
-            title: 'Pending Fees',
-            value: `৳${(stats.pending_fees || 0).toLocaleString()}`,
-            icon: DollarSign,
-            gradient: 'from-orange-500 to-red-500',
-            bg: 'from-orange-50 to-red-50',
-            iconBg: 'bg-gradient-to-br from-orange-500 to-red-500',
-            trend: '-8%',
-            trendUp: false,
-        },
+        { title: 'Total Students', value: stats?.total_students ?? 0, icon: Users, color: 'text-emerald-700 bg-emerald-100', borderColor: 'border-l-emerald-500' },
+        { title: 'Total Teachers', value: stats?.total_teachers ?? 0, icon: GraduationCap, color: 'text-emerald-700 bg-emerald-100', borderColor: 'border-l-emerald-500' },
+        { title: 'Classes', value: stats?.total_classes ?? 0, icon: BookOpen, color: 'text-emerald-700 bg-emerald-100', borderColor: 'border-l-emerald-500' },
+        { title: 'Pending Fees', value: `৳${(stats?.pending_fees ?? 0).toLocaleString()}`, icon: DollarSign, color: 'text-amber-700 bg-amber-50', borderColor: 'border-l-amber-500' },
     ];
 
-    const recentActivities = [
-        {
-            icon: UserCheck,
-            title: 'New Student Admission',
-            description: 'John Doe admitted to Class 10-A',
-            time: '10 minutes ago',
-            color: 'text-blue-600',
-            bgColor: 'bg-blue-100',
-        },
-        {
-            icon: BookOpen,
-            title: 'Exam Schedule Updated',
-            description: 'Mid-term exams scheduled for next week',
-            time: '1 hour ago',
-            color: 'text-purple-600',
-            bgColor: 'bg-purple-100',
-        },
-        {
-            icon: DollarSign,
-            title: 'Fee Payment Received',
-            description: '৳50,000 received from 15 students',
-            time: '2 hours ago',
-            color: 'text-green-600',
-            bgColor: 'bg-green-100',
-        },
-        {
-            icon: AlertCircle,
-            title: 'Attendance Alert',
-            description: '5 students absent today in Class 9-B',
-            time: '3 hours ago',
-            color: 'text-orange-600',
-            bgColor: 'bg-orange-100',
-        },
+    const quickActions = [
+        { name: 'Add Student', href: '/students/create', icon: Users, desc: 'Register new student' },
+        { name: 'Student Attendance', href: '/student-attendance', icon: UserCheck, desc: 'Mark daily attendance' },
+        { name: 'Teacher Attendance', href: '/teacher-attendance', icon: UserCheck, desc: 'View teacher attendance' },
+        { name: 'Fee Collection', href: '/fee-collections', icon: DollarSign, desc: 'Collect & manage fees' },
     ];
 
-    const upcomingEvents = [
-        {
-            date: '15',
-            month: 'Dec',
-            title: 'Parent-Teacher Meeting',
-            time: '10:00 AM - 2:00 PM',
-            color: 'from-blue-500 to-cyan-500',
-        },
-        {
-            date: '20',
-            month: 'Dec',
-            title: 'Mid-Term Examinations',
-            time: '9:00 AM - 12:00 PM',
-            color: 'from-purple-500 to-pink-500',
-        },
-        {
-            date: '25',
-            month: 'Dec',
-            title: 'Christmas Celebration',
-            time: 'Full Day Event',
-            color: 'from-red-500 to-pink-500',
-        },
-    ];
+    const studentPercent = todayAttendance && todayAttendance.student_total > 0
+        ? Math.round((todayAttendance.student_present / todayAttendance.student_total) * 100)
+        : null;
+    const teacherPresent = todayAttendance?.teacher_present ?? 0;
+    const teacherAbsent = todayAttendance?.teacher_absent ?? 0;
 
     return (
         <AuthenticatedLayout>
             <Head title="Dashboard" />
 
-            <div className="space-y-8 animate-fade-in">
-                {/* Welcome Header with Gradient */}
-                <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-3xl p-8 text-white shadow-2xl transform hover:scale-[1.01] transition-all duration-300 relative overflow-hidden">
-                    <div className="absolute inset-0 bg-grid-white/10"></div>
-                    <div className="relative z-10">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <div className="flex items-center gap-3 mb-3">
-                                    <Sparkles className="w-8 h-8 text-yellow-300 animate-pulse" />
-                                    <h1 className="text-4xl font-extrabold drop-shadow-lg">Welcome Back!</h1>
-                                </div>
-                                <p className="text-white/90 text-lg font-medium">
-                                    Here's what's happening in your school today
-                                </p>
-                            </div>
-                            <div className="hidden md:flex items-center gap-4">
-                                <div className="text-right">
-                                    <p className="text-white/80 text-sm">Today</p>
-                                    <p className="text-2xl font-bold">{new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                                </div>
-                                <Calendar className="w-16 h-16 text-white/30" />
-                            </div>
-                        </div>
+            <div className="space-y-5">
+                {/* Header with welcome & date */}
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                            <LayoutDashboard className="w-5 h-5 text-emerald-600" />
+                            Dashboard
+                        </h1>
+                        <p className="text-sm text-gray-600 mt-1">
+                            {getGreeting()}, {user?.name?.split(' ')[0] || 'Admin'}
+                        </p>
+                        <p className="text-xs text-emerald-700/80 mt-0.5 flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" />
+                            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
+                        </p>
                     </div>
                 </div>
 
-                {/* Stats Cards Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {statCards.map((stat, index) => {
-                        const Icon = stat.icon;
-                        return (
-                            <div
-                                key={index}
-                                className={`bg-gradient-to-br ${stat.bg} rounded-2xl p-6 shadow-lg hover:shadow-2xl transform hover:-translate-y-2 transition-all duration-300 border border-white/50 group animate-scale-in`}
-                                style={{ animationDelay: `${index * 100}ms` }}
-                            >
-                                <div className="flex items-start justify-between mb-4">
-                                    <div className={`${stat.iconBg} p-4 rounded-2xl shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                                        <Icon className="w-8 h-8 text-white" />
-                                    </div>
-                                    <div className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm font-bold ${
-                                        stat.trendUp ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                    }`}>
-                                        {stat.trendUp ? (
-                                            <TrendingUp className="w-4 h-4" />
-                                        ) : (
-                                            <TrendingDown className="w-4 h-4" />
-                                        )}
-                                        {stat.trend}
-                                    </div>
-                                </div>
-                                <h3 className="text-gray-600 text-sm font-semibold mb-2">{stat.title}</h3>
-                                <p className={`text-4xl font-extrabold bg-gradient-to-r ${stat.gradient} bg-clip-text text-transparent`}>
-                                    {stat.value}
-                                </p>
+                {/* Stats row - more professional with icons and left border */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {statCards.map(({ title, value, icon: Icon, color, borderColor }) => (
+                        <div
+                            key={title}
+                            className={`bg-white rounded-lg border border-emerald-100 border-l-4 ${borderColor} shadow-sm px-4 py-3.5 flex items-center gap-3 transition-shadow hover:shadow-md`}
+                        >
+                            <div className={`p-2 rounded-lg ${color}`}>
+                                <Icon className="w-5 h-5" />
                             </div>
-                        );
-                    })}
+                            <div className="min-w-0">
+                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{title}</p>
+                                <p className="text-base font-semibold text-gray-900 truncate mt-0.5">{value}</p>
+                            </div>
+                        </div>
+                    ))}
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Recent Activities */}
-                    <div className="lg:col-span-2 bg-white rounded-3xl shadow-xl p-6 border border-gray-100 hover:shadow-2xl transition-all duration-300">
-                        <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-3">
-                                <div className="bg-gradient-to-br from-blue-500 to-purple-500 p-3 rounded-2xl">
-                                    <Clock className="w-6 h-6 text-white" />
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    {/* Left column: Attendance, Quick Actions */}
+                    <div className="lg:col-span-2 space-y-4">
+                        {todayAttendance && (
+                            <div className="bg-white rounded-lg border border-emerald-100 shadow-sm overflow-hidden">
+                                <div className="px-4 py-3 bg-emerald-50/60 border-b border-emerald-100 flex items-center gap-2">
+                                    <BarChart3 className="w-4 h-4 text-emerald-700" />
+                                    <span className="text-sm font-medium text-emerald-800">Today&apos;s Attendance</span>
                                 </div>
-                                <h2 className="text-2xl font-bold text-gray-900">Recent Activities</h2>
-                            </div>
-                            <button className="text-blue-600 hover:text-purple-600 font-semibold flex items-center gap-2 hover:gap-3 transition-all duration-200">
-                                View All
-                                <ArrowRight className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <div className="space-y-4">
-                            {recentActivities.map((activity, index) => {
-                                const Icon = activity.icon;
-                                return (
-                                    <div
-                                        key={index}
-                                        className="flex items-start gap-4 p-4 bg-gradient-to-r from-gray-50 to-white rounded-2xl hover:shadow-md transition-all duration-300 border border-gray-100 group cursor-pointer"
-                                    >
-                                        <div className={`${activity.bgColor} p-3 rounded-xl group-hover:scale-110 transition-transform duration-300`}>
-                                            <Icon className={`w-6 h-6 ${activity.color}`} />
+                                <div className="p-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50/80">
+                                            <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700">
+                                                <Users className="w-4 h-4" />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-gray-500 font-medium">Students</p>
+                                                <p className="text-sm font-semibold text-gray-900">
+                                                    {todayAttendance.student_present} <span className="text-gray-400">/</span> {todayAttendance.student_total}
+                                                    {studentPercent != null && (
+                                                        <span className="text-emerald-600 ml-1 text-xs">({studentPercent}%)</span>
+                                                    )}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div className="flex-1">
-                                            <h3 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                                                {activity.title}
-                                            </h3>
-                                            <p className="text-sm text-gray-600 mt-1">{activity.description}</p>
-                                            <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
-                                                <Clock className="w-3 h-3" />
-                                                {activity.time}
+                                        <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50/80">
+                                            <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700">
+                                                <GraduationCap className="w-4 h-4" />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-gray-500 font-medium">Teachers</p>
+                                                <p className="text-sm font-semibold text-gray-900">
+                                                    Present: {teacherPresent}
+                                                    {teacherAbsent > 0 && (
+                                                        <span className="text-amber-600 ml-1 text-xs">Absent: {teacherAbsent}</span>
+                                                    )}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="mt-3 flex flex-wrap gap-3">
+                                        <Link
+                                            href="/student-attendance"
+                                            className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-800"
+                                        >
+                                            Student attendance <ChevronRight className="w-3.5 h-3.5" />
+                                        </Link>
+                                        <Link
+                                            href="/teacher-attendance"
+                                            className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-800"
+                                        >
+                                            Teacher attendance <ChevronRight className="w-3.5 h-3.5" />
+                                        </Link>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="bg-white rounded-lg border border-emerald-100 shadow-sm overflow-hidden">
+                            <div className="px-4 py-3 bg-emerald-50/60 border-b border-emerald-100 flex items-center gap-2">
+                                <Zap className="w-4 h-4 text-emerald-700" />
+                                <span className="text-sm font-medium text-emerald-800">Quick Actions</span>
+                            </div>
+                            <div className="p-4">
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                    {quickActions.map(({ name, href, icon: Icon, desc }) => (
+                                        <Link
+                                            key={name}
+                                            href={href}
+                                            className="flex flex-col items-center gap-2 p-3 rounded-lg border border-emerald-100 bg-emerald-50/50 hover:bg-emerald-100/70 transition-colors text-center"
+                                        >
+                                            <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700">
+                                                <Icon className="w-4 h-4" />
+                                            </div>
+                                            <span className="text-xs font-medium text-gray-900">{name}</span>
+                                            <span className="text-[10px] text-gray-500 hidden sm:block">{desc}</span>
+                                        </Link>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right column: Account Info + Exams, Notices, Events */}
+                    <div className="space-y-4">
+                        {/* Account Info card */}
+                        {user && (
+                            <div className="bg-white rounded-lg border border-emerald-100 shadow-sm overflow-hidden">
+                                <div className="px-4 py-3 bg-emerald-50/60 border-b border-emerald-100 flex items-center gap-2">
+                                    <UserCircle2 className="w-4 h-4 text-emerald-700" />
+                                    <span className="text-sm font-medium text-emerald-800">Account Info</span>
+                                </div>
+                                <div className="p-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex-shrink-0 w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center overflow-hidden">
+                                            {user.avatar ? (
+                                                <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <UserCircle2 className="w-7 h-7 text-emerald-700" />
+                                            )}
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
+                                            <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5 truncate">
+                                                <Mail className="w-3 h-3 shrink-0" />
+                                                {user.email}
                                             </p>
+                                            <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                                                {user.roles?.map((role) => (
+                                                    <span
+                                                        key={role}
+                                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-xs font-medium"
+                                                    >
+                                                        <ShieldCheck className="w-3 h-3" />
+                                                        {role}
+                                                    </span>
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {/* Upcoming Events */}
-                    <div className="bg-white rounded-3xl shadow-xl p-6 border border-gray-100 hover:shadow-2xl transition-all duration-300">
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-3 rounded-2xl">
-                                <Calendar className="w-6 h-6 text-white" />
-                            </div>
-                            <h2 className="text-2xl font-bold text-gray-900">Upcoming Events</h2>
-                        </div>
-
-                        <div className="space-y-4">
-                            {upcomingEvents.map((event, index) => (
-                                <div
-                                    key={index}
-                                    className="flex gap-4 p-4 bg-gradient-to-r from-gray-50 to-white rounded-2xl hover:shadow-md transition-all duration-300 border border-gray-100 group cursor-pointer"
-                                >
-                                    <div className={`bg-gradient-to-br ${event.color} rounded-2xl p-4 text-white text-center min-w-[70px] group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
-                                        <p className="text-3xl font-extrabold">{event.date}</p>
-                                        <p className="text-sm font-medium">{event.month}</p>
-                                    </div>
-                                    <div className="flex-1">
-                                        <h3 className="font-bold text-gray-900 group-hover:text-purple-600 transition-colors">
-                                            {event.title}
-                                        </h3>
-                                        <p className="text-sm text-gray-600 mt-2 flex items-center gap-1">
-                                            <Clock className="w-4 h-4" />
-                                            {event.time}
-                                        </p>
-                                    </div>
+                                    <Link
+                                        href="/settings"
+                                        className="mt-3 flex items-center justify-center gap-2 w-full py-2 text-xs font-medium text-emerald-700 bg-emerald-50 rounded-lg hover:bg-emerald-100 border border-emerald-200 transition-colors"
+                                    >
+                                        <Settings className="w-3.5 h-3.5" />
+                                        Settings
+                                    </Link>
                                 </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
+                            </div>
+                        )}
 
-                {/* Quick Actions */}
-                <div className="bg-gradient-to-r from-gray-50 to-white rounded-3xl shadow-xl p-8 border border-gray-100">
-                    <div className="flex items-center gap-3 mb-6">
-                        <Award className="w-8 h-8 text-purple-600" />
-                        <h2 className="text-2xl font-bold text-gray-900">Quick Actions</h2>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {[
-                            { name: 'Add Student', icon: Users, color: 'from-blue-500 to-cyan-500' },
-                            { name: 'Mark Attendance', icon: UserCheck, color: 'from-green-500 to-emerald-500' },
-                            { name: 'Create Exam', icon: BookOpen, color: 'from-purple-500 to-pink-500' },
-                            { name: 'Collect Fee', icon: DollarSign, color: 'from-orange-500 to-red-500' },
-                        ].map((action, index) => {
-                            const Icon = action.icon;
-                            return (
-                                <button
-                                    key={index}
-                                    className={`bg-gradient-to-br ${action.color} text-white p-6 rounded-2xl shadow-lg hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 group`}
-                                >
-                                    <Icon className="w-8 h-8 mb-3 group-hover:scale-110 transition-transform" />
-                                    <p className="font-bold text-lg">{action.name}</p>
-                                </button>
-                            );
-                        })}
+                        {upcomingExams.length > 0 && (
+                            <div className="bg-white rounded-lg border border-emerald-100 shadow-sm overflow-hidden">
+                                <div className="px-4 py-3 bg-emerald-50/60 border-b border-emerald-100 flex items-center justify-between">
+                                    <span className="text-sm font-medium text-emerald-800 flex items-center gap-2">
+                                        <ClipboardList className="w-4 h-4" />
+                                        Upcoming Exams
+                                    </span>
+                                    <Link href="/exams" className="text-xs text-emerald-600 hover:text-emerald-800 flex items-center gap-0.5">
+                                        View all <ChevronRight className="w-3 h-3" />
+                                    </Link>
+                                </div>
+                                <ul className="divide-y divide-emerald-50">
+                                    {upcomingExams.slice(0, 5).map((exam) => (
+                                        <li key={exam.id} className="px-4 py-2.5 flex items-start gap-2 hover:bg-gray-50/80">
+                                            <ClipboardList className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-medium text-gray-900">{exam.name}</p>
+                                                <p className="text-[11px] text-gray-500">{formatDate(exam.start_date)}</p>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
+                        {recentNotices.length > 0 && (
+                            <div className="bg-white rounded-lg border border-emerald-100 shadow-sm overflow-hidden">
+                                <div className="px-4 py-3 bg-emerald-50/60 border-b border-emerald-100 flex items-center justify-between">
+                                    <span className="text-sm font-medium text-emerald-800 flex items-center gap-2">
+                                        <Megaphone className="w-4 h-4" />
+                                        Recent Notices
+                                    </span>
+                                    <Link href="/notices" className="text-xs text-emerald-600 hover:text-emerald-800 flex items-center gap-0.5">
+                                        View all <ChevronRight className="w-3 h-3" />
+                                    </Link>
+                                </div>
+                                <ul className="divide-y divide-emerald-50">
+                                    {recentNotices.slice(0, 5).map((notice) => (
+                                        <li key={notice.id} className="px-4 py-2.5 flex items-start gap-2 hover:bg-gray-50/80">
+                                            <FileText className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                                            <div className="min-w-0">
+                                                <Link href={`/notices/${notice.id}`} className="text-xs font-medium text-gray-900 hover:text-emerald-700 truncate block">
+                                                    {notice.title}
+                                                </Link>
+                                                {notice.published_at && (
+                                                    <p className="text-[11px] text-gray-500">{notice.published_at}</p>
+                                                )}
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
+                        {upcomingEvents.length > 0 && (
+                            <div className="bg-white rounded-lg border border-emerald-100 shadow-sm overflow-hidden">
+                                <div className="px-4 py-3 bg-emerald-50/60 border-b border-emerald-100 flex items-center justify-between">
+                                    <span className="text-sm font-medium text-emerald-800 flex items-center gap-2">
+                                        <CalendarDays className="w-4 h-4" />
+                                        Upcoming Events
+                                    </span>
+                                    <Link href="/events" className="text-xs text-emerald-600 hover:text-emerald-800 flex items-center gap-0.5">
+                                        View all <ChevronRight className="w-3 h-3" />
+                                    </Link>
+                                </div>
+                                <ul className="divide-y divide-emerald-50">
+                                    {upcomingEvents.slice(0, 5).map((event) => (
+                                        <li key={event.id} className="px-4 py-2.5 flex items-start gap-2 hover:bg-gray-50/80">
+                                            <CalendarDays className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                                            <div className="min-w-0">
+                                                <Link href={`/events/${event.id}`} className="text-xs font-medium text-gray-900 hover:text-emerald-700 block">
+                                                    {event.title}
+                                                </Link>
+                                                <p className="text-[11px] text-gray-500">{formatDate(event.start_date)}</p>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
+                        {upcomingExams.length === 0 && recentNotices.length === 0 && upcomingEvents.length === 0 && (
+                            <div className="bg-white rounded-lg border border-emerald-100 shadow-sm p-4">
+                                <p className="text-xs font-medium text-emerald-700 mb-2 flex items-center gap-2">
+                                    <Bell className="w-4 h-4" />
+                                    Quick Links
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                    <Link href="/exams" className="text-xs text-emerald-600 hover:text-emerald-800 px-2 py-1 rounded bg-emerald-50">Exams</Link>
+                                    <Link href="/notices" className="text-xs text-emerald-600 hover:text-emerald-800 px-2 py-1 rounded bg-emerald-50">Notices</Link>
+                                    <Link href="/events" className="text-xs text-emerald-600 hover:text-emerald-800 px-2 py-1 rounded bg-emerald-50">Events</Link>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
-
-            <style>{`
-                @keyframes fade-in {
-                    from {
-                        opacity: 0;
-                    }
-                    to {
-                        opacity: 1;
-                    }
-                }
-                @keyframes scale-in {
-                    from {
-                        opacity: 0;
-                        transform: scale(0.9);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: scale(1);
-                    }
-                }
-                .animate-fade-in {
-                    animation: fade-in 0.6s ease-out;
-                }
-                .animate-scale-in {
-                    animation: scale-in 0.5s ease-out both;
-                }
-                .bg-grid-white\\/10 {
-                    background-image: linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
-                                      linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
-                    background-size: 20px 20px;
-                }
-            `}</style>
         </AuthenticatedLayout>
     );
 }

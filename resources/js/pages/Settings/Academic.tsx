@@ -18,7 +18,7 @@ export default function Academic({ settings }: Props) {
     const { props } = usePage();
     const flash = (props as any).flash;
 
-    const { data, setData, put, errors, processing } = useForm({
+    const { data, setData, post, errors, processing } = useForm({
         settings: [
             { key: 'academic_year_start_month', value: settings.academic_year_start_month || '1' },
             { key: 'class_duration_minutes', value: settings.class_duration_minutes || '45' },
@@ -30,7 +30,7 @@ export default function Academic({ settings }: Props) {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        put('/settings/update');
+        post('/settings');
     };
 
     const updateSetting = (key: string, value: string) => {

@@ -1,4 +1,4 @@
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Card from '@/Components/Card';
 import Button from '@/Components/Button';
@@ -20,7 +20,15 @@ export default function General({ settings }: Props) {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        post('/settings/general');
+        const settingsPayload = [
+            { key: 'school_name', value: data.school_name },
+            { key: 'school_code', value: data.school_code },
+            { key: 'school_email', value: data.school_email },
+            { key: 'school_phone', value: data.school_phone },
+            { key: 'school_address', value: data.school_address },
+            { key: 'school_website', value: data.school_website },
+        ];
+        router.post('/settings', { settings: settingsPayload });
     };
 
     return (

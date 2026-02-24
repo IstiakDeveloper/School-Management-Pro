@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
-import { Plus, Calendar, Users, Search, Filter, Trash2, Clock, UserCheck, UserX, RefreshCw, Download, ChevronRight } from 'lucide-react';
+import { Plus, Calendar, Users, Trash2, Clock, UserCheck, UserX, RefreshCw, Download } from 'lucide-react';
 
 interface Teacher {
     id: number;
@@ -10,7 +10,7 @@ interface Teacher {
     user?: {
         name: string;
         email: string;
-    };
+    } | null;
     designation?: string;
     department?: string;
 }
@@ -23,8 +23,21 @@ interface Attendance {
     out_time: string | null;
     remarks: string | null;
     reason: string | null;
-    teacher: Teacher;
+    teacher: Teacher | null;
     created_at: string;
+}
+
+interface DeviceSettingInfo {
+    device_name: string;
+    device_ip: string;
+    last_sync_at: string | null;
+}
+
+interface TeacherNotMarked {
+    id: number;
+    name: string;
+    employee_id: string | null;
+    designation: string | null;
 }
 
 interface IndexProps {
@@ -42,6 +55,7 @@ interface IndexProps {
             active: boolean;
         }>;
     };
+    teachersNotMarked?: TeacherNotMarked[];
     filters: {
         date: string;
         status?: string;
@@ -52,10 +66,12 @@ interface IndexProps {
         absent: number;
         late: number;
         leave: number;
+        early_leave?: number;
     };
+    deviceSetting?: DeviceSettingInfo | null;
 }
 
-export default function Index({ attendances, filters, stats }: IndexProps) {
+export default function Index({ attendances, teachersNotMarked = [], filters, stats, deviceSetting }: IndexProps) {
     const [selectedDate, setSelectedDate] = useState(filters.date || new Date().toISOString().split('T')[0]);
     const [selectedStatus, setSelectedStatus] = useState(filters.status || '');
 
@@ -84,15 +100,16 @@ export default function Index({ attendances, filters, stats }: IndexProps) {
     };
 
     const getStatusBadge = (status: string) => {
-        const badges = {
+        const badges: Record<string, string> = {
             present: 'bg-green-100 text-green-800 border-green-200',
             absent: 'bg-red-100 text-red-800 border-red-200',
             late: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+            early_leave: 'bg-amber-100 text-amber-800 border-amber-200',
             half_day: 'bg-blue-100 text-blue-800 border-blue-200',
             holiday: 'bg-purple-100 text-purple-800 border-purple-200',
             leave: 'bg-orange-100 text-orange-800 border-orange-200',
         };
-        return badges[status as keyof typeof badges] || 'bg-gray-100 text-gray-800 border-gray-200';
+        return badges[status] || 'bg-gray-100 text-gray-800 border-gray-200';
     };
 
     const getStatusIcon = (status: string) => {
@@ -101,6 +118,9 @@ export default function Index({ attendances, filters, stats }: IndexProps) {
                 return <UserCheck className="h-4 w-4" />;
             case 'absent':
                 return <UserX className="h-4 w-4" />;
+            case 'late':
+            case 'early_leave':
+                return <Clock className="h-4 w-4" />;
             default:
                 return <Users className="h-4 w-4" />;
         }
@@ -143,319 +163,212 @@ export default function Index({ attendances, filters, stats }: IndexProps) {
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                            Teacher Attendance Management
-                        </h1>
-                        <p className="text-gray-600 mt-1">Track and monitor teacher attendance in real-time</p>
+                        <h1 className="text-xl font-semibold text-gray-900">Teacher Attendance</h1>
+                        <p className="text-xs text-emerald-700/80 mt-0.5">View and manage daily attendance records</p>
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex items-center gap-2">
+                        {deviceSetting && (
+                            <div className="hidden sm:flex items-center gap-1.5 text-xs text-gray-500 bg-gray-100 px-2.5 py-1.5 rounded border border-emerald-100">
+                                <span className="font-medium text-gray-600">Device:</span>
+                                <span>{deviceSetting.device_name || 'N/A'}</span>
+                                {deviceSetting.device_ip && <span className="text-gray-400">({deviceSetting.device_ip})</span>}
+                                {deviceSetting.last_sync_at && (
+                                    <span className="text-gray-400">· Last sync: {new Date(deviceSetting.last_sync_at).toLocaleString()}</span>
+                                )}
+                            </div>
+                        )}
                         <Link href="/teacher-attendance/calendar">
-                            <Button variant="outline" icon={<Calendar className="w-5 h-5" />}>
-                                Calendar View
+                            <Button variant="outline" size="sm" icon={<Calendar className="w-4 h-4" />}>
+                                Calendar
                             </Button>
                         </Link>
                         <Link href={`/teacher-attendance/create?date=${selectedDate}`}>
-                            <Button icon={<Plus className="w-5 h-5" />}>
+                            <Button size="sm" icon={<Plus className="w-4 h-4" />}>
                                 Mark Attendance
                             </Button>
                         </Link>
                     </div>
                 </div>
 
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-5">
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-blue-100 rounded-lg">
-                                <Users className="w-6 h-6 text-blue-600" />
+                {/* Stats - compact */}
+                <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
+                    {[
+                        { label: 'Total', value: stats.total, icon: Users, color: 'text-gray-700 bg-gray-100' },
+                        { label: 'Present', value: stats.present, icon: UserCheck, color: 'text-green-700 bg-green-50' },
+                        { label: 'Absent', value: stats.absent, icon: UserX, color: 'text-red-700 bg-red-50' },
+                        { label: 'Late', value: stats.late, icon: Clock, color: 'text-amber-700 bg-amber-50' },
+                        { label: 'Early leave', value: stats.early_leave ?? 0, icon: Clock, color: 'text-amber-600 bg-amber-50' },
+                        { label: 'Leave', value: stats.leave, icon: Calendar, color: 'text-orange-700 bg-orange-50' },
+                    ].map(({ label, value, icon: Icon, color }) => (
+                        <div key={label} className="bg-white rounded-lg border border-emerald-100 px-4 py-3 flex items-center gap-3">
+                            <div className={`p-1.5 rounded ${color}`}>
+                                <Icon className="w-4 h-4" />
                             </div>
                             <div>
-                                <p className="text-sm text-gray-600">Total Teachers</p>
-                                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+                                <p className="text-xs text-gray-500">{label}</p>
+                                <p className="text-sm font-semibold text-gray-900">{value}</p>
                             </div>
                         </div>
-                    </div>
-
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-green-100 rounded-lg">
-                                <UserCheck className="w-6 h-6 text-green-600" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-600">Present</p>
-                                <p className="text-2xl font-bold text-green-600">{stats.present}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-red-100 rounded-lg">
-                                <UserX className="w-6 h-6 text-red-600" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-600">Absent</p>
-                                <p className="text-2xl font-bold text-red-600">{stats.absent}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-yellow-100 rounded-lg">
-                                <Clock className="w-6 h-6 text-yellow-600" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-600">Late</p>
-                                <p className="text-2xl font-bold text-yellow-600">{stats.late}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-orange-100 rounded-lg">
-                                <Calendar className="w-6 h-6 text-orange-600" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-600">On Leave</p>
-                                <p className="text-2xl font-bold text-orange-600">{stats.leave}</p>
-                            </div>
-                        </div>
-                    </div>
+                    ))}
                 </div>
 
-                {/* Date & Filter Section */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
-                        <div className="flex items-center">
-                            <Filter className="h-5 w-5 text-blue-600 mr-2" />
-                            <h3 className="text-lg font-semibold text-gray-900">Select Date & Filter</h3>
+                {/* Date & Filter - minimal */}
+                <div className="bg-white rounded-lg border border-emerald-100 p-4">
+                    <div className="flex flex-wrap items-end gap-4">
+                        <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">Date</label>
+                            <input
+                                type="date"
+                                value={selectedDate}
+                                onChange={(e) => handleDateChange(e.target.value)}
+                                className="text-sm w-full max-w-[160px] px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                            />
                         </div>
-                        <p className="text-sm text-gray-600 mt-1">Choose a date to view attendance records</p>
-                    </div>
-                    <div className="p-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {/* Date Selection */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    <Calendar className="inline h-4 w-4 mr-1 text-blue-600" />
-                                    Select Date
-                                </label>
-                                <input
-                                    type="date"
-                                    value={selectedDate}
-                                    onChange={(e) => handleDateChange(e.target.value)}
-                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                                />
-                                <p className="mt-1 text-xs text-gray-500">
-                                    {new Date(selectedDate).toLocaleDateString('en-US', {
-                                        weekday: 'long',
-                                        year: 'numeric',
-                                        month: 'long',
-                                        day: 'numeric'
-                                    })}
-                                </p>
-                            </div>
-
-                            {/* Status Filter */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    <Filter className="inline h-4 w-4 mr-1 text-blue-600" />
-                                    Filter by Status
-                                </label>
-                                <select
-                                    value={selectedStatus}
-                                    onChange={(e) => handleStatusChange(e.target.value)}
-                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                                >
-                                    <option value="">All Status</option>
-                                    <option value="present">Present</option>
-                                    <option value="absent">Absent</option>
-                                    <option value="late">Late</option>
-                                    <option value="half_day">Half Day</option>
-                                    <option value="leave">Leave</option>
-                                    <option value="holiday">Holiday</option>
-                                </select>
-                            </div>
-
-                            {/* Quick Actions */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Quick Actions
-                                </label>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => handleDateChange(new Date().toISOString().split('T')[0])}
-                                        className="flex-1 inline-flex items-center justify-center px-4 py-2.5 bg-blue-50 text-blue-700 text-sm font-medium rounded-lg hover:bg-blue-100 transition-colors border border-blue-200"
-                                    >
-                                        <Calendar className="h-4 w-4 mr-1" />
-                                        Today
-                                    </button>
-                                    <button
-                                        onClick={() => handleDateChange(selectedDate)}
-                                        className="flex-1 inline-flex items-center justify-center px-4 py-2.5 bg-gray-50 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-100 transition-colors border border-gray-200"
-                                    >
-                                        <RefreshCw className="h-4 w-4 mr-1" />
-                                        Refresh
-                                    </button>
-                                </div>
-                            </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
+                            <select
+                                value={selectedStatus}
+                                onChange={(e) => handleStatusChange(e.target.value)}
+                                className="text-sm w-full max-w-[140px] px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                            >
+                                <option value="">All</option>
+                                <option value="present">Present</option>
+                                <option value="absent">Absent</option>
+                                <option value="late">Late</option>
+                                <option value="early_leave">Early leave</option>
+                                <option value="half_day">Half Day</option>
+                                <option value="leave">Leave</option>
+                                <option value="holiday">Holiday</option>
+                            </select>
                         </div>
+                        <div className="flex gap-1.5">
+                            <button
+                                type="button"
+                                onClick={() => handleDateChange(new Date().toISOString().split('T')[0])}
+                                className="text-xs px-2.5 py-1.5 border border-gray-300 rounded hover:bg-gray-50 text-gray-700"
+                            >
+                                Today
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleDateChange(selectedDate)}
+                                className="text-xs px-2.5 py-1.5 border border-gray-300 rounded hover:bg-gray-50 text-gray-700 inline-flex items-center gap-1"
+                            >
+                                <RefreshCw className="w-3 h-3" /> Refresh
+                            </button>
+                        </div>
+                        <p className="text-xs text-gray-400 ml-auto self-center">
+                            {new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                        </p>
                     </div>
                 </div>
 
                 {/* Attendance Table */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h3 className="text-lg font-semibold text-gray-900">Attendance Records</h3>
-                                <p className="text-sm text-gray-600 mt-1">
-                                    {attendances.data.length > 0
-                                        ? `Showing ${attendances.data.length} teacher${attendances.data.length !== 1 ? 's' : ''}`
-                                        : 'No records found'
-                                    }
-                                </p>
-                            </div>
-                            <Link href="/teacher-attendance/report">
-                                <Button variant="ghost" size="sm" icon={<Download className="w-4 h-4" />}>
-                                    View Report
-                                </Button>
-                            </Link>
-                        </div>
+                <div className="bg-white rounded-lg border border-emerald-100 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700">
+                            {attendances.data.length > 0
+                                ? `${attendances.data.length} record${attendances.data.length !== 1 ? 's' : ''}`
+                                : 'No records'
+                            }
+                        </span>
+                        <Link href="/teacher-attendance/report" className="text-xs text-gray-500 hover:text-gray-700 inline-flex items-center gap-1">
+                            <Download className="w-3.5 h-3.5" /> Report
+                        </Link>
                     </div>
 
                     <div className="overflow-x-auto">
                         <table className="w-full">
-                            <thead className="bg-gray-50 border-b border-gray-200">
+                            <thead className="bg-emerald-50/70 border-b border-emerald-100">
                                 <tr>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                        Teacher Information
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                        Employee ID
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                        Status
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                        Check In Time
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                        Check Out Time
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                        Working Hours
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                        Remarks
-                                    </th>
-                                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                        Actions
-                                    </th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Teacher</th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">In</th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Out</th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Hours</th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Remarks</th>
+                                    <th className="px-4 py-2.5 text-right text-[11px] font-medium text-gray-500 uppercase tracking-wider w-12"></th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200 bg-white">
                                 {attendances.data.length > 0 ? (
-                                    attendances.data.map((attendance) => (
-                                        <tr key={attendance.id} className="hover:bg-blue-50/50 transition-colors">
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center">
-                                                    <div className="flex-shrink-0 h-11 w-11 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-md">
-                                                        <span className="text-white font-semibold text-sm">
-                                                            {attendance.teacher.user?.name.charAt(0).toUpperCase()}
+                                    attendances.data.map((attendance) => {
+                                        const teacher = attendance.teacher;
+                                        const displayName = teacher?.user?.name ?? (teacher?.employee_id ? `Employee ${teacher.employee_id}` : 'Deleted teacher');
+                                        const initial = (teacher?.user?.name?.charAt(0) ?? teacher?.employee_id?.charAt(0) ?? '?').toUpperCase();
+                                        return (
+                                        <tr key={attendance.id} className="hover:bg-gray-50/80 transition-colors">
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex-shrink-0 h-9 w-9 bg-gray-200 rounded-full flex items-center justify-center">
+                                                        <span className="text-gray-600 text-xs font-medium">
+                                                            {initial}
                                                         </span>
                                                     </div>
-                                                    <div className="ml-4">
-                                                        <p className="text-sm font-semibold text-gray-900">
-                                                            {attendance.teacher.user?.name}
+                                                    <div>
+                                                        <p className="text-sm text-gray-900 font-medium">
+                                                            {displayName}
                                                         </p>
-                                                        <p className="text-sm text-gray-500">
-                                                            {attendance.teacher.user?.email}
-                                                        </p>
-                                                        {attendance.teacher.designation && (
+                                                        {teacher?.user?.email && (
+                                                            <p className="text-xs text-gray-500">
+                                                                {teacher.user.email}
+                                                            </p>
+                                                        )}
+                                                        {teacher?.designation && (
                                                             <p className="text-xs text-gray-400 mt-0.5">
-                                                                {attendance.teacher.designation}
+                                                                {teacher.designation}
                                                             </p>
                                                         )}
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-sm text-gray-900 font-mono bg-gray-100 px-2 py-1 rounded">
-                                                    {attendance.teacher.employee_id || 'N/A'}
+                                            <td className="px-4 py-3">
+                                                <span className="text-xs text-gray-600 font-mono bg-gray-100 px-1.5 py-0.5 rounded">
+                                                    {teacher?.employee_id ?? '—'}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border ${getStatusBadge(attendance.status)}`}>
+                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border ${getStatusBadge(attendance.status)}`}>
                                                     {getStatusIcon(attendance.status)}
-                                                    <span className="ml-1.5 capitalize">
-                                                        {attendance.status.replace('_', ' ')}
-                                                    </span>
+                                                    <span className="capitalize">{attendance.status.replace('_', ' ')}</span>
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="flex items-center">
-                                                    <Clock className="h-4 w-4 text-green-600 mr-2" />
-                                                    <span className="text-sm font-medium text-gray-900">
-                                                        {formatTime(attendance.in_time)}
-                                                    </span>
-                                                </div>
+                                            <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">
+                                                {formatTime(attendance.in_time)}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="flex items-center">
-                                                    <Clock className="h-4 w-4 text-red-600 mr-2" />
-                                                    <span className="text-sm font-medium text-gray-900">
-                                                        {formatTime(attendance.out_time)}
-                                                    </span>
-                                                </div>
+                                            <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">
+                                                {formatTime(attendance.out_time)}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                <span className="text-xs text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">
                                                     {calculateWorkingHours(attendance.in_time, attendance.out_time)}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-sm text-gray-600">
-                                                    {attendance.reason || attendance.remarks || '---'}
-                                                </span>
+                                            <td className="px-4 py-3 text-xs text-gray-500 max-w-[120px] truncate">
+                                                {attendance.reason || attendance.remarks || '—'}
                                             </td>
-                                            <td className="px-6 py-4 text-right">
+                                            <td className="px-4 py-3 text-right">
                                                 <button
                                                     onClick={() => handleDelete(attendance.id)}
-                                                    className="inline-flex items-center justify-center p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                                                     title="Delete attendance"
                                                 >
-                                                    <Trash2 className="w-4 h-4" />
+                                                    <Trash2 className="w-3.5 h-3.5" />
                                                 </button>
                                             </td>
                                         </tr>
-                                    ))
+                                        );
+                                    })
                                 ) : (
                                     <tr>
-                                        <td colSpan={8} className="px-6 py-16 text-center">
-                                            <div className="flex flex-col items-center">
-                                                <div className="p-4 bg-gray-100 rounded-full mb-4">
-                                                    <Calendar className="h-12 w-12 text-gray-400" />
-                                                </div>
-                                                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                                                    No Attendance Records Found
-                                                </h3>
-                                                <p className="text-sm text-gray-600 mb-6 max-w-md">
-                                                    There are no attendance records for {new Date(selectedDate).toLocaleDateString('en-US', {
-                                                        month: 'long',
-                                                        day: 'numeric',
-                                                        year: 'numeric'
-                                                    })}. Click below to mark attendance.
-                                                </p>
-                                                <Link href={`/teacher-attendance/create?date=${selectedDate}`}>
-                                                    <Button icon={<Plus className="w-5 h-5" />}>
-                                                        Mark Attendance for this Date
-                                                        <ChevronRight className="ml-1 h-4 w-4" />
-                                                    </Button>
-                                                </Link>
-                                            </div>
+                                        <td colSpan={8} className="px-4 py-12 text-center">
+                                            <p className="text-sm text-gray-500 mb-3">No records for this date.</p>
+                                            <Link href={`/teacher-attendance/create?date=${selectedDate}`}>
+                                                <Button size="sm" icon={<Plus className="w-4 h-4" />}>
+                                                    Mark attendance
+                                                </Button>
+                                            </Link>
                                         </td>
                                     </tr>
                                 )}
@@ -464,39 +377,72 @@ export default function Index({ attendances, filters, stats }: IndexProps) {
                     </div>
                 </div>
 
+                {/* Teachers not marked for this date (e.g. Jannatul Ferdous - no device punch or no employee_id) */}
+                {teachersNotMarked.length > 0 && (
+                    <div className="bg-amber-50/80 rounded-lg border border-amber-200 overflow-hidden">
+                        <div className="px-4 py-3 border-b border-amber-200 flex items-center justify-between">
+                            <span className="text-sm font-medium text-amber-800">
+                                Not marked for this date ({teachersNotMarked.length} teacher{teachersNotMarked.length !== 1 ? 's' : ''})
+                            </span>
+                            <Link
+                                href={`/teacher-attendance/create?date=${selectedDate}`}
+                                className="text-xs font-medium text-amber-700 hover:text-amber-900 inline-flex items-center gap-1"
+                            >
+                                <Plus className="w-3.5 h-3.5" /> Mark attendance
+                            </Link>
+                        </div>
+                        <div className="p-4">
+                            <p className="text-xs text-amber-800/90 mb-3">
+                                These teachers have no attendance record today. They may not have punched on the device, or their Employee ID may not be set in the system. Mark manually if needed.
+                            </p>
+                            <ul className="flex flex-wrap gap-2">
+                                {teachersNotMarked.map((t) => (
+                                    <li
+                                        key={t.id}
+                                        className="inline-flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-amber-200 text-sm text-gray-700"
+                                    >
+                                        <Users className="w-4 h-4 text-amber-600" />
+                                        <span className="font-medium">{t.name}</span>
+                                        {t.employee_id && (
+                                            <span className="text-xs text-gray-500 font-mono">({t.employee_id})</span>
+                                        )}
+                                        {!t.employee_id && (
+                                            <span className="text-xs text-amber-600" title="Set Employee ID in Teacher profile for device sync">No device ID</span>
+                                        )}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+                )}
+
                 {/* Pagination */}
                 {attendances.last_page > 1 && (
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 px-6 py-4">
-                        <div className="flex items-center justify-between">
-                            <div className="text-sm text-gray-700">
-                                Showing <span className="font-semibold text-gray-900">{attendances.from}</span> to{' '}
-                                <span className="font-semibold text-gray-900">{attendances.to}</span> of{' '}
-                                <span className="font-semibold text-gray-900">{attendances.total}</span> results
-                            </div>
-                            <div className="flex gap-2">
-                                {attendances.links.map((link, index) => (
-                                    link.url ? (
-                                        <Link
-                                            key={index}
-                                            href={link.url}
-                                            preserveState
-                                            preserveScroll
-                                            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                                                link.active
-                                                    ? 'bg-blue-600 text-white shadow-sm'
-                                                    : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
-                                            }`}
-                                            dangerouslySetInnerHTML={{ __html: link.label }}
-                                        />
-                                    ) : (
-                                        <span
-                                            key={index}
-                                            className="px-4 py-2 text-sm font-medium rounded-lg bg-gray-100 text-gray-400 cursor-not-allowed"
-                                            dangerouslySetInnerHTML={{ __html: link.label }}
-                                        />
-                                    )
-                                ))}
-                            </div>
+                    <div className="bg-white rounded-lg border border-emerald-100 px-4 py-3 flex items-center justify-between">
+                        <span className="text-xs text-gray-500">
+                            {attendances.from}–{attendances.to} of {attendances.total}
+                        </span>
+                        <div className="flex gap-1">
+                            {attendances.links.map((link, index) => (
+                                link.url ? (
+                                    <Link
+                                        key={index}
+                                        href={link.url}
+                                        preserveState
+                                        preserveScroll
+                                        className={`px-2.5 py-1 text-xs font-medium rounded border transition-colors ${
+                                            link.active ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                                        }`}
+                                        dangerouslySetInnerHTML={{ __html: link.label }}
+                                    />
+                                ) : (
+                                    <span
+                                        key={index}
+                                        className="px-2.5 py-1 text-xs text-gray-400 border border-emerald-100 rounded cursor-not-allowed"
+                                        dangerouslySetInnerHTML={{ __html: link.label }}
+                                    />
+                                )
+                            ))}
                         </div>
                     </div>
                 )}

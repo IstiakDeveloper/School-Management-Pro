@@ -17,7 +17,7 @@ export function Card({
     className?: string;
 }) {
     return (
-        <div className={`bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100 ${className}`}>
+        <div className={`bg-white rounded-xl shadow-sm overflow-hidden border border-emerald-100 ${className}`}>
             {children}
         </div>
     );
@@ -31,7 +31,7 @@ export function CardHeader({
     className?: string;
 }) {
     return (
-        <div className={`border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 ${className}`}>
+        <div className={`border-b border-emerald-100 bg-emerald-50/80 px-6 py-4 ${className}`}>
             {children}
         </div>
     );
@@ -92,9 +92,9 @@ export default function CardLegacy({
     };
 
     return (
-        <div className={`bg-white rounded-lg border border-gray-200 shadow-sm ${className}`}>
+        <div className={`bg-white rounded-lg border border-emerald-100 shadow-sm ${className}`}>
             {(title || subtitle || action) && (
-                <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <div className="px-6 py-4 border-b border-emerald-100 bg-emerald-50/50 flex items-center justify-between">
                     <div>
                         {title && <h3 className="text-lg font-semibold text-gray-900">{title}</h3>}
                         {subtitle && <p className="text-sm text-gray-600 mt-1">{subtitle}</p>}

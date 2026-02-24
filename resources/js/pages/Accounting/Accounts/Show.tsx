@@ -35,34 +35,24 @@ export default function Show({ account, stats }: ShowProps) {
         <AuthenticatedLayout>
             <Head title={`Account: ${account.account_name}`} />
 
-            <div className="space-y-6 animate-fade-in">
-                <div className="flex items-center justify-between">
+            <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                        <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-                            {account.account_name}
-                        </h1>
-                        <p className="text-gray-600 mt-1">Account Details and Transaction History</p>
+                        <h1 className="text-xl font-semibold text-gray-900">{account.account_name}</h1>
+                        <p className="text-xs text-emerald-700/80 mt-0.5">Account details & transaction history</p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                         <Link href={`/accounting/accounts/${account.id}/edit`}>
-                            <Button
-                                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white"
-                                icon={<Edit className="w-5 h-5" />}
-                            >
-                                Edit Account
-                            </Button>
+                            <Button size="sm" icon={<Edit className="w-4 h-4" />}>Edit</Button>
                         </Link>
                         <Link href="/accounting/accounts">
-                            <Button variant="ghost" icon={<ArrowLeft className="w-5 h-5" />}>
-                                Back
-                            </Button>
+                            <Button variant="outline" size="sm" icon={<ArrowLeft className="w-4 h-4" />}>Back</Button>
                         </Link>
                     </div>
                 </div>
 
-                {/* Account Info Card */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-white rounded-lg border border-emerald-100 shadow-sm p-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
                             <p className="text-sm text-gray-600 mb-1">Account Number</p>
                             <p className="text-lg font-semibold text-gray-900">{account.account_number}</p>

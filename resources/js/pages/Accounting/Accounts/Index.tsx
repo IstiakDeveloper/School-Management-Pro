@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
-import Badge from '@/Components/Badge';
-import { Plus, Search, Eye, Edit, Trash2, Wallet, TrendingUp, Building2 } from 'lucide-react';
+import IndexPagination from '@/Components/IndexPagination';
+import { Plus, Search, Eye, Edit, Trash2, Wallet, Building2, TrendingUp, RefreshCw } from 'lucide-react';
 import { Account, AccountFilters, AccountingStats, PaginatedData } from '@/types/accounting';
 
 interface IndexProps {
@@ -35,83 +35,72 @@ export default function Index({ accounts, filters, stats }: IndexProps) {
     };
 
     const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('en-US', {
-            minimumFractionDigits: 2,
-        }).format(amount);
+        return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
     };
 
     return (
         <AuthenticatedLayout>
             <Head title="Accounts" />
 
-            <div className="space-y-6 animate-fade-in">
-                <div className="flex items-center justify-between">
+            <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                        <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+                        <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                            <Wallet className="w-5 h-5 text-emerald-600" />
                             Accounts
                         </h1>
-                        <p className="text-gray-600 mt-1">Manage bank, cash, and mobile banking accounts</p>
+                        <p className="text-xs text-emerald-700/80 mt-0.5">Bank, cash & mobile banking</p>
                     </div>
                     <Link href="/accounting/accounts/create">
-                        <Button className="bg-gradient-to-r from-green-600 to-blue-600 text-white" icon={<Plus className="w-5 h-5" />}>
+                        <Button size="sm" icon={<Plus className="w-4 h-4" />}>
                             Create Account
                         </Button>
                     </Link>
                 </div>
 
-                {/* Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-green-100 rounded-xl">
-                                <Wallet className="w-6 h-6 text-green-600" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-600">Total Balance</p>
-                                <p className="text-2xl font-bold text-gray-900">৳{formatCurrency(stats.total_balance)}</p>
-                            </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div className="bg-white rounded-lg border border-emerald-100 border-l-4 border-l-emerald-500 shadow-sm px-4 py-3 flex items-center gap-3">
+                        <div className="p-1.5 rounded bg-emerald-100 text-emerald-700">
+                            <Wallet className="w-4 h-4" />
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500">Total Balance</p>
+                            <p className="text-sm font-semibold text-gray-900">৳{formatCurrency(stats.total_balance ?? 0)}</p>
                         </div>
                     </div>
-
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-blue-100 rounded-xl">
-                                <Building2 className="w-6 h-6 text-blue-600" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-600">Total Accounts</p>
-                                <p className="text-2xl font-bold text-gray-900">{stats.total_accounts}</p>
-                            </div>
+                    <div className="bg-white rounded-lg border border-emerald-100 border-l-4 border-l-emerald-500 shadow-sm px-4 py-3 flex items-center gap-3">
+                        <div className="p-1.5 rounded bg-emerald-100 text-emerald-700">
+                            <Building2 className="w-4 h-4" />
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500">Total Accounts</p>
+                            <p className="text-sm font-semibold text-gray-900">{stats.total_accounts ?? 0}</p>
                         </div>
                     </div>
-
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-purple-100 rounded-xl">
-                                <TrendingUp className="w-6 h-6 text-purple-600" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-600">Active Accounts</p>
-                                <p className="text-2xl font-bold text-gray-900">{stats.active_accounts}</p>
-                            </div>
+                    <div className="bg-white rounded-lg border border-emerald-100 border-l-4 border-l-emerald-500 shadow-sm px-4 py-3 flex items-center gap-3">
+                        <div className="p-1.5 rounded bg-emerald-100 text-emerald-700">
+                            <TrendingUp className="w-4 h-4" />
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500">Active</p>
+                            <p className="text-sm font-semibold text-gray-900">{stats.active_accounts ?? 0}</p>
                         </div>
                     </div>
                 </div>
 
-                {/* Filters */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-white rounded-lg border border-emerald-100 shadow-sm p-4">
+                    <div className="flex flex-wrap items-end gap-3">
                         <input
                             type="text"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Search accounts..."
-                            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                            placeholder="Search..."
+                            className="text-sm w-full max-w-[180px] px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
                         />
                         <select
                             value={type}
                             onChange={(e) => setType(e.target.value)}
-                            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                            className="text-sm w-full max-w-[140px] px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-emerald-500"
                         >
                             <option value="">All Types</option>
                             <option value="bank">Bank</option>
@@ -121,89 +110,117 @@ export default function Index({ accounts, filters, stats }: IndexProps) {
                         <select
                             value={status}
                             onChange={(e) => setStatus(e.target.value)}
-                            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                            className="text-sm w-full max-w-[120px] px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-emerald-500"
                         >
                             <option value="">All Status</option>
                             <option value="active">Active</option>
                             <option value="inactive">Inactive</option>
                         </select>
-                        <div className="flex gap-2">
-                            <Button onClick={handleFilter} className="flex-1" icon={<Search className="w-4 h-4" />}>Filter</Button>
-                            <Button onClick={handleReset} variant="outline" className="flex-1">Reset</Button>
-                        </div>
+                        <button
+                            type="button"
+                            onClick={handleFilter}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-800 bg-emerald-50 border border-emerald-200 rounded hover:bg-emerald-100"
+                        >
+                            <Search className="w-3.5 h-3.5" /> Filter
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleReset}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50"
+                        >
+                            <RefreshCw className="w-3.5 h-3.5" /> Reset
+                        </button>
                     </div>
                 </div>
 
-                {/* Accounts Table */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="bg-white rounded-lg border border-emerald-100 overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full">
-                            <thead className="bg-gray-50 border-b border-gray-200">
+                            <thead className="bg-emerald-50/70 border-b border-emerald-100">
                                 <tr>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Account Name</th>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Account Number</th>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Type</th>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Bank/Details</th>
-                                    <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Current Balance</th>
-                                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Status</th>
-                                    <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Actions</th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Account</th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Number</th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Bank/Details</th>
+                                    <th className="px-4 py-2.5 text-right text-[11px] font-medium text-gray-500 uppercase tracking-wider">Balance</th>
+                                    <th className="px-4 py-2.5 text-center text-[11px] font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th className="px-4 py-2.5 text-right text-[11px] font-medium text-gray-500 uppercase tracking-wider w-24">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
                                 {accounts.data.map((account) => (
-                                    <tr key={account.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4">
-                                            <p className="font-medium text-gray-900">{account.account_name}</p>
+                                    <tr key={account.id} className="hover:bg-gray-50/80">
+                                        <td className="px-4 py-3">
+                                            <p className="text-sm font-medium text-gray-900">{account.account_name}</p>
                                         </td>
-                                        <td className="px-6 py-4 text-gray-600">{account.account_number}</td>
-                                        <td className="px-6 py-4">
-                                            <Badge variant="info" className="capitalize">
+                                        <td className="px-4 py-3 text-xs text-gray-600">{account.account_number}</td>
+                                        <td className="px-4 py-3">
+                                            <span className="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800 capitalize">
                                                 {account.account_type.replace('_', ' ')}
-                                            </Badge>
-                                        </td>
-                                        <td className="px-6 py-4 text-gray-600">
-                                            {account.bank_name || '-'}
-                                            {account.branch && ` (${account.branch})`}
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <span className="font-semibold text-gray-900">
-                                                ৳{formatCurrency(account.current_balance)}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <Badge variant={account.status === 'active' ? 'success' : 'default'}>
-                                                {account.status}
-                                            </Badge>
+                                        <td className="px-4 py-3 text-xs text-gray-600">
+                                            {account.bank_name || '—'}
+                                            {account.branch && ` (${account.branch})`}
                                         </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <Link href={`/accounting/accounts/${account.id}`}>
-                                                    <Button variant="ghost" size="sm" icon={<Eye className="w-4 h-4" />} />
+                                        <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900">
+                                            ৳{formatCurrency(account.current_balance)}
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <span
+                                                className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
+                                                    account.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                                                }`}
+                                            >
+                                                {account.status}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                                <Link
+                                                    href={`/accounting/accounts/${account.id}`}
+                                                    className="p-1.5 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded"
+                                                    title="View"
+                                                >
+                                                    <Eye className="w-3.5 h-3.5" />
                                                 </Link>
-                                                <Link href={`/accounting/accounts/${account.id}/edit`}>
-                                                    <Button variant="ghost" size="sm" icon={<Edit className="w-4 h-4" />} />
+                                                <Link
+                                                    href={`/accounting/accounts/${account.id}/edit`}
+                                                    className="p-1.5 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded"
+                                                    title="Edit"
+                                                >
+                                                    <Edit className="w-3.5 h-3.5" />
                                                 </Link>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
+                                                <button
+                                                    type="button"
                                                     onClick={() => handleDelete(account.id, account.account_name)}
-                                                    icon={<Trash2 className="w-4 h-4 text-red-600" />}
-                                                />
+                                                    className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
-
-                        {accounts.data.length === 0 && (
-                            <div className="text-center py-12">
-                                <Wallet className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                                <p className="text-gray-500">No accounts found</p>
-                            </div>
-                        )}
                     </div>
+                    {accounts.data.length === 0 && (
+                        <div className="text-center py-12">
+                            <Wallet className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                            <p className="text-sm text-gray-500">No accounts found</p>
+                        </div>
+                    )}
                 </div>
+
+                <IndexPagination
+                    links={accounts.links}
+                    from={accounts.from ?? undefined}
+                    to={accounts.to ?? undefined}
+                    total={accounts.total}
+                    lastPage={accounts.last_page}
+                />
             </div>
         </AuthenticatedLayout>
     );

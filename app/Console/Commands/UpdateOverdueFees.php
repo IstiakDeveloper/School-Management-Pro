@@ -32,13 +32,15 @@ class UpdateOverdueFees extends Command
 
         $today = Carbon::today();
 
-        // Get all pending fees
+        // Get all pending fees (only for non-soft-deleted students)
         $pendingFees = FeeCollection::with(['feeType', 'student.schoolClass'])
+            ->whereHas('student')
             ->where('status', 'pending')
             ->get();
 
         if ($pendingFees->isEmpty()) {
             $this->info('No pending fees found.');
+
             return 0;
         }
 
@@ -47,13 +49,18 @@ class UpdateOverdueFees extends Command
 
         foreach ($pendingFees as $fee) {
             try {
+                // Skip fees without month/year (e.g., one-time admission fees)
+                if (! $fee->month || ! $fee->year) {
+                    continue;
+                }
+
                 // Get fee structure to check due date and late fee settings
                 $feeStructure = FeeStructure::where('fee_type_id', $fee->fee_type_id)
                     ->where('class_id', $fee->student->class_id)
                     ->where('academic_year_id', $fee->academic_year_id)
                     ->first();
 
-                if (!$feeStructure) {
+                if (! $feeStructure) {
                     continue;
                 }
 
@@ -86,7 +93,7 @@ class UpdateOverdueFees extends Command
                     $overdueCount++;
                 }
             } catch (\Exception $e) {
-                $this->error("Error updating fee {$fee->id}: " . $e->getMessage());
+                $this->error("Error updating fee {$fee->id}: ".$e->getMessage());
             }
         }
 

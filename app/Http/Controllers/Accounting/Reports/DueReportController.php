@@ -3,13 +3,14 @@
 namespace App\Http\Controllers\Accounting\Reports;
 
 use App\Http\Controllers\Controller;
+use App\Models\AcademicYear;
 use App\Models\FeeCollection;
 use App\Models\SchoolClass;
+use App\Models\Setting;
 use App\Models\Student;
-use App\Models\AcademicYear;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Carbon\Carbon;
 
 class DueReportController extends Controller
 {
@@ -68,6 +69,9 @@ class DueReportController extends Controller
                 break;
         }
 
+        $schoolName = Setting::where('key', 'school_name')->value('value') ?: 'School Management Pro';
+        $schoolAddress = Setting::where('key', 'school_address')->value('value') ?: '';
+
         return Inertia::render('Accounting/Reports/DueReport', [
             'reportData' => $reportData,
             'summary' => $summary,
@@ -81,6 +85,8 @@ class DueReportController extends Controller
             'classes' => $classes,
             'students' => $students,
             'academicYear' => $currentAcademicYear,
+            'schoolName' => $schoolName,
+            'schoolAddress' => $schoolAddress,
         ]);
     }
 
@@ -97,7 +103,7 @@ class DueReportController extends Controller
 
             // Fee Type wise summary
             $feeTypeName = $record->feeType->name ?? 'Unknown';
-            if (!isset($feeTypeWise[$feeTypeName])) {
+            if (! isset($feeTypeWise[$feeTypeName])) {
                 $feeTypeWise[$feeTypeName] = [
                     'fee_type' => $feeTypeName,
                     'total_amount' => 0,
@@ -113,7 +119,7 @@ class DueReportController extends Controller
 
             // Class wise summary
             $className = $record->student->schoolClass->name ?? 'Unknown';
-            if (!isset($classWise[$className])) {
+            if (! isset($classWise[$className])) {
                 $classWise[$className] = [
                     'class_name' => $className,
                     'total_amount' => 0,
@@ -161,7 +167,7 @@ class DueReportController extends Controller
             $rollNumber = $record->student->roll_number ?? '-';
             $studentIdNumber = $record->student->student_id ?? '-';
 
-            if (!isset($classData[$className])) {
+            if (! isset($classData[$className])) {
                 $classData[$className] = [
                     'class_name' => $className,
                     'students' => [],
@@ -171,7 +177,7 @@ class DueReportController extends Controller
                 ];
             }
 
-            if (!isset($classData[$className]['students'][$studentId])) {
+            if (! isset($classData[$className]['students'][$studentId])) {
                 $classData[$className]['students'][$studentId] = [
                     'student_id' => $studentId,
                     'student_id_number' => $studentIdNumber,
@@ -237,7 +243,7 @@ class DueReportController extends Controller
             $dueAmount = $record->total_amount - $record->paid_amount;
             $sid = $record->student_id;
 
-            if (!isset($studentData[$sid])) {
+            if (! isset($studentData[$sid])) {
                 $studentData[$sid] = [
                     'student_id' => $sid,
                     'student_id_number' => $record->student->student_id ?? '-',

@@ -192,25 +192,27 @@ export default function Index({ investors, accounts, stats }: Props) {
 
             <div className="py-12">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    {/* Header */}
-                    <div className="mb-8 flex justify-between items-center">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                         <div>
-                            <h1 className="text-3xl font-bold text-gray-800">Fund Management</h1>
-                            <p className="text-gray-600 mt-1">Investor Fund IN/OUT System</p>
+                            <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                                <DollarSign className="w-5 h-5 text-emerald-600" />
+                                Fund Management
+                            </h1>
+                            <p className="text-xs text-emerald-700/80 mt-0.5">Investor Fund IN / OUT</p>
                         </div>
-                        <div className="flex gap-3">
+                        <div className="flex gap-2">
                             <button
                                 onClick={() => setShowFundInModal(true)}
-                                className="inline-flex items-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition shadow-md"
+                                className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg border border-emerald-700"
                             >
-                                <ArrowDownCircle className="w-5 h-5 mr-2" />
+                                <ArrowDownCircle className="w-4 h-4" />
                                 Fund IN
                             </button>
                             <button
                                 onClick={() => setShowFundOutModal(true)}
-                                className="inline-flex items-center px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition shadow-md"
+                                className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg"
                             >
-                                <ArrowUpCircle className="w-5 h-5 mr-2" />
+                                <ArrowUpCircle className="w-4 h-4" />
                                 Fund OUT
                             </button>
                         </div>

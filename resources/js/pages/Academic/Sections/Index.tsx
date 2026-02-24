@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
 import Badge from '@/Components/Badge';
+import IndexPagination from '@/Components/IndexPagination';
 import { Plus, Edit, Trash2, Eye, Grid, Search, Users, BookOpen } from 'lucide-react';
 
 interface Section {
@@ -12,173 +13,141 @@ interface Section {
     room_number: string;
     status: string;
     students_count: number;
-    school_class?: {
-        id: number;
-        name: string;
-    };
+    school_class?: { id: number; name: string };
+}
+
+interface PaginationLink {
+    url: string | null;
+    label: string;
+    active: boolean;
 }
 
 interface IndexProps {
     sections: {
         data: Section[];
+        current_page?: number;
+        last_page?: number;
+        total?: number;
+        from?: number;
+        to?: number;
+        links?: PaginationLink[];
     };
+    classes: Array<{ id: number; name: string }>;
+    filters?: { class_id?: string };
 }
 
-export default function Index({ sections }: IndexProps) {
+export default function Index({ sections, classes, filters }: IndexProps) {
     const [searchTerm, setSearchTerm] = useState('');
+    const [classId, setClassId] = useState(filters?.class_id ?? '');
 
     const handleDelete = (id: number, name: string) => {
-        if (confirm(`Are you sure you want to delete Section "${name}"?`)) {
-            router.delete(`/sections/${id}`);
-        }
+        if (confirm(`Delete section "${name}"?`)) router.delete(`/sections/${id}`);
     };
 
-    const filteredSections = sections.data.filter(section =>
-        section.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        section.school_class?.name.toLowerCase().includes(searchTerm.toLowerCase())
+    const handleClassFilter = (value: string) => {
+        setClassId(value);
+        router.get('/sections', value ? { class_id: value } : {}, { preserveState: true });
+    };
+
+    const data = sections.data ?? [];
+    const displayData = data.filter(s =>
+        !searchTerm || s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        s.school_class?.name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    const lastPage = sections.last_page ?? 1;
+    const hasPagination = lastPage > 1 && Array.isArray(sections.links) && sections.links.length > 0;
 
     return (
         <AuthenticatedLayout>
             <Head title="Sections" />
-
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-4">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                            Sections
-                        </h1>
-                        <p className="text-gray-600 mt-1">Manage class sections and rooms</p>
+                        <h1 className="text-xl font-semibold text-gray-900">Sections</h1>
+                        <p className="text-xs text-gray-500 mt-0.5">Manage class sections</p>
                     </div>
                     <Link href="/sections/create">
-                        <Button className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white" icon={<Plus className="w-5 h-5" />}>
-                            Create Section
-                        </Button>
+                        <Button size="sm" icon={<Plus className="w-4 h-4" />}>Create Section</Button>
                     </Link>
                 </div>
 
-                {/* Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-blue-100 rounded-xl">
-                                <Grid className="w-6 h-6 text-blue-600" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-600">Total Sections</p>
-                                <p className="text-2xl font-bold text-gray-900">{sections.data.length}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-green-100 rounded-xl">
-                                <Users className="w-6 h-6 text-green-600" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-600">Total Students</p>
-                                <p className="text-2xl font-bold text-gray-900">
-                                    {sections.data.reduce((sum, sec) => sum + sec.students_count, 0)}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-purple-100 rounded-xl">
-                                <BookOpen className="w-6 h-6 text-purple-600" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-600">Total Capacity</p>
-                                <p className="text-2xl font-bold text-gray-900">
-                                    {sections.data.reduce((sum, sec) => sum + sec.capacity, 0)}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Search */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <div className="bg-white rounded-lg border border-gray-200 p-3">
+                    <div className="flex flex-wrap items-end gap-2">
                         <input
                             type="text"
                             placeholder="Search sections..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="text-sm px-2.5 py-1.5 border border-gray-300 rounded w-48 focus:ring-1 focus:ring-gray-400"
                         />
+                        <select
+                            value={classId}
+                            onChange={(e) => handleClassFilter(e.target.value)}
+                            className="text-sm px-2.5 py-1.5 border border-gray-300 rounded w-36 focus:ring-1 focus:ring-gray-400"
+                        >
+                            <option value="">All Classes</option>
+                            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
                     </div>
                 </div>
 
-                {/* Table */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <table className="w-full">
-                        <thead className="bg-gray-50 border-b border-gray-200">
-                            <tr>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Section</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Class</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Room</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Capacity</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Students</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Status</th>
-                                <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                            {filteredSections.map((section, index) => (
-                                <tr key={section.id} className="hover:bg-gray-50 transition-colors animate-fade-in" style={{ animationDelay: `${index * 30}ms` }}>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-blue-100 rounded-lg">
-                                                <Grid className="w-4 h-4 text-blue-600" />
-                                            </div>
-                                            <span className="font-semibold text-gray-900">Section {section.name}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-gray-900">{section.school_class?.name || 'N/A'}</td>
-                                    <td className="px-6 py-4 text-gray-900">Room {section.room_number}</td>
-                                    <td className="px-6 py-4 text-gray-900">{section.capacity}</td>
-                                    <td className="px-6 py-4 text-gray-900">{section.students_count}</td>
-                                    <td className="px-6 py-4">
-                                        <Badge variant={section.status === 'active' ? 'success' : 'default'} className="capitalize">
-                                            {section.status}
-                                        </Badge>
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="flex items-center justify-end gap-2">
-                                            <Link href={`/sections/${section.id}`}>
-                                                <Button variant="ghost" size="sm" icon={<Eye className="w-4 h-4" />}>
-                                                    View
-                                                </Button>
-                                            </Link>
-                                            <Link href={`/sections/${section.id}/edit`}>
-                                                <Button variant="ghost" size="sm" icon={<Edit className="w-4 h-4" />}>
-                                                    Edit
-                                                </Button>
-                                            </Link>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => handleDelete(section.id, section.name)}
-                                                icon={<Trash2 className="w-4 h-4 text-red-600" />}
-                                            />
-                                        </div>
-                                    </td>
+                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead className="bg-gray-50/80 border-b border-gray-200">
+                                <tr>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Section</th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Class</th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Room</th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Capacity</th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Students</th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th className="px-4 py-2.5 text-right text-[11px] font-medium text-gray-500 uppercase tracking-wider w-24"></th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-
-                    {filteredSections.length === 0 && (
-                        <div className="text-center py-12">
-                            <Grid className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                            <h4 className="text-lg font-semibold text-gray-900">No Sections Found</h4>
-                            <p className="text-gray-600 mt-1">Create your first section to get started.</p>
-                        </div>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {displayData.length > 0 ? displayData.map((section) => (
+                                    <tr key={section.id} className="hover:bg-gray-50/80">
+                                        <td className="px-4 py-3">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-8 h-8 bg-gray-100 rounded flex items-center justify-center shrink-0">
+                                                    <Grid className="w-4 h-4 text-gray-600" />
+                                                </div>
+                                                <span className="text-sm font-medium text-gray-900">Section {section.name}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 text-xs text-gray-600">{section.school_class?.name ?? '—'}</td>
+                                        <td className="px-4 py-3 text-xs text-gray-600">{section.room_number || '—'}</td>
+                                        <td className="px-4 py-3 text-xs text-gray-600">{section.capacity}</td>
+                                        <td className="px-4 py-3 text-xs text-gray-600">{section.students_count}</td>
+                                        <td className="px-4 py-3">
+                                            <Badge variant={section.status === 'active' ? 'success' : 'default'} className="capitalize text-xs">{section.status}</Badge>
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                                <Link href={`/sections/${section.id}`} className="p-1.5 text-gray-400 hover:text-gray-600 rounded"><Eye className="w-3.5 h-3.5" /></Link>
+                                                <Link href={`/sections/${section.id}/edit`} className="p-1.5 text-gray-400 hover:text-gray-600 rounded"><Edit className="w-3.5 h-3.5" /></Link>
+                                                <button type="button" onClick={() => handleDelete(section.id, section.name)} className="p-1.5 text-gray-400 hover:text-red-600 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )) : (
+                                    <tr>
+                                        <td colSpan={7} className="px-4 py-12 text-center text-sm text-gray-500">No sections found.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                    {hasPagination && (
+                        <IndexPagination
+                            links={sections.links!}
+                            from={sections.from}
+                            to={sections.to}
+                            total={sections.total}
+                            lastPage={lastPage}
+                        />
                     )}
                 </div>
             </div>

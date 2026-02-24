@@ -140,8 +140,8 @@ export default function DeviceSettings({ settings, holidays }: Props) {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                 },
                 body: JSON.stringify({
-                    device_ip: data.device_ip,
-                    device_port: data.device_port,
+                    device_ip: deviceForm.data.device_ip,
+                    device_port: deviceForm.data.device_port,
                 }),
             });
             const result = await response.json();

@@ -1,4 +1,5 @@
 <?php
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -26,7 +27,7 @@ return new class extends Migration
             $table->enum('payment_method', ['cash', 'bank_transfer', 'cheque', 'mobile_banking', 'online'])->default('cash');
             $table->string('transaction_id')->nullable();
             $table->text('remarks')->nullable();
-            $table->enum('status', ['paid', 'partial', 'pending', 'cancelled'])->default('paid');
+            $table->enum('status', ['paid', 'partial', 'pending', 'overdue', 'cancelled'])->default('pending');
             $table->foreignId('collected_by')->constrained('users')->onDelete('cascade');
             $table->timestamps();
             $table->softDeletes();
@@ -37,5 +38,9 @@ return new class extends Migration
             $table->index('payment_date');
         });
     }
-    public function down(): void { Schema::dropIfExists('fee_collections'); }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('fee_collections');
+    }
 };

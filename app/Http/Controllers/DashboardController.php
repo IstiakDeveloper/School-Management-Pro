@@ -2,8 +2,18 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
+use App\Models\Event;
+use App\Models\Exam;
+use App\Models\FeeCollection;
+use App\Models\Notice;
 use App\Models\Role;
+use App\Models\SchoolClass;
+use App\Models\Staff;
+use App\Models\Student;
+use App\Models\StudentAttendance;
+use App\Models\Teacher;
+use App\Models\TeacherAttendance;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -28,8 +38,66 @@ class DashboardController extends Controller
         // Get user stats based on role
         $stats = $this->getUserStats($user);
 
+        // Extra dashboard data for admin/principal
+        $today = now()->toDateString();
+        $todayStudentPresent = StudentAttendance::where('date', $today)->where('status', 'present')->count();
+        $todayStudentTotal = StudentAttendance::where('date', $today)->count();
+        $todayTeacherPresent = TeacherAttendance::where('date', $today)->whereIn('status', ['present', 'late', 'early_leave'])->count();
+        $todayTeacherAbsent = TeacherAttendance::where('date', $today)->where('status', 'absent')->count();
+        $todayTeacherTotal = TeacherAttendance::where('date', $today)->count();
+
+        $upcomingExams = Exam::where('start_date', '>=', $today)
+            ->orderBy('start_date')
+            ->limit(5)
+            ->get(['id', 'name', 'exam_type', 'start_date', 'end_date'])
+            ->map(function ($e) {
+                return [
+                    'id' => $e->id,
+                    'name' => $e->name,
+                    'exam_type' => $e->exam_type,
+                    'start_date' => $e->start_date ? \Carbon\Carbon::parse($e->start_date)->toDateString() : null,
+                    'end_date' => $e->end_date ? \Carbon\Carbon::parse($e->end_date)->toDateString() : null,
+                ];
+            });
+
+        $recentNotices = Notice::where('is_published', true)
+            ->latest('published_at')
+            ->limit(5)
+            ->get(['id', 'title', 'published_at'])
+            ->map(function ($n) {
+                return [
+                    'id' => $n->id,
+                    'title' => $n->title,
+                    'published_at' => $n->published_at ? \Carbon\Carbon::parse($n->published_at)->format('Y-m-d H:i') : null,
+                ];
+            });
+
+        $upcomingEvents = Event::upcoming()
+            ->orderBy('start_date')
+            ->limit(5)
+            ->get(['id', 'title', 'start_date', 'end_date', 'type'])
+            ->map(function ($e) {
+                return [
+                    'id' => $e->id,
+                    'title' => $e->title,
+                    'start_date' => $e->start_date ? \Carbon\Carbon::parse($e->start_date)->toDateString() : null,
+                    'end_date' => $e->end_date ? \Carbon\Carbon::parse($e->end_date)->toDateString() : null,
+                    'type' => $e->type,
+                ];
+            });
+
         return Inertia::render('Dashboard', [
             'stats' => $stats,
+            'todayAttendance' => [
+                'student_present' => $todayStudentPresent,
+                'student_total' => $todayStudentTotal,
+                'teacher_present' => $todayTeacherPresent,
+                'teacher_absent' => $todayTeacherAbsent,
+                'teacher_total' => $todayTeacherTotal,
+            ],
+            'upcomingExams' => $upcomingExams,
+            'recentNotices' => $recentNotices,
+            'upcomingEvents' => $upcomingEvents,
             'user' => [
                 'id' => $user->id,
                 'name' => $user->name,
@@ -50,12 +118,12 @@ class DashboardController extends Controller
 
         if ($user->isSuperAdmin() || $user->isPrincipal()) {
             $stats = [
-                'total_students' => \App\Models\Student::where('status', 'active')->count(),
-                'total_teachers' => \App\Models\Teacher::where('status', 'active')->count(),
-                'total_staff' => \App\Models\Staff::where('status', 'active')->count(),
-                'total_classes' => \App\Models\SchoolClass::where('status', 'active')->count(),
-                'pending_fees' => \App\Models\FeeCollection::where('status', 'pending')->sum('amount'),
-                'today_attendance' => \App\Models\StudentAttendance::where('date', today())->count(),
+                'total_students' => Student::where('status', 'active')->count(),
+                'total_teachers' => Teacher::where('status', 'active')->count(),
+                'total_staff' => Staff::where('status', 'active')->count(),
+                'total_classes' => SchoolClass::where('status', 'active')->count(),
+                'pending_fees' => FeeCollection::where('status', 'pending')->sum('amount'),
+                'today_attendance' => StudentAttendance::where('date', today())->where('status', 'present')->count(),
             ];
         } elseif ($user->isTeacher()) {
             $teacher = $user->teacher;
@@ -101,7 +169,7 @@ class DashboardController extends Controller
      */
     private function calculateAttendancePercentage($student): int
     {
-        if (!$student) {
+        if (! $student) {
             return 0;
         }
 
@@ -109,7 +177,7 @@ class DashboardController extends Controller
             ->where('month', now()->format('Y-m'))
             ->first();
 
-        if (!$summary || $summary->total_days == 0) {
+        if (! $summary || $summary->total_days == 0) {
             return 0;
         }
 

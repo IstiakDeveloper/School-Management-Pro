@@ -3,16 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Teacher;
-use App\Models\Student;
-use App\Models\TeacherAttendance;
-use App\Models\StudentAttendance;
-use App\Models\DeviceSetting;
 use App\Models\AcademicYear;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use App\Models\DeviceSetting;
+use App\Models\Student;
+use App\Models\StudentAttendance;
+use App\Models\Teacher;
+use App\Models\TeacherAttendance;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class ZktecoController extends Controller
 {
@@ -56,15 +55,15 @@ class ZktecoController extends Controller
                     $state = $record['state'] ?? 0;
                     $type = $record['type'] ?? 'fingerprint';
 
-                    if (!$employeeId || !$timestamp) {
+                    if (! $employeeId || ! $timestamp) {
                         continue;
                     }
 
                     // Convert to our format
                     $processedRecord = [
-                        'employee_id' => (string)$employeeId,
+                        'employee_id' => (string) $employeeId,
                         'punch_time' => $timestamp,
-                        'punch_state' => (int)$state,
+                        'punch_state' => (int) $state,
                         'punch_type' => $type,
                         'device_sn' => $validated['serial_number'] ?? null,
                     ];
@@ -74,6 +73,7 @@ class ZktecoController extends Controller
                     if ($teacher) {
                         $this->processTeacherAttendance($processedRecord);
                         $successCount++;
+
                         continue;
                     }
 
@@ -82,21 +82,22 @@ class ZktecoController extends Controller
                     if ($student) {
                         $this->processStudentAttendance($processedRecord);
                         $successCount++;
+
                         continue;
                     }
 
                     // Not found
                     $errors[] = [
                         'employee_id' => $employeeId,
-                        'error' => 'No teacher or student found with this ID'
+                        'error' => 'No teacher or student found with this ID',
                     ];
 
                 } catch (\Exception $e) {
                     $errors[] = [
                         'employee_id' => $employeeId ?? 'unknown',
-                        'error' => $e->getMessage()
+                        'error' => $e->getMessage(),
                     ];
-                    Log::error('ZKTeco Sync Record Error: ' . $e->getMessage(), $record);
+                    Log::error('ZKTeco Sync Record Error: '.$e->getMessage(), $record);
                 }
             }
 
@@ -106,11 +107,16 @@ class ZktecoController extends Controller
 
             foreach ($absentTeachers as $employeeId) {
                 try {
+                    // Weekend/holiday: do not mark absent at all (no record, no absent count)
+                    if ($deviceSetting->isWeekend($syncDate) || $deviceSetting->isHoliday($syncDate)) {
+                        continue;
+                    }
+
                     $teacher = Teacher::where('employee_id', $employeeId)
                         ->where('status', 'active')
                         ->first();
 
-                    if (!$teacher) {
+                    if (! $teacher) {
                         continue;
                     }
 
@@ -123,19 +129,11 @@ class ZktecoController extends Controller
                         continue; // Already has record
                     }
 
-                    // Determine status based on weekend/holiday
-                    $status = 'absent';
-                    if ($deviceSetting->isWeekend($syncDate)) {
-                        $status = 'weekend';
-                    } elseif ($deviceSetting->isHoliday($syncDate)) {
-                        $status = 'holiday';
-                    }
-
-                    // Create attendance record
+                    // Working day: mark as absent
                     TeacherAttendance::create([
                         'teacher_id' => $teacher->id,
                         'date' => $syncDate,
-                        'status' => $status,
+                        'status' => 'absent',
                         'in_time' => null,
                         'out_time' => null,
                         'employee_id' => $employeeId,
@@ -148,7 +146,7 @@ class ZktecoController extends Controller
                 } catch (\Exception $e) {
                     $absentErrors[] = [
                         'employee_id' => $employeeId,
-                        'error' => $e->getMessage()
+                        'error' => $e->getMessage(),
                     ];
                 }
             }
@@ -156,17 +154,22 @@ class ZktecoController extends Controller
             // Process absent students
             foreach ($absentStudents as $admissionNumber) {
                 try {
+                    // Weekend/holiday: do not mark absent at all (no record, no absent count)
+                    if ($deviceSetting->isWeekend($syncDate) || $deviceSetting->isHoliday($syncDate)) {
+                        continue;
+                    }
+
                     $student = Student::where('admission_number', $admissionNumber)
                         ->where('status', 'active')
                         ->first();
 
-                    if (!$student) {
+                    if (! $student) {
                         continue;
                     }
 
                     // Get current academic year
                     $academicYear = AcademicYear::where('is_current', true)->first();
-                    if (!$academicYear) {
+                    if (! $academicYear) {
                         continue;
                     }
 
@@ -179,19 +182,11 @@ class ZktecoController extends Controller
                         continue; // Already has record
                     }
 
-                    // Determine status based on weekend/holiday
-                    $status = 'absent';
-                    if ($deviceSetting->isWeekend($syncDate)) {
-                        $status = 'weekend';
-                    } elseif ($deviceSetting->isHoliday($syncDate)) {
-                        $status = 'holiday';
-                    }
-
-                    // Create attendance record
+                    // Working day: mark as absent
                     StudentAttendance::create([
                         'student_id' => $student->id,
                         'date' => $syncDate,
-                        'status' => $status,
+                        'status' => 'absent',
                         'in_time' => null,
                         'class_id' => $student->class_id,
                         'section_id' => $student->section_id,
@@ -206,7 +201,7 @@ class ZktecoController extends Controller
                 } catch (\Exception $e) {
                     $absentErrors[] = [
                         'employee_id' => $admissionNumber,
-                        'error' => $e->getMessage()
+                        'error' => $e->getMessage(),
                     ];
                 }
             }
@@ -221,8 +216,8 @@ class ZktecoController extends Controller
                     'last_sync_status' => $successCount > 0 ? 'success' : 'failed',
                     'last_sync_records' => $successCount,
                     'last_sync_message' => count($errors) > 0
-                        ? "Processed with " . count($errors) . " errors"
-                        : 'Sync successful'
+                        ? 'Processed with '.count($errors).' errors'
+                        : 'Sync successful',
                 ]);
             }
 
@@ -236,16 +231,17 @@ class ZktecoController extends Controller
                     'absent_marked' => $absentMarked,
                     'errors' => count($errors) + count($absentErrors),
                 ],
-                'errors' => array_merge($errors, $absentErrors)
+                'errors' => array_merge($errors, $absentErrors),
             ]);
 
         } catch (\Exception $e) {
-            Log::error('ZKTeco syncAttendance Error: ' . $e->getMessage());
+            Log::error('ZKTeco syncAttendance Error: '.$e->getMessage());
+
             return response()->json([
                 'status' => false,
                 'success' => false,
                 'message' => 'Failed to sync attendance',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -264,22 +260,23 @@ class ZktecoController extends Controller
                     return [
                         'id' => $teacher->id,
                         'employee_id' => $teacher->employee_id,
-                        'name' => trim($teacher->first_name . ' ' . ($teacher->last_name ?? '')),
-                        'type' => 'teacher'
+                        'name' => trim($teacher->first_name.' '.($teacher->last_name ?? '')),
+                        'type' => 'teacher',
                     ];
                 });
 
             return response()->json([
                 'success' => true,
                 'count' => $teachers->count(),
-                'data' => $teachers
+                'data' => $teachers,
             ]);
         } catch (\Exception $e) {
-            Log::error('ZKTeco getTeachers Error: ' . $e->getMessage());
+            Log::error('ZKTeco getTeachers Error: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch teachers',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -303,24 +300,25 @@ class ZktecoController extends Controller
                     return [
                         'id' => $student->id,
                         'employee_id' => $student->admission_number, // Using admission number as employee_id
-                        'name' => trim($student->first_name . ' ' . ($student->last_name ?? '')),
+                        'name' => trim($student->first_name.' '.($student->last_name ?? '')),
                         'class_id' => $student->class_id,
                         'section_id' => $student->section_id,
-                        'type' => 'student'
+                        'type' => 'student',
                     ];
                 });
 
             return response()->json([
                 'success' => true,
                 'count' => $students->count(),
-                'data' => $students
+                'data' => $students,
             ]);
         } catch (\Exception $e) {
-            Log::error('ZKTeco getStudents Error: ' . $e->getMessage());
+            Log::error('ZKTeco getStudents Error: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch students',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -355,9 +353,9 @@ class ZktecoController extends Controller
                 } catch (\Exception $e) {
                     $errors[] = [
                         'employee_id' => $record['employee_id'],
-                        'error' => $e->getMessage()
+                        'error' => $e->getMessage(),
                     ];
-                    Log::error('ZKTeco Attendance Error: ' . $e->getMessage(), $record);
+                    Log::error('ZKTeco Attendance Error: '.$e->getMessage(), $record);
                 }
             }
 
@@ -368,7 +366,7 @@ class ZktecoController extends Controller
                     'last_sync_at' => now(),
                     'last_sync_status' => $successCount > 0 ? 'success' : 'failed',
                     'last_sync_records' => $successCount,
-                    'last_sync_message' => count($errors) > 0 ? json_encode($errors) : 'Sync successful'
+                    'last_sync_message' => count($errors) > 0 ? json_encode($errors) : 'Sync successful',
                 ]);
             }
 
@@ -376,15 +374,16 @@ class ZktecoController extends Controller
                 'success' => true,
                 'message' => "Processed {$successCount} attendance records",
                 'processed' => $successCount,
-                'errors' => $errors
+                'errors' => $errors,
             ]);
 
         } catch (\Exception $e) {
-            Log::error('ZKTeco storeAttendance Error: ' . $e->getMessage());
+            Log::error('ZKTeco storeAttendance Error: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to store attendance',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -414,9 +413,9 @@ class ZktecoController extends Controller
                 } catch (\Exception $e) {
                     $errors[] = [
                         'employee_id' => $record['employee_id'],
-                        'error' => $e->getMessage()
+                        'error' => $e->getMessage(),
                     ];
-                    Log::error('ZKTeco Teacher Attendance Error: ' . $e->getMessage(), $record);
+                    Log::error('ZKTeco Teacher Attendance Error: '.$e->getMessage(), $record);
                 }
             }
 
@@ -424,15 +423,16 @@ class ZktecoController extends Controller
                 'success' => true,
                 'message' => "Processed {$successCount} teacher attendance records",
                 'processed' => $successCount,
-                'errors' => $errors
+                'errors' => $errors,
             ]);
 
         } catch (\Exception $e) {
-            Log::error('ZKTeco storeTeacherAttendance Error: ' . $e->getMessage());
+            Log::error('ZKTeco storeTeacherAttendance Error: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to store teacher attendance',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -462,9 +462,9 @@ class ZktecoController extends Controller
                 } catch (\Exception $e) {
                     $errors[] = [
                         'employee_id' => $record['employee_id'],
-                        'error' => $e->getMessage()
+                        'error' => $e->getMessage(),
                     ];
-                    Log::error('ZKTeco Student Attendance Error: ' . $e->getMessage(), $record);
+                    Log::error('ZKTeco Student Attendance Error: '.$e->getMessage(), $record);
                 }
             }
 
@@ -472,15 +472,16 @@ class ZktecoController extends Controller
                 'success' => true,
                 'message' => "Processed {$successCount} student attendance records",
                 'processed' => $successCount,
-                'errors' => $errors
+                'errors' => $errors,
             ]);
 
         } catch (\Exception $e) {
-            Log::error('ZKTeco storeStudentAttendance Error: ' . $e->getMessage());
+            Log::error('ZKTeco storeStudentAttendance Error: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to store student attendance',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -493,7 +494,7 @@ class ZktecoController extends Controller
     {
         $teacher = Teacher::where('employee_id', $record['employee_id'])->first();
 
-        if (!$teacher) {
+        if (! $teacher) {
             throw new \Exception("Teacher not found with employee_id: {$record['employee_id']}");
         }
 
@@ -521,39 +522,41 @@ class ZktecoController extends Controller
         $attendance->device_sn = $record['device_sn'] ?? null;
 
         // Logic: First punch = Check In, Last punch = Check Out
-        if ($record['punch_state'] == 0 || !$attendance->in_time) {
+        if ($record['punch_state'] == 0 || ! $attendance->in_time) {
             // Check In: First punch or explicit check-in
-            if (!$attendance->in_time || $punchTime->lt($attendance->in_time)) {
+            if (! $attendance->in_time || $punchTime->lt($attendance->in_time)) {
                 $attendance->in_time = $punchTime;
             }
         }
 
         if ($record['punch_state'] == 1 || $attendance->in_time) {
             // Check Out: Last punch or explicit check-out
-            if (!$attendance->out_time || $punchTime->gt($attendance->out_time)) {
+            if (! $attendance->out_time || $punchTime->gt($attendance->out_time)) {
                 $attendance->out_time = $punchTime;
             }
         }
 
-        // Check for Late status based on in_time (15 minutes tolerance)
-        if ($attendance->in_time && $deviceSettings && $deviceSettings->teacher_in_time) {
-            $expectedInTime = Carbon::parse($date . ' ' . $deviceSettings->teacher_in_time);
-            $actualInTime = Carbon::parse($attendance->in_time);
+        // Dynamic status from device settings: teacher_in_time, teacher_out_time, teacher_late_time
+        $attendance->status = 'present';
+        if ($deviceSettings) {
+            $lateThresholdMins = 15; // tolerance before considering early leave
 
-            // Late if arrived more than 15 minutes after expected time
-            if ($actualInTime->greaterThan($expectedInTime->copy()->addMinutes(15))) {
-                $attendance->status = 'late';
+            // Early leave: left before (teacher_out_time - tolerance)
+            if ($attendance->out_time && $deviceSettings->teacher_out_time) {
+                $expectedOutTime = Carbon::parse($date.' '.$deviceSettings->teacher_out_time);
+                $actualOutTime = Carbon::parse($attendance->out_time);
+                if ($deviceSettings->auto_mark_early_leave && $actualOutTime->lessThan($expectedOutTime->copy()->subMinutes($lateThresholdMins))) {
+                    $attendance->status = 'early_leave';
+                }
             }
-        }
 
-        // Check for Early Leave status based on out_time (15 minutes tolerance)
-        if ($attendance->out_time && $deviceSettings && $deviceSettings->teacher_out_time) {
-            $expectedOutTime = Carbon::parse($date . ' ' . $deviceSettings->teacher_out_time);
-            $actualOutTime = Carbon::parse($attendance->out_time);
-
-            // Early leave if left more than 15 minutes before expected time
-            if ($actualOutTime->lessThan($expectedOutTime->copy()->subMinutes(15))) {
-                $attendance->status = 'early_leave';
+            // Late: arrived after teacher_late_time (exact time from settings)
+            if ($attendance->in_time && $deviceSettings->teacher_late_time) {
+                $lateCutoff = Carbon::parse($date.' '.$deviceSettings->teacher_late_time);
+                $actualInTime = Carbon::parse($attendance->in_time);
+                if ($deviceSettings->auto_mark_late && $actualInTime->greaterThan($lateCutoff)) {
+                    $attendance->status = 'late';
+                }
             }
         }
 
@@ -570,7 +573,7 @@ class ZktecoController extends Controller
     {
         $student = Student::where('admission_number', $record['employee_id'])->first();
 
-        if (!$student) {
+        if (! $student) {
             throw new \Exception("Student not found with admission_number: {$record['employee_id']}");
         }
 
@@ -579,8 +582,8 @@ class ZktecoController extends Controller
         $deviceSettings = DeviceSetting::first();
         $academicYear = AcademicYear::where('is_current', true)->first();
 
-        if (!$academicYear) {
-            throw new \Exception("No current academic year found");
+        if (! $academicYear) {
+            throw new \Exception('No current academic year found');
         }
 
         // Get or create attendance record for this date
@@ -607,12 +610,12 @@ class ZktecoController extends Controller
 
         // For students, just mark them as present
         // Update in_time with first punch if not set
-        if (!$attendance->in_time) {
+        if (! $attendance->in_time) {
             $attendance->in_time = $punchTime;
 
             // Check if late based on device settings
             if ($deviceSettings && $deviceSettings->student_in_time) {
-                $expectedInTime = Carbon::parse($date . ' ' . $deviceSettings->student_in_time);
+                $expectedInTime = Carbon::parse($date.' '.$deviceSettings->student_in_time);
                 $lateThreshold = $deviceSettings->student_late_threshold ?? 15;
 
                 if ($punchTime->diffInMinutes($expectedInTime) > $lateThreshold) {

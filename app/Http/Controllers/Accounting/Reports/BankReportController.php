@@ -3,14 +3,15 @@
 namespace App\Http\Controllers\Accounting\Reports;
 
 use App\Http\Controllers\Controller;
-use App\Models\Transaction;
 use App\Models\Account;
+use App\Models\ExpenseCategory;
 use App\Models\FundTransaction;
 use App\Models\IncomeCategory;
-use App\Models\ExpenseCategory;
+use App\Models\Setting;
+use App\Models\Transaction;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Carbon\Carbon;
 
 class BankReportController extends Controller
 {
@@ -143,6 +144,9 @@ class BankReportController extends Controller
 
         $closingBalance = $runningBalance;
 
+        $schoolName = Setting::where('key', 'school_name')->value('value') ?: 'School Management Pro';
+        $schoolAddress = Setting::where('key', 'school_address')->value('value') ?: '';
+
         return Inertia::render('Accounting/Reports/BankReport', [
             'dailyData' => $dailyData,
             'openingBalance' => $openingBalance,
@@ -158,6 +162,8 @@ class BankReportController extends Controller
                 'end_date' => $endDate->format('Y-m-d'),
             ],
             'accounts' => $allAccounts,
+            'schoolName' => $schoolName,
+            'schoolAddress' => $schoolAddress,
         ]);
     }
 
@@ -173,8 +179,8 @@ class BankReportController extends Controller
                 $query->where('account_id', $acc->id)
                     ->orWhere('transfer_to_account_id', $acc->id);
             })
-            ->where('transaction_date', '<', $startDate)
-            ->get();
+                ->where('transaction_date', '<', $startDate)
+                ->get();
 
             foreach ($prevTrans as $trans) {
                 if ($trans->account_id == $acc->id) {

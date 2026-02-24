@@ -22,7 +22,7 @@ export default function Email({ settings }: Props) {
     const flash = (props as any).flash;
     const [showPassword, setShowPassword] = useState(false);
 
-    const { data, setData, put, errors, processing } = useForm({
+    const { data, setData, post, errors, processing } = useForm({
         settings: [
             { key: 'email_from_address', value: settings.email_from_address || '' },
             { key: 'email_from_name', value: settings.email_from_name || '' },
@@ -36,7 +36,7 @@ export default function Email({ settings }: Props) {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        put('/settings/update');
+        post('/settings');
     };
 
     const updateSetting = (key: string, value: string) => {

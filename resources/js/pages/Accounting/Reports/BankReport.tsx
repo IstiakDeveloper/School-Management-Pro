@@ -34,6 +34,8 @@ interface BankReportProps {
         end_date: string;
     };
     accounts: Account[];
+    schoolName?: string;
+    schoolAddress?: string;
 }
 
 export default function BankReport({
@@ -47,6 +49,8 @@ export default function BankReport({
     creditCategories,
     debitCategories,
     filters,
+    schoolName = 'School Management Pro',
+    schoolAddress = '',
 }: BankReportProps) {
     const [startDate, setStartDate] = useState(filters?.start_date || '');
     const [endDate, setEndDate] = useState(filters?.end_date || '');
@@ -99,10 +103,10 @@ export default function BankReport({
                 <div className="mb-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+                            <h1 className="text-xl font-semibold text-gray-900">
                                 Bank Report
                             </h1>
-                            <p className="text-gray-600 mt-1">Category-wise daily credit and debit summary</p>
+                            <p className="text-xs text-emerald-700/80 mt-0.5">Category-wise daily credit and debit summary</p>
                         </div>
                         <div className="flex gap-2">
                             <Button
@@ -330,7 +334,8 @@ export default function BankReport({
             <div className="hidden print:block print-container">
                 {/* Header */}
                 <div className="text-center mb-3 pb-2 border-b-2 border-black">
-                    <h1 className="text-base font-bold mb-1">School Management Pro</h1>
+                    <h1 className="text-base font-bold mb-1">{schoolName}</h1>
+                    {schoolAddress && <p className="text-xs mb-0.5">{schoolAddress}</p>}
                     <h2 className="text-sm font-bold mb-1">BANK REPORT</h2>
                     <p style={{ fontSize: '9px' }} className="font-semibold">For the period: {dateRange}</p>
                 </div>

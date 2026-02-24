@@ -101,6 +101,8 @@ interface DueReportProps {
     classes: SchoolClass[];
     students: Student[];
     academicYear: AcademicYear | null;
+    schoolName?: string;
+    schoolAddress?: string;
 }
 
 export default function DueReport({
@@ -110,6 +112,8 @@ export default function DueReport({
     classes,
     students,
     academicYear,
+    schoolName = 'School Management Pro',
+    schoolAddress = '',
 }: DueReportProps) {
     const [startDate, setStartDate] = useState(filters?.start_date || '');
     const [endDate, setEndDate] = useState(filters?.end_date || '');
@@ -633,7 +637,8 @@ export default function DueReport({
             <div className="hidden print:block print-container">
                 {/* Header */}
                 <div className="text-center mb-4 pb-2 border-b-2 border-black">
-                    <h1 className="text-base font-bold mb-1">School Management Pro</h1>
+                    <h1 className="text-base font-bold mb-1">{schoolName}</h1>
+                    {schoolAddress && <p className="text-xs mb-0.5">{schoolAddress}</p>}
                     <h2 className="text-sm font-bold mb-1">{getReportTitle().toUpperCase()}</h2>
                     <p style={{ fontSize: '9px' }} className="font-semibold">For the period: {dateRange}</p>
                     {academicYear && (

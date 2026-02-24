@@ -24,183 +24,89 @@ interface IndexProps {
 
 export default function Index({ classes }: IndexProps) {
     const [searchTerm, setSearchTerm] = useState('');
+    const filtered = classes.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const handleDelete = (id: number, name: string) => {
-        if (confirm(`Are you sure you want to delete "${name}"?`)) {
-            router.delete(`/classes/${id}`);
-        }
+        if (confirm(`Delete "${name}"?`)) router.delete(`/classes/${id}`);
     };
-
-    const filteredClasses = classes.filter(cls =>
-        cls.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
 
     return (
         <AuthenticatedLayout>
             <Head title="Classes" />
-
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-4">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                            Classes
-                        </h1>
-                        <p className="text-gray-600 mt-1">Manage school classes and grades</p>
+                        <h1 className="text-xl font-semibold text-gray-900">Classes</h1>
+                        <p className="text-xs text-gray-500 mt-0.5">Manage classes and grades</p>
                     </div>
                     <Link href="/classes/create">
-                        <Button className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white" icon={<Plus className="w-5 h-5" />}>
-                            Create Class
-                        </Button>
+                        <Button size="sm" icon={<Plus className="w-4 h-4" />}>Create Class</Button>
                     </Link>
                 </div>
 
-                {/* Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-blue-100 rounded-xl">
-                                <BookOpen className="w-6 h-6 text-blue-600" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-600">Total Classes</p>
-                                <p className="text-2xl font-bold text-gray-900">{classes.length}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-green-100 rounded-xl">
-                                <Grid className="w-6 h-6 text-green-600" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-600">Total Sections</p>
-                                <p className="text-2xl font-bold text-gray-900">
-                                    {classes.reduce((sum, cls) => sum + cls.sections_count, 0)}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-purple-100 rounded-xl">
-                                <Users className="w-6 h-6 text-purple-600" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-600">Total Students</p>
-                                <p className="text-2xl font-bold text-gray-900">
-                                    {classes.reduce((sum, cls) => sum + cls.students_count, 0)}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-orange-100 rounded-xl">
-                                <BookOpen className="w-6 h-6 text-orange-600" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-600">Active</p>
-                                <p className="text-2xl font-bold text-gray-900">
-                                    {classes.filter(c => c.status === 'active').length}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
+                <div className="bg-white rounded-lg border border-gray-200 p-3">
+                    <input
+                        type="text"
+                        placeholder="Search classes..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full max-w-xs text-sm px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                    />
                 </div>
 
-                {/* Search */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                        <input
-                            type="text"
-                            placeholder="Search classes..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                    </div>
-                </div>
-
-                {/* Table */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <table className="w-full">
-                        <thead className="bg-gray-50 border-b border-gray-200">
-                            <tr>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Class</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Grade</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Sections</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Students</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Subjects</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Fees</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Status</th>
-                                <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                            {filteredClasses.map((cls, index) => (
-                                <tr key={cls.id} className="hover:bg-gray-50 transition-colors animate-fade-in" style={{ animationDelay: `${index * 30}ms` }}>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-blue-100 rounded-lg">
-                                                <BookOpen className="w-4 h-4 text-blue-600" />
-                                            </div>
-                                            <div>
-                                                <p className="font-semibold text-gray-900">{cls.name}</p>
-                                                {cls.name_bengali && <p className="text-sm text-gray-600">{cls.name_bengali}</p>}
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-gray-900">{cls.numeric_value}</td>
-                                    <td className="px-6 py-4 text-gray-900">{cls.sections_count}</td>
-                                    <td className="px-6 py-4 text-gray-900">{cls.students_count}</td>
-                                    <td className="px-6 py-4 text-gray-900">{cls.subjects_count}</td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-1.5">
-                                            <DollarSign className="w-4 h-4 text-green-600" />
-                                            <span className="font-medium text-green-600">{cls.fee_structures_count}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <Badge variant={cls.status === 'active' ? 'success' : 'default'} className="capitalize">
-                                            {cls.status}
-                                        </Badge>
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="flex items-center justify-end gap-2">
-                                            <Link href={`/classes/${cls.id}`}>
-                                                <Button variant="ghost" size="sm" icon={<Eye className="w-4 h-4" />}>
-                                                    View
-                                                </Button>
-                                            </Link>
-                                            <Link href={`/classes/${cls.id}/edit`}>
-                                                <Button variant="ghost" size="sm" icon={<Edit className="w-4 h-4" />}>
-                                                    Edit
-                                                </Button>
-                                            </Link>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => handleDelete(cls.id, cls.name)}
-                                                icon={<Trash2 className="w-4 h-4 text-red-600" />}
-                                            />
-                                        </div>
-                                    </td>
+                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead className="bg-gray-50/80 border-b border-gray-200">
+                                <tr>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Class</th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Grade</th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Sections</th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Students</th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Subjects</th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Fees</th>
+                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th className="px-4 py-2.5 text-right text-[11px] font-medium text-gray-500 uppercase tracking-wider w-24"></th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-
-                    {filteredClasses.length === 0 && (
-                        <div className="text-center py-12">
-                            <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                            <h4 className="text-lg font-semibold text-gray-900">No Classes Found</h4>
-                            <p className="text-gray-600 mt-1">Create your first class to get started.</p>
-                        </div>
-                    )}
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {filtered.length > 0 ? filtered.map((cls) => (
+                                    <tr key={cls.id} className="hover:bg-gray-50/80">
+                                        <td className="px-4 py-3">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-8 h-8 bg-gray-100 rounded flex items-center justify-center shrink-0">
+                                                    <BookOpen className="w-4 h-4 text-gray-600" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-900">{cls.name}</p>
+                                                    {cls.name_bengali && <p className="text-xs text-gray-500">{cls.name_bengali}</p>}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 text-xs text-gray-600">{cls.numeric_value}</td>
+                                        <td className="px-4 py-3 text-xs text-gray-600">{cls.sections_count}</td>
+                                        <td className="px-4 py-3 text-xs text-gray-600">{cls.students_count}</td>
+                                        <td className="px-4 py-3 text-xs text-gray-600">{cls.subjects_count}</td>
+                                        <td className="px-4 py-3 text-xs text-gray-600">{cls.fee_structures_count}</td>
+                                        <td className="px-4 py-3">
+                                            <Badge variant={cls.status === 'active' ? 'success' : 'default'} className="capitalize text-xs">{cls.status}</Badge>
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                                <Link href={`/classes/${cls.id}`} className="p-1.5 text-gray-400 hover:text-gray-600 rounded"><Eye className="w-3.5 h-3.5" /></Link>
+                                                <Link href={`/classes/${cls.id}/edit`} className="p-1.5 text-gray-400 hover:text-gray-600 rounded"><Edit className="w-3.5 h-3.5" /></Link>
+                                                <button type="button" onClick={() => handleDelete(cls.id, cls.name)} className="p-1.5 text-gray-400 hover:text-red-600 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )) : (
+                                    <tr>
+                                        <td colSpan={8} className="px-4 py-12 text-center text-sm text-gray-500">No classes found.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </AuthenticatedLayout>

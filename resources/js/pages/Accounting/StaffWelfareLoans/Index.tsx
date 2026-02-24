@@ -123,18 +123,19 @@ export default function Index({ loans, donations, teachers, welfareFundAccount, 
         <AuthenticatedLayout>
             <Head title="Staff Welfare Loans" />
 
-            <div className="py-8">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    {/* Header */}
-                    <div className="flex justify-between items-center mb-6">
-                        <div>
-                            <h1 className="text-3xl font-bold text-gray-900">Staff Welfare Fund Management</h1>
-                            <p className="text-gray-600 mt-1">Manage donations, loans and installments</p>
-                        </div>
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setShowDonationsListModal(true)}
-                                className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition"
+            <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                            <Gift className="w-5 h-5 text-emerald-600" />
+                            Staff Welfare Fund
+                        </h1>
+                        <p className="text-xs text-emerald-700/80 mt-0.5">Donations, loans & installments</p>
+                    </div>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setShowDonationsListModal(true)}
+                            className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100"
                             >
                                 <Gift className="w-5 h-5" />
                                 View Donations
@@ -192,7 +193,6 @@ export default function Index({ loans, donations, teachers, welfareFundAccount, 
                         onEdit={handleEdit}
                         onDelete={handleDelete}
                     />
-                </div>
             </div>
 
             {/* Modals */}

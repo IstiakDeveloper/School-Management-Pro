@@ -17,7 +17,7 @@ export default function Fee({ settings }: Props) {
     const { props } = usePage();
     const flash = (props as any).flash;
 
-    const { data, setData, put, errors, processing } = useForm({
+    const { data, setData, post, errors, processing } = useForm({
         settings: [
             { key: 'late_fee_per_day', value: settings.late_fee_per_day || '10' },
             { key: 'fee_due_days', value: settings.fee_due_days || '30' },
@@ -28,7 +28,7 @@ export default function Fee({ settings }: Props) {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        put('/settings/update');
+        post('/settings');
     };
 
     const updateSetting = (key: string, value: string) => {
