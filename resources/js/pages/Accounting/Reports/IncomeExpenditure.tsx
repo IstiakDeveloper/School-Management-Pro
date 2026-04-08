@@ -79,14 +79,34 @@ export default function IncomeExpenditure({
     };
 
     const selectedAccount = accounts.find(a => a.id == accountId);
-    const dateRange = `${new Date(filters.start_date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })} to ${new Date(filters.end_date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    const dateRange = `${new Date(filters.start_date).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+    })} to ${new Date(filters.end_date).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+    })}`;
+    const printDateText =
+        startDate && endDate
+            ? `${new Date(startDate).toLocaleDateString('en-GB', {
+                  day: '2-digit',
+                  month: 'long',
+                  year: 'numeric',
+              })} to ${new Date(endDate).toLocaleDateString('en-GB', {
+                  day: '2-digit',
+                  month: 'long',
+                  year: 'numeric',
+              })}`
+            : dateRange;
 
     // Calculate max rows for balanced layout
     const maxRows = Math.max(income.length, expenditure.length);
 
     return (
         <AuthenticatedLayout>
-            <Head title="Comprehensive Statement of Income and Expenditure" />
+            <Head title="Statement of Comprehensive Income & Expenditure" />
 
             {/* Screen View */}
             <div className="print:hidden">
@@ -94,9 +114,9 @@ export default function IncomeExpenditure({
                     <div className="flex items-center justify-between">
                         <div>
                             <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-                                Comprehensive Statement of Income and Expenditure
+                                Statement of Comprehensive Income & Expenditure
                             </h1>
-                            <p className="text-gray-600 mt-1">Comprehensive statement of income and expenditure</p>
+                            <p className="text-gray-600 mt-1">Statement of Comprehensive Income & Expenditure</p>
                         </div>
                         <div className="flex gap-2">
                             <Button
@@ -169,12 +189,34 @@ export default function IncomeExpenditure({
                 {/* Screen Report Table */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     {/* Header Info */}
-                    <div className="text-center mb-6 pb-4 border-b-2 border-gray-300">
-                        <h2 className="text-2xl font-bold mb-2 text-gray-800">Comprehensive Statement of Income and Expenditure</h2>
-                        <p className="text-sm font-semibold text-gray-600">For the period: {dateRange}</p>
-                        {selectedAccount && (
-                            <p className="text-xs mt-1 text-gray-500">Account: {selectedAccount.account_name}</p>
-                        )}
+                    <div className="text-center mb-2 border-gray-300">
+                        <h3 className="text-2xl font-bold text-gray-800">{schoolName}</h3>
+                        {schoolAddress && <p className="text-sm text-gray-600">{schoolAddress}</p>}
+                        <h2 className="text-lg font-bold mb-2 text-gray-800">
+                            Statement of Comprehensive Income & Expenditure
+                        </h2>
+                        <div className="flex items-start justify-between text-sm text-gray-600">
+                            <div className="text-left">
+                                {selectedAccount && (
+                                    <p className="text-xs text-gray-600">
+                                        Account: {selectedAccount.account_name}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="text-right">
+                                Date: {startDate && endDate
+                                    ? `${new Date(startDate).toLocaleDateString('en-GB', {
+                                          day: '2-digit',
+                                          month: 'long',
+                                          year: 'numeric',
+                                      })} to ${new Date(endDate).toLocaleDateString('en-GB', {
+                                          day: '2-digit',
+                                          month: 'long',
+                                          year: 'numeric',
+                                      })}`
+                                    : ''}
+                            </div>
+                        </div>
                     </div>
 
                     {/* Main Table */}
@@ -182,23 +224,43 @@ export default function IncomeExpenditure({
                         <table className="w-full border-collapse border border-gray-400">
                             <thead>
                                 <tr>
-                                    {/* Expenditure Headers */}
-                                    <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '25%'}}>
+                                    <th
+                                        className="border border-gray-400 px-2 py-1.5 text-center font-bold text-sm"
+                                        colSpan={4}
+                                    >
                                         Expenditure
                                     </th>
-                                    <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '10%'}}>
-                                        Month
+                                    <th
+                                        className="border border-gray-400 px-2 py-1.5 text-center font-bold text-sm"
+                                        colSpan={4}
+                                    >
+                                        Income
                                     </th>
-                                    <th className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '10%'}}>
+                                </tr>
+                                <tr>
+                                    {/* Expenditure Headers */}
+                                    <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '5%'}}>
+                                        SL
+                                    </th>
+                                    <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '25%'}}>
+                                        Particulars
+                                    </th>
+                                    <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '10%'}}>
+                                        Current Month
+                                    </th>
+                                    <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '10%'}}>
                                         Cumulative
                                     </th>
 
                                     {/* Income Headers */}
+                                    <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '5%'}}>
+                                        SL
+                                    </th>
                                     <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '25%'}}>
-                                        Income
+                                        Particulars
                                     </th>
                                     <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '10%'}}>
-                                        Month
+                                        Current Month
                                     </th>
                                     <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '10%'}}>
                                         Cumulative
@@ -214,17 +276,23 @@ export default function IncomeExpenditure({
                                     return (
                                         <tr key={index}>
                                             {/* Expenditure Side */}
+                                            <td className="border border-gray-400 px-2 py-1 text-center text-xs">
+                                                {expenditureItem ? index + 1 : ''}
+                                            </td>
                                             <td className="border border-gray-400 px-2 py-1 text-xs">
                                                 {expenditureItem ? expenditureItem.description : ''}
                                             </td>
                                             <td className="border border-gray-400 px-2 py-1 text-right text-xs">
                                                 {expenditureItem ? formatCurrency(expenditureItem.month_amount) : ''}
                                             </td>
-                                            <td className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1 text-right text-xs">
+                                            <td className="border border-gray-400 px-2 py-1 text-right text-xs">
                                                 {expenditureItem ? formatCurrency(expenditureItem.cumulative_amount) : ''}
                                             </td>
 
                                             {/* Income Side */}
+                                            <td className="border border-gray-400 px-2 py-1 text-center text-xs">
+                                                {incomeItem ? index + 1 : ''}
+                                            </td>
                                             <td className="border border-gray-400 px-2 py-1 text-xs">
                                                 {incomeItem ? incomeItem.description : ''}
                                             </td>
@@ -239,32 +307,34 @@ export default function IncomeExpenditure({
                                 })}
 
                                 {/* Total Expenditure Row */}
-                                <tr className="bg-gray-100">
-                                    <td className="border border-gray-400 px-2 py-1.5 text-right font-semibold text-xs">
-                                        Total Expenditure:
+                                <tr>
+                                    <td className="border border-gray-400 px-2 py-1.5 text-center font-semibold text-xs bg-gray-100" colSpan={2}>
+                                        Total Expenditure
                                     </td>
-                                    <td className="border border-gray-400 px-2 py-1.5 text-right font-semibold text-xs">
+                                    <td className="border border-gray-400 px-2 py-1.5 text-right font-semibold text-xs bg-gray-100">
                                         {formatCurrency(totalMonthExpenditure)}
                                     </td>
-                                    <td className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1.5 text-right font-semibold text-xs">
+                                    <td className="border border-gray-400 px-2 py-1.5 text-right font-semibold text-xs bg-gray-100">
                                         {formatCurrency(totalCumulativeExpenditure)}
                                     </td>
+                                    <td className="border border-gray-400 px-2 py-1.5"></td>
                                     <td className="border border-gray-400 px-2 py-1.5"></td>
                                     <td className="border border-gray-400 px-2 py-1.5"></td>
                                     <td className="border border-gray-400 px-2 py-1.5"></td>
                                 </tr>
 
                                 {/* Surplus/Deficit Row with +/- sign */}
-                                <tr className={monthSurplus >= 0 ? 'bg-green-50' : 'bg-red-50'}>
-                                    <td className="border border-gray-400 px-2 py-1.5 text-right font-semibold text-xs">
+                                <tr>
+                                    <td className={`border border-gray-400 px-2 py-1.5 text-center font-semibold text-xs ${monthSurplus >= 0 ? 'bg-green-50' : 'bg-red-50'}`} colSpan={2}>
                                         Surplus/Deficit
                                     </td>
-                                    <td className="border border-gray-400 px-2 py-1.5 text-right text-xs">
-                                        {monthSurplus >= 0 ? '+' : '-'} {formatCurrency(Math.abs(monthSurplus))}
+                                    <td className={`border border-gray-400 px-2 py-1.5 text-right text-xs ${monthSurplus >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
+                                        {monthSurplus < 0 ? '-' : ''} {formatCurrency(Math.abs(monthSurplus))}
                                     </td>
-                                    <td className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1.5 text-right text-xs">
-                                        {cumulativeSurplus >= 0 ? '+' : '-'} {formatCurrency(Math.abs(cumulativeSurplus))}
+                                    <td className={`border border-gray-400 px-2 py-1.5 text-right text-xs ${monthSurplus >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
+                                        {cumulativeSurplus < 0 ? '-' : ''} {formatCurrency(Math.abs(cumulativeSurplus))}
                                     </td>
+                                    <td className="border border-gray-400 px-2 py-1.5"></td>
                                     <td className="border border-gray-400 px-2 py-1.5"></td>
                                     <td className="border border-gray-400 px-2 py-1.5"></td>
                                     <td className="border border-gray-400 px-2 py-1.5"></td>
@@ -273,17 +343,17 @@ export default function IncomeExpenditure({
                             <tfoot>
                                 {/* Final Total Row - Both sides equal */}
                                 <tr className="bg-gray-50">
-                                    <td className="border border-gray-400 px-2 py-1.5 text-right font-bold text-xs">
-                                        Total:
+                                    <td className="border border-gray-400 px-2 py-1.5 text-center font-bold text-xs capitalize" colSpan={2}>
+                                        Total
                                     </td>
                                     <td className="border border-gray-400 px-2 py-1.5 text-right font-bold text-xs">
                                         {formatCurrency(totalMonthIncome)}
                                     </td>
-                                    <td className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1.5 text-right font-bold text-xs">
+                                    <td className="border border-gray-400 px-2 py-1.5 text-right font-bold text-xs">
                                         {formatCurrency(totalCumulativeIncome)}
                                     </td>
-                                    <td className="border border-gray-400 px-2 py-1.5 text-right font-bold text-xs">
-                                        Total:
+                                    <td className="border border-gray-400 px-2 py-1.5 text-center font-bold text-xs capitalize" colSpan={2}>
+                                        Total
                                     </td>
                                     <td className="border border-gray-400 px-2 py-1.5 text-right font-bold text-xs">
                                         {formatCurrency(totalMonthIncome)}
@@ -319,39 +389,83 @@ export default function IncomeExpenditure({
             {/* Print View */}
             <div className="hidden print:block print-container">
                 {/* Header */}
-                <div className="text-center mb-4 pb-2 border-b-2 border-black">
-                    <h1 className="text-xl font-bold mb-1">{schoolName}</h1>
-                    {schoolAddress && <p className="text-xs mb-0.5">{schoolAddress}</p>}
-                    <h2 className="text-lg font-bold mb-1">Comprehensive Statement of Income and Expenditure</h2>
-                    <p className="text-sm font-semibold">For the period: {dateRange}</p>
-                    {selectedAccount && (
-                        <p className="text-xs mt-1">Account: {selectedAccount.account_name}</p>
-                    )}
+                <div className="mb-1 pb-0">
+                    <div className="text-center">
+                        <h1 className="text-2xl font-bold mb-1">{schoolName}</h1>
+                        {schoolAddress && <p className="text-xs mb-0.5">{schoolAddress}</p>}
+                        <h2 className="text-base font-bold mb-0">
+                            Statement of Comprehensive Income & Expenditure
+                        </h2>
+                    </div>
+                    <div className="flex items-start justify-between">
+                        <div className="text-xs">
+                            {selectedAccount && (
+                                <p>Account: {selectedAccount.account_name}</p>
+                            )}
+                        </div>
+                        <div className="text-right text-xs font-normal mt-2 mb-1">
+                            Date: {printDateText}
+                        </div>
+                    </div>
                 </div>
 
                 {/* Main Table - Print Style */}
-                <table className="w-full border-collapse border border-black">
+                <table className="w-full border-collapse border border-black" style={{ tableLayout: 'fixed' }}>
+                    <colgroup>
+                        {/* Expenditure */}
+                        <col style={{ width: '4%' }} />
+                        <col style={{ width: '24%' }} />
+                        <col style={{ width: '11%' }} />
+                        <col style={{ width: '11%' }} />
+                        {/* Income */}
+                        <col style={{ width: '4%' }} />
+                        <col style={{ width: '24%' }} />
+                        <col style={{ width: '11%' }} />
+                        <col style={{ width: '11%' }} />
+                    </colgroup>
                     <thead>
                         <tr>
-                            {/* Expenditure Headers */}
-                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '25%'}}>
+                            <th
+                                className="border border-black px-2 py-1.5 text-center font-bold"
+                                style={{ fontSize: '13px' }}
+                                colSpan={4}
+                            >
                                 Expenditure
                             </th>
-                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '10%'}}>
-                                Month
+                            <th
+                                className="border border-black px-2 py-1.5 text-center font-bold"
+                                style={{ fontSize: '13px' }}
+                                colSpan={4}
+                            >
+                                Income
                             </th>
-                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '10%', borderRightWidth: '3px'}}>
+                        </tr>
+                        <tr>
+                            {/* Expenditure Headers */}
+                            <th className="border border-black px-2 py-1.5 text-center font-semibold" style={{fontSize: '11px'}}>
+                                SL
+                            </th>
+                            <th className="border border-black px-2 py-1.5 text-center font-semibold" style={{fontSize: '11px'}}>
+                                Particulars
+                            </th>
+                            <th className="border border-black px-2 py-1.5 text-center font-semibold" style={{fontSize: '11px'}}>
+                                C. Month
+                            </th>
+                            <th className="border border-black px-2 py-1.5 text-center font-semibold" style={{fontSize: '11px'}}>
                                 Cumulative
                             </th>
 
                             {/* Income Headers */}
-                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '25%'}}>
-                                Income
+                            <th className="border border-black px-2 py-1.5 text-center font-semibold" style={{fontSize: '11px'}}>
+                                SL
                             </th>
-                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '10%'}}>
-                                Month
+                            <th className="border border-black px-2 py-1.5 text-center font-semibold" style={{fontSize: '11px'}}>
+                                Particulars
                             </th>
-                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '10%'}}>
+                            <th className="border border-black px-2 py-1.5 text-center font-semibold" style={{fontSize: '11px'}}>
+                                C. Month
+                            </th>
+                            <th className="border border-black px-2 py-1.5 text-center font-semibold" style={{fontSize: '11px'}}>
                                 Cumulative
                             </th>
                         </tr>
@@ -365,24 +479,48 @@ export default function IncomeExpenditure({
                             return (
                                 <tr key={index}>
                                     {/* Expenditure Side */}
-                                    <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px'}}>
+                                    <td className="border border-black px-2 py-1 text-center" style={{fontSize: '11px'}}>
+                                        {expenditureItem ? index + 1 : ''}
+                                    </td>
+                                    <td
+                                        className="border border-black px-2 py-1"
+                                        style={{
+                                            fontSize: '11px',
+                                            whiteSpace: 'normal',
+                                            wordBreak: 'break-word',
+                                            lineHeight: 1.1,
+                                        }}
+                                        title={expenditureItem ? expenditureItem.description : ''}
+                                    >
                                         {expenditureItem ? expenditureItem.description : ''}
                                     </td>
-                                    <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px'}}>
+                                    <td className="border border-black px-2 py-1 text-right" style={{fontSize: '11px'}}>
                                         {expenditureItem ? formatCurrency(expenditureItem.month_amount) : ''}
                                     </td>
-                                    <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px', borderRightWidth: '3px'}}>
+                                    <td className="border border-black px-2 py-1 text-right" style={{fontSize: '11px'}}>
                                         {expenditureItem ? formatCurrency(expenditureItem.cumulative_amount) : ''}
                                     </td>
 
                                     {/* Income Side */}
-                                    <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px'}}>
+                                    <td className="border border-black px-2 py-1 text-center" style={{fontSize: '11px'}}>
+                                        {incomeItem ? index + 1 : ''}
+                                    </td>
+                                    <td
+                                        className="border border-black px-2 py-1"
+                                        style={{
+                                            fontSize: '11px',
+                                            whiteSpace: 'normal',
+                                            wordBreak: 'break-word',
+                                            lineHeight: 1.1,
+                                        }}
+                                        title={incomeItem ? incomeItem.description : ''}
+                                    >
                                         {incomeItem ? incomeItem.description : ''}
                                     </td>
-                                    <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px'}}>
+                                    <td className="border border-black px-2 py-1 text-right" style={{fontSize: '11px'}}>
                                         {incomeItem ? formatCurrency(incomeItem.month_amount) : ''}
                                     </td>
-                                    <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px'}}>
+                                    <td className="border border-black px-2 py-1 text-right" style={{fontSize: '11px'}}>
                                         {incomeItem ? formatCurrency(incomeItem.cumulative_amount) : ''}
                                     </td>
                                 </tr>
@@ -390,56 +528,58 @@ export default function IncomeExpenditure({
                         })}
 
                         {/* Total Expenditure Row */}
-                        <tr className="bg-gray-100">
-                            <td className="border border-black px-2 py-0.5 text-right font-semibold" style={{fontSize: '7px'}}>
-                                Total Expenditure:
+                        <tr>
+                            <td className="border border-black px-2 py-1.5 text-center font-semibold" style={{fontSize: '11px'}} colSpan={2}>
+                                Total Expenditure
                             </td>
-                            <td className="border border-black px-2 py-0.5 text-right font-semibold" style={{fontSize: '7px'}}>
+                            <td className="border border-black px-2 py-1.5 text-right font-semibold" style={{fontSize: '11px'}}>
                                 {formatCurrency(totalMonthExpenditure)}
                             </td>
-                            <td className="border border-black px-2 py-0.5 text-right font-semibold" style={{fontSize: '7px', borderRightWidth: '3px'}}>
+                            <td className="border border-black px-2 py-1.5 text-right font-semibold" style={{fontSize: '11px'}}>
                                 {formatCurrency(totalCumulativeExpenditure)}
                             </td>
-                            <td className="border border-black px-2 py-0.5" style={{fontSize: '7px'}}></td>
-                            <td className="border border-black px-2 py-0.5" style={{fontSize: '7px'}}></td>
-                            <td className="border border-black px-2 py-0.5" style={{fontSize: '7px'}}></td>
+                            <td className="border border-black px-2 py-1.5" style={{fontSize: '11px'}}></td>
+                            <td className="border border-black px-2 py-1.5" style={{fontSize: '11px'}}></td>
+                            <td className="border border-black px-2 py-1.5" style={{fontSize: '11px'}}></td>
+                            <td className="border border-black px-2 py-1.5" style={{fontSize: '11px'}}></td>
                         </tr>
 
                         {/* Surplus/Deficit Row with +/- sign */}
                         <tr>
-                            <td className="border border-black px-2 py-0.5 font-semibold" style={{fontSize: '7px'}}>
+                            <td className="border border-black px-2 py-1.5 text-center font-semibold" style={{fontSize: '11px'}} colSpan={2}>
                                 {monthSurplus >= 0 ? 'Surplus (+)' : 'Deficit (-)'}
                             </td>
-                            <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '7px'}}>
-                                {monthSurplus >= 0 ? '+' : '-'} {formatCurrency(Math.abs(monthSurplus))}
+                            <td className="border border-black px-2 py-1.5 text-right" style={{fontSize: '11px'}}>
+                                {monthSurplus < 0 ? '-' : ''} {formatCurrency(Math.abs(monthSurplus))}
                             </td>
-                            <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '7px', borderRightWidth: '3px'}}>
-                                {cumulativeSurplus >= 0 ? '+' : '-'} {formatCurrency(Math.abs(cumulativeSurplus))}
+                            <td className="border border-black px-2 py-1.5 text-right" style={{fontSize: '11px'}}>
+                                {cumulativeSurplus < 0 ? '-' : ''} {formatCurrency(Math.abs(cumulativeSurplus))}
                             </td>
-                            <td className="border border-black px-2 py-0.5" style={{fontSize: '7px'}}></td>
-                            <td className="border border-black px-2 py-0.5" style={{fontSize: '7px'}}></td>
-                            <td className="border border-black px-2 py-0.5" style={{fontSize: '7px'}}></td>
+                            <td className="border border-black px-2 py-1.5" style={{fontSize: '11px'}}></td>
+                            <td className="border border-black px-2 py-1.5" style={{fontSize: '11px'}}></td>
+                            <td className="border border-black px-2 py-1.5" style={{fontSize: '11px'}}></td>
+                            <td className="border border-black px-2 py-1.5" style={{fontSize: '11px'}}></td>
                         </tr>
                     </tbody>
                     <tfoot>
                         {/* Final Total Row - Both sides equal */}
-                        <tr className="bg-gray-100">
-                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px'}}>
-                                Total:
+                        <tr>
+                            <td className="border border-black px-2 py-1.5 text-center font-bold capitalize" style={{fontSize: '11px'}} colSpan={2}>
+                                Total
                             </td>
-                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px'}}>
+                            <td className="border border-black px-2 py-1.5 text-right font-bold" style={{fontSize: '11px'}}>
                                 {formatCurrency(totalMonthIncome)}
                             </td>
-                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px', borderRightWidth: '3px'}}>
+                            <td className="border border-black px-2 py-1.5 text-right font-bold" style={{fontSize: '11px'}}>
                                 {formatCurrency(totalCumulativeIncome)}
                             </td>
-                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px'}}>
-                                Total:
+                            <td className="border border-black px-2 py-1.5 text-center font-bold capitalize" style={{fontSize: '11px'}} colSpan={2}>
+                                Total
                             </td>
-                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px'}}>
+                            <td className="border border-black px-2 py-1.5 text-right font-bold" style={{fontSize: '11px'}}>
                                 {formatCurrency(totalMonthIncome)}
                             </td>
-                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px'}}>
+                            <td className="border border-black px-2 py-1.5 text-right font-bold" style={{fontSize: '11px'}}>
                                 {formatCurrency(totalCumulativeIncome)}
                             </td>
                         </tr>
@@ -447,28 +587,28 @@ export default function IncomeExpenditure({
                 </table>
 
                 {/* Signature Section */}
-                <div className="mt-10">
+                <div className="mt-8">
                     <div className="grid grid-cols-3 gap-16">
                         <div className="text-center">
-                            <div className="border-t-2 border-black pt-1 mt-14">
-                                <p className="font-semibold" style={{fontSize: '9px'}}>Prepared By</p>
+                            <div className="border-t-2 border-black pt-1 mt-12">
+                                <p className="font-semibold" style={{fontSize: '11px'}}>Prepared By</p>
                             </div>
                         </div>
                         <div className="text-center">
-                            <div className="border-t-2 border-black pt-1 mt-14">
-                                <p className="font-semibold" style={{fontSize: '9px'}}>Checked By</p>
+                            <div className="border-t-2 border-black pt-1 mt-12">
+                                <p className="font-semibold" style={{fontSize: '11px'}}>Checked By</p>
                             </div>
                         </div>
                         <div className="text-center">
-                            <div className="border-t-2 border-black pt-1 mt-14">
-                                <p className="font-semibold" style={{fontSize: '9px'}}>Approved By</p>
+                            <div className="border-t-2 border-black pt-1 mt-12">
+                                <p className="font-semibold" style={{fontSize: '11px'}}>Approved By</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Footer */}
-                <div className="text-center mt-6 text-gray-600" style={{fontSize: '7px'}}>
+                <div className="text-center mt-4 text-gray-600" style={{fontSize: '11px'}}>
                     <p>Printed on: {new Date().toLocaleString('en-US', {
                         year: 'numeric',
                         month: 'long',
@@ -484,7 +624,7 @@ export default function IncomeExpenditure({
                 @media print {
                     @page {
                         size: A4 portrait;
-                        margin: 12mm;
+                        margin: 6mm;
                     }
 
                     * {
@@ -528,12 +668,6 @@ export default function IncomeExpenditure({
 
                     th, td {
                         border: 1px solid #000 !important;
-                    }
-
-                    /* Bold divider between Income and Expenditure sections */
-                    th:nth-child(3),
-                    td:nth-child(3) {
-                        border-right: 3px solid #000 !important;
                     }
 
                     .bg-gray-100 {

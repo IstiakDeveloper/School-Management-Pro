@@ -21,7 +21,7 @@ export interface Transaction {
     id: number;
     account_id: number;
     transaction_number: string;
-    type: 'income' | 'expense' | 'transfer';
+    type: 'income' | 'expense' | 'transfer' | 'asset_purchase';
     income_category_id?: number;
     expense_category_id?: number;
     transfer_to_account_id?: number;

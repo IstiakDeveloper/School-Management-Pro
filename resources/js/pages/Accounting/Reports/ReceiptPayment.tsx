@@ -11,8 +11,8 @@ interface Account {
 
 interface ReceiptPaymentItem {
     description: string;
-    month_amount: number;
-    cumulative_amount: number;
+    month_amount: number | null;
+    cumulative_amount: number | null;
     type: string;
 }
 
@@ -20,6 +20,7 @@ interface ReceiptPaymentProps {
     receipts: ReceiptPaymentItem[];
     payments: ReceiptPaymentItem[];
     openingBalance: number;
+    openingBalanceCumulative?: number;
     totalMonthReceipts: number;
     totalMonthPayments: number;
     totalCumulativeReceipts: number;
@@ -40,6 +41,7 @@ export default function ReceiptPayment({
     receipts,
     payments,
     openingBalance,
+    openingBalanceCumulative = openingBalance,
     totalMonthReceipts,
     totalMonthPayments,
     totalCumulativeReceipts,
@@ -69,7 +71,8 @@ export default function ReceiptPayment({
         router.get('/accounting/reports/receipt-payment');
     };
 
-    const formatCurrency = (amount: number) => {
+    const formatCurrency = (amount: number | null | undefined) => {
+        if (amount === null || amount === undefined) return '';
         const num = Number(amount) || 0;
         return new Intl.NumberFormat('en-US', {
             minimumFractionDigits: 2,
@@ -82,10 +85,47 @@ export default function ReceiptPayment({
     };
 
     const selectedAccount = accounts.find(a => a.id == accountId);
-    const dateRange = `${new Date(filters.start_date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })} to ${new Date(filters.end_date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    const dateRange = `${new Date(filters.start_date).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+    })} to ${new Date(filters.end_date).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+    })}`;
+    const printDateText =
+        startDate && endDate
+            ? `${new Date(startDate).toLocaleDateString('en-GB', {
+                  day: '2-digit',
+                  month: 'long',
+                  year: 'numeric',
+              })} to ${new Date(endDate).toLocaleDateString('en-GB', {
+                  day: '2-digit',
+                  month: 'long',
+                  year: 'numeric',
+              })}`
+            : dateRange;
+
+    const isMeaningfulItem = (item: ReceiptPaymentItem | undefined) => {
+        if (!item) return false;
+        const desc = (item.description ?? '').trim();
+        const month = Number(item.month_amount ?? 0);
+        const cumulative = Number(item.cumulative_amount ?? 0);
+        return desc.length > 0 || month !== 0 || cumulative !== 0;
+    };
+
+    const meaningfulReceipts = receipts.filter(isMeaningfulItem);
+    const meaningfulPayments = payments.filter(isMeaningfulItem);
 
     // Calculate max rows for balanced layout
-    const maxRows = Math.max(receipts.length, payments.length);
+    // Payments should start opposite of Opening Balance row (shift by 1)
+    const firstPayment = meaningfulPayments[0];
+    const hasFirstPayment = Boolean(firstPayment);
+    const paymentsAfterOpening = meaningfulPayments.slice(1);
+    const maxRows = Math.max(meaningfulReceipts.length, paymentsAfterOpening.length);
+    const receiptClosingSl = meaningfulReceipts.length + 2;
+    const paymentClosingSl = (hasFirstPayment ? meaningfulPayments.length + 1 : 1);
 
     return (
         <AuthenticatedLayout>
@@ -97,7 +137,7 @@ export default function ReceiptPayment({
                     <div className="flex items-center justify-between">
                         <div>
                             <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-                                Receipt & Payment Report
+                               Statement of Receipt & Payments
                             </h1>
                             <p className="text-gray-600 mt-1">Detailed receipt and payment account</p>
                         </div>
@@ -172,36 +212,70 @@ export default function ReceiptPayment({
                 {/* Screen Report Table */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     {/* Header Info */}
-                    <div className="text-center mb-6 pb-4 border-b-2 border-gray-300">
-                        <h2 className="text-2xl font-bold mb-2 text-gray-800">RECEIPT AND PAYMENT ACCOUNT</h2>
-                        <p className="text-sm font-semibold text-gray-600">For the period: {dateRange}</p>
-                        {selectedAccount && (
-                            <p className="text-xs mt-1 text-gray-500">Account: {selectedAccount.account_name}</p>
-                        )}
+                    <div className="text-center mb-2 border-gray-300">
+                        <h3 className="text-2xl font-bold text-gray-800">{schoolName}</h3>
+                        {schoolAddress && <p className="text-sm text-gray-600">{schoolAddress}</p>}
+                        <h2 className="text-lg font-bold mb-2 text-gray-800">Statement of Receipt & Payments</h2>
+                        <p className="text-sm text-right text-gray-600">
+                            Date: {startDate && endDate
+                                ? `${new Date(startDate).toLocaleDateString('en-GB', {
+                                      day: '2-digit',
+                                      month: 'long',
+                                      year: 'numeric',
+                                  })} to ${new Date(endDate).toLocaleDateString('en-GB', {
+                                      day: '2-digit',
+                                      month: 'long',
+                                      year: 'numeric',
+                                  })}`
+                                : ''
+                            }
+                        </p>
+
                     </div>
 
                     {/* Main Table */}
                     <div className="overflow-x-auto">
                         <table className="w-full border-collapse border border-gray-400">
                             <thead>
+                                {/* Main Head */}
+                                <tr>
+                                    <th
+                                        className="border border-gray-400 px-2 py-1.5 text-center font-bold text-sm"
+                                        colSpan={4}
+                                    >
+                                        Receipt
+                                    </th>
+                                    <th
+                                        className="border border-gray-400 px-2 py-1.5 text-center font-bold text-sm"
+                                        colSpan={4}
+                                    >
+                                        Payment
+                                    </th>
+                                </tr>
+                                {/* Sub-Head (particulars, month, cumulative each side) */}
                                 <tr>
                                     {/* Receipts Headers */}
+                                    <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '5%'}}>
+                                        SL
+                                    </th>
                                     <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '25%'}}>
-                                        RECEIPTS
+                                        Particulars
                                     </th>
                                     <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '10%'}}>
-                                        Month
+                                        Current Month
                                     </th>
-                                    <th className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '10%'}}>
+                                    <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '10%'}}>
                                         Cumulative
                                     </th>
-
                                     {/* Payments Headers */}
+                                    <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '5%'}}>
+                                        SL
+                                    </th>
                                     <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '25%'}}>
-                                        PAYMENTS
+                                        Particulars
                                     </th>
                                     <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '10%'}}>
-                                        Month
+                                        Current Month
                                     </th>
                                     <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '10%'}}>
                                         Cumulative
@@ -211,47 +285,74 @@ export default function ReceiptPayment({
                             <tbody>
                                 {/* Opening Balance Row */}
                                 <tr>
+                                    <td className="border border-gray-400 px-2 py-1.5 text-center text-xs">1</td>
                                     <td className="border border-gray-400 px-2 py-1.5 font-semibold text-xs">
                                         Opening Balance
                                     </td>
                                     <td className="border border-gray-400 px-2 py-1.5 text-right text-xs">
                                         {formatCurrency(openingBalance)}
                                     </td>
-                                    <td className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1.5 text-right text-xs">
-                                        {formatCurrency(openingBalance)}
+                                    <td className="border border-gray-400 px-2 py-1.5 text-right text-xs">
+                                        {formatCurrency(openingBalanceCumulative)}
                                     </td>
-                                    <td className="border border-gray-400 px-2 py-1.5"></td>
-                                    <td className="border border-gray-400 px-2 py-1.5"></td>
-                                    <td className="border border-gray-400 px-2 py-1.5"></td>
+                                    <td className="border border-gray-400 px-2 py-1 text-center text-xs">
+                                        {hasFirstPayment ? 1 : ''}
+                                    </td>
+                                    <td className="border border-gray-400 px-2 py-1 text-xs">
+                                        {hasFirstPayment ? firstPayment.description : ''}
+                                    </td>
+                                    <td className="border border-gray-400 px-2 py-1 text-right text-xs">
+                                        {hasFirstPayment ? formatCurrency(firstPayment.month_amount) : ''}
+                                    </td>
+                                    <td className="border border-gray-400 px-2 py-1 text-right text-xs">
+                                        {hasFirstPayment ? formatCurrency(firstPayment.cumulative_amount) : ''}
+                                    </td>
                                 </tr>
 
                                 {/* Data Rows */}
                                 {Array.from({ length: maxRows }).map((_, index) => {
-                                    const receipt = receipts[index];
-                                    const payment = payments[index];
+                                    const receipt = meaningfulReceipts[index];
+                                    const payment = paymentsAfterOpening[index];
+                                    const hasReceipt = isMeaningfulItem(receipt);
+                                    const hasPayment = isMeaningfulItem(payment);
+
+                                    // Avoid rendering completely empty rows (prevents visual "gaps")
+                                    if (!hasReceipt && !hasPayment) return null;
 
                                     return (
                                         <tr key={index}>
                                             {/* Receipt Side */}
+                                            <td className="border border-gray-400 px-2 py-1 text-center text-xs">
+                                                {hasReceipt ? index + 2 : ''}
+                                            </td>
                                             <td className="border border-gray-400 px-2 py-1 text-xs">
-                                                {receipt ? receipt.description : ''}
+                                                {hasReceipt ? receipt.description : ''}
                                             </td>
                                             <td className="border border-gray-400 px-2 py-1 text-right text-xs">
-                                                {receipt ? formatCurrency(receipt.month_amount) : ''}
+                                                {hasReceipt ? formatCurrency(receipt.month_amount) : ''}
                                             </td>
-                                            <td className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1 text-right text-xs">
-                                                {receipt ? formatCurrency(receipt.cumulative_amount) : ''}
+                                            <td className="border border-gray-400 px-2 py-1 text-right text-xs">
+                                                {hasReceipt ? formatCurrency(receipt.cumulative_amount) : ''}
                                             </td>
 
                                             {/* Payment Side */}
-                                            <td className="border border-gray-400 px-2 py-1 text-xs">
-                                                {payment ? payment.description : ''}
+                                            <td className="border border-gray-400 px-2 py-1 text-center text-xs">
+                                                {hasPayment ? index + (hasFirstPayment ? 2 : 1) : ''}
                                             </td>
-                                            <td className="border border-gray-400 px-2 py-1 text-right text-xs">
-                                                {payment ? formatCurrency(payment.month_amount) : ''}
+                                            <td
+                                                className="border border-gray-400 px-2 py-1 text-xs"
+                                            >
+                                                {hasPayment ? payment.description : ''}
                                             </td>
-                                            <td className="border border-gray-400 px-2 py-1 text-right text-xs">
-                                                {payment ? formatCurrency(payment.cumulative_amount) : ''}
+                                            <td
+                                                className="border border-gray-400 px-2 py-1 text-right text-xs"
+                                            >
+                                                {hasPayment ? formatCurrency(payment.month_amount) : ''}
+                                            </td>
+                                            <td
+                                                className="border border-gray-400 px-2 py-1 text-right text-xs"
+                                            >
+                                                {hasPayment ? formatCurrency(payment.cumulative_amount) : ''}
                                             </td>
                                         </tr>
                                     );
@@ -259,9 +360,13 @@ export default function ReceiptPayment({
 
                                 {/* Closing Balance Row */}
                                 <tr>
+                                    <td className="border border-gray-400 px-2 py-1.5 text-center text-xs"></td>
                                     <td className="border border-gray-400 px-2 py-1.5"></td>
                                     <td className="border border-gray-400 px-2 py-1.5"></td>
-                                    <td className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1.5"></td>
+                                    <td className="border border-gray-400 px-2 py-1.5"></td>
+                                    <td className="border border-gray-400 px-2 py-1.5 text-center text-xs">
+                                        {paymentClosingSl}
+                                    </td>
                                     <td className="border border-gray-400 px-2 py-1.5 font-semibold text-xs">
                                         Closing Balance
                                     </td>
@@ -276,17 +381,23 @@ export default function ReceiptPayment({
                             <tfoot>
                                 {/* Total Row */}
                                 <tr className="bg-gray-50">
-                                    <td className="border border-gray-400 px-2 py-1.5 text-right font-bold text-xs">
-                                        TOTAL:
+                                    <td
+                                        className="border border-gray-400 px-2 py-1.5 text-center font-bold text-xs capitalize"
+                                        colSpan={2}
+                                    >
+                                        Total
                                     </td>
                                     <td className="border border-gray-400 px-2 py-1.5 text-right font-bold text-xs">
                                         {formatCurrency(openingBalance + totalMonthReceipts)}
                                     </td>
-                                    <td className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1.5 text-right font-bold text-xs">
-                                        {formatCurrency(openingBalance + totalCumulativeReceipts)}
-                                    </td>
                                     <td className="border border-gray-400 px-2 py-1.5 text-right font-bold text-xs">
-                                        TOTAL:
+                                        {formatCurrency(openingBalanceCumulative + totalCumulativeReceipts)}
+                                    </td>
+                                    <td
+                                        className="border border-gray-400 px-2 py-1.5 text-center font-bold text-xs capitalize"
+                                        colSpan={2}
+                                    >
+                                        Total
                                     </td>
                                     <td className="border border-gray-400 px-2 py-1.5 text-right font-bold text-xs">
                                         {formatCurrency(totalMonthPayments + closingBalance)}
@@ -298,6 +409,7 @@ export default function ReceiptPayment({
                             </tfoot>
                         </table>
                     </div>
+
 
                     {/* Summary Info */}
                     <div className="mt-6 grid grid-cols-2 gap-4 text-sm">
@@ -316,39 +428,102 @@ export default function ReceiptPayment({
             {/* Print View */}
             <div className="hidden print:block print-container">
                 {/* Header */}
-                <div className="text-center mb-4 pb-2 border-b-2 border-black">
-                    <h1 className="text-xl font-bold mb-1">{schoolName}</h1>
-                    {schoolAddress && <p className="text-xs mb-0.5">{schoolAddress}</p>}
-                    <h2 className="text-lg font-bold mb-1">RECEIPT AND PAYMENT ACCOUNT</h2>
-                    <p className="text-sm font-semibold">For the period: {dateRange}</p>
-                    {selectedAccount && (
-                        <p className="text-xs mt-1">Account: {selectedAccount.account_name}</p>
-                    )}
+                <div className="mb-1 pb-0">
+                    <div className="text-center">
+                        <h1 className="text-2xl font-bold mb-1">{schoolName}</h1>
+                        {schoolAddress && <p className="text-xs mb-0.5">{schoolAddress}</p>}
+                        <h2 className="text-base font-bold mb-0">Statement of Receipt & Payments</h2>
+                    </div>
+                    <div className="flex items-start justify-between">
+                        <div className="text-xs">
+                            {selectedAccount && (
+                                <p>Account: {selectedAccount.account_name}</p>
+                            )}
+                        </div>
+                        <div className="text-right text-xs font-normal mt-2 mb-1">
+                            Date: {printDateText}
+                        </div>
+                    </div>
                 </div>
 
                 {/* Main Table - Print Style */}
-                <table className="w-full border-collapse border border-black">
+                <table className="w-full border-collapse border border-black" style={{ tableLayout: 'fixed' }}>
+                    <colgroup>
+                        {/* Receipt */}
+                        <col style={{ width: '4%' }} />
+                        <col style={{ width: '24%' }} />
+                        <col style={{ width: '11%' }} />
+                        <col style={{ width: '11%' }} />
+                        {/* Payment */}
+                        <col style={{ width: '4%' }} />
+                        <col style={{ width: '24%' }} />
+                        <col style={{ width: '11%' }} />
+                        <col style={{ width: '11%' }} />
+                    </colgroup>
                     <thead>
                         <tr>
-                            {/* Receipts Headers */}
-                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '25%'}}>
-                                RECEIPTS
+                            <th
+                                className="border border-black px-2 py-1.5 text-center font-bold"
+                                style={{ fontSize: '13px' }}
+                                colSpan={4}
+                            >
+                                Receipt
                             </th>
-                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '10%'}}>
-                                Month
+                            <th
+                                className="border border-black px-2 py-1.5 text-center font-bold"
+                                style={{ fontSize: '13px' }}
+                                colSpan={4}
+                            >
+                                Payment
                             </th>
-                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '10%', borderRightWidth: '3px'}}>
+                        </tr>
+                        <tr>
+                            <th
+                                className="border border-black px-2 py-1.5 text-center font-semibold"
+                                style={{ fontSize: '11px' }}
+                            >
+                                SL
+                            </th>
+                            <th
+                                className="border border-black px-2 py-1.5 text-center font-semibold"
+                                style={{ fontSize: '11px' }}
+                            >
+                                Particulars
+                            </th>
+                            <th
+                                className="border border-black px-2 py-1.5 text-center font-semibold"
+                                style={{ fontSize: '11px' }}
+                            >
+                                C. Month
+                            </th>
+                            <th
+                                className="border border-black px-2 py-1.5 text-center font-semibold"
+                                style={{ fontSize: '11px' }}
+                            >
                                 Cumulative
                             </th>
-
-                            {/* Payments Headers */}
-                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '25%'}}>
-                                PAYMENTS
+                            <th
+                                className="border border-black px-2 py-1.5 text-center font-semibold"
+                                style={{ fontSize: '11px' }}
+                            >
+                                SL
                             </th>
-                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '10%'}}>
-                                Month
+                            <th
+                                className="border border-black px-2 py-1.5 text-center font-semibold"
+                                style={{ fontSize: '11px' }}
+                            >
+                                Particulars
                             </th>
-                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '10%'}}>
+                            <th
+                                className="border border-black px-2 py-1.5 text-center font-semibold"
+                                style={{ fontSize: '11px' }}
+                            >
+                                C. Month
+                            </th>
+                            <th
+                                className="border border-black px-2 py-1.5 text-center font-semibold"
+                                style={{ fontSize: '11px' }}
+                            >
                                 Cumulative
                             </th>
                         </tr>
@@ -356,47 +531,108 @@ export default function ReceiptPayment({
                     <tbody>
                         {/* Opening Balance Row */}
                         <tr>
-                            <td className="border border-black px-2 py-0.5 font-semibold" style={{fontSize: '7px'}}>
+                            <td className="border border-black px-2 py-1 text-center" style={{fontSize: '11px'}}>1</td>
+                            <td className="border border-black px-2 py-1 font-semibold" style={{fontSize: '11px'}}>
                                 Opening Balance
                             </td>
-                            <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '7px'}}>
+                            <td className="border border-black px-2 py-1 text-right" style={{fontSize: '11px'}}>
                                 {formatCurrency(openingBalance)}
                             </td>
-                            <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '7px', borderRightWidth: '3px'}}>
-                                {formatCurrency(openingBalance)}
+                            <td className="border border-black px-2 py-1 text-right" style={{fontSize: '11px'}}>
+                                {formatCurrency(openingBalanceCumulative)}
                             </td>
-                            <td className="border border-black px-2 py-0.5" style={{fontSize: '7px'}}></td>
-                            <td className="border border-black px-2 py-0.5" style={{fontSize: '7px'}}></td>
-                            <td className="border border-black px-2 py-0.5" style={{fontSize: '7px'}}></td>
+                            <td className="border border-black px-2 py-1 text-center" style={{fontSize: '11px'}}>
+                                {hasFirstPayment ? 1 : ''}
+                            </td>
+                            <td
+                                className="border border-black px-2 py-1"
+                                style={{
+                                    fontSize: '11px',
+                                    whiteSpace: 'normal',
+                                    wordBreak: 'break-word',
+                                    lineHeight: 1.1,
+                                }}
+                                title={hasFirstPayment ? firstPayment.description : ''}
+                            >
+                                {hasFirstPayment ? firstPayment.description : ''}
+                            </td>
+                            <td className="border border-black px-2 py-1 text-right" style={{fontSize: '11px'}}>
+                                {hasFirstPayment ? formatCurrency(firstPayment.month_amount) : ''}
+                            </td>
+                            <td className="border border-black px-2 py-1 text-right" style={{fontSize: '11px'}}>
+                                {hasFirstPayment ? formatCurrency(firstPayment.cumulative_amount) : ''}
+                            </td>
                         </tr>
 
                         {/* Data Rows */}
                         {Array.from({ length: maxRows }).map((_, index) => {
-                            const receipt = receipts[index];
-                            const payment = payments[index];
+                            const receipt = meaningfulReceipts[index];
+                            const payment = paymentsAfterOpening[index];
+                            const hasReceipt = isMeaningfulItem(receipt);
+                            const hasPayment = isMeaningfulItem(payment);
+
+                            // Avoid rendering completely empty rows (prevents visual "gaps")
+                            if (!hasReceipt && !hasPayment) return null;
 
                             return (
                                 <tr key={index}>
                                     {/* Receipt Side */}
-                                    <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px'}}>
-                                        {receipt ? receipt.description : ''}
+                                    <td className="border border-black px-2 py-1 text-center" style={{fontSize: '11px'}}>
+                                        {hasReceipt ? index + 2 : ''}
                                     </td>
-                                    <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px'}}>
-                                        {receipt ? formatCurrency(receipt.month_amount) : ''}
+                                    <td
+                                        className="border border-black px-2 py-1"
+                                        style={{
+                                            fontSize: '11px',
+                                            whiteSpace: 'normal',
+                                            wordBreak: 'break-word',
+                                            lineHeight: 1.1,
+                                        }}
+                                        title={hasReceipt ? receipt.description : ''}
+                                    >
+                                        {hasReceipt ? receipt.description : ''}
                                     </td>
-                                    <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px', borderRightWidth: '3px'}}>
-                                        {receipt ? formatCurrency(receipt.cumulative_amount) : ''}
+                                    <td className="border border-black px-2 py-1 text-right" style={{fontSize: '11px'}}>
+                                        {hasReceipt ? formatCurrency(receipt.month_amount) : ''}
+                                    </td>
+                                    <td className="border border-black px-2 py-1 text-right" style={{fontSize: '11px'}}>
+                                        {hasReceipt ? formatCurrency(receipt.cumulative_amount) : ''}
                                     </td>
 
                                     {/* Payment Side */}
-                                    <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px'}}>
-                                        {payment ? payment.description : ''}
+                                    <td className="border border-black px-2 py-1 text-center" style={{fontSize: '11px'}}>
+                                        {hasPayment ? index + (hasFirstPayment ? 2 : 1) : ''}
                                     </td>
-                                    <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px'}}>
-                                        {payment ? formatCurrency(payment.month_amount) : ''}
+                                    <td
+                                        className="border border-black px-2 py-1"
+                                        style={{
+                                            fontSize: '11px',
+                                            fontWeight: 'normal',
+                                            whiteSpace: 'normal',
+                                            wordBreak: 'break-word',
+                                            lineHeight: 1.1,
+                                        }}
+                                        title={hasPayment ? payment.description : ''}
+                                    >
+                                        {hasPayment ? payment.description : ''}
                                     </td>
-                                    <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px'}}>
-                                        {payment ? formatCurrency(payment.cumulative_amount) : ''}
+                                    <td
+                                        className="border border-black px-2 py-1 text-right"
+                                        style={{
+                                            fontSize: '11px',
+                                            fontWeight: 'normal',
+                                        }}
+                                    >
+                                        {hasPayment ? formatCurrency(payment.month_amount) : ''}
+                                    </td>
+                                    <td
+                                        className="border border-black px-2 py-1 text-right"
+                                        style={{
+                                            fontSize: '11px',
+                                            fontWeight: 'normal',
+                                        }}
+                                    >
+                                        {hasPayment ? formatCurrency(payment.cumulative_amount) : ''}
                                     </td>
                                 </tr>
                             );
@@ -404,39 +640,49 @@ export default function ReceiptPayment({
 
                         {/* Closing Balance Row */}
                         <tr>
-                            <td className="border border-black px-2 py-0.5" style={{fontSize: '7px'}}></td>
-                            <td className="border border-black px-2 py-0.5" style={{fontSize: '7px'}}></td>
-                            <td className="border border-black px-2 py-0.5" style={{fontSize: '7px', borderRightWidth: '3px'}}></td>
-                            <td className="border border-black px-2 py-0.5 font-semibold" style={{fontSize: '7px'}}>
+                            <td className="border border-black px-2 py-1 text-center" style={{fontSize: '11px'}}></td>
+                            <td className="border border-black px-2 py-1" style={{fontSize: '11px'}}></td>
+                            <td className="border border-black px-2 py-1" style={{fontSize: '11px'}}></td>
+                            <td className="border border-black px-2 py-1" style={{fontSize: '11px'}}></td>
+                            <td className="border border-black px-2 py-1 text-center" style={{fontSize: '11px'}}>
+                                {paymentClosingSl}
+                            </td>
+                            <td className="border border-black px-2 py-1 font-semibold" style={{fontSize: '11px'}}>
                                 Closing Balance
                             </td>
-                            <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '7px'}}>
+                            <td className="border border-black px-2 py-1 text-right" style={{fontSize: '11px'}}>
                                 {formatCurrency(closingBalance)}
                             </td>
-                            <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '7px'}}>
+                            <td className="border border-black px-2 py-1 text-right" style={{fontSize: '11px'}}>
                                 {formatCurrency(cumulativeClosingBalance)}
                             </td>
                         </tr>
                     </tbody>
                     <tfoot>
                         {/* Total Row */}
-                        <tr className="bg-gray-100">
-                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px'}}>
-                                TOTAL:
+                        <tr>
+                            <td
+                                className="border border-black px-2 py-1.5 text-center font-bold text-xs capitalize"
+                                colSpan={2}
+                            >
+                                Total
                             </td>
-                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px'}}>
+                            <td className="border border-black px-2 py-1.5 text-right font-bold" style={{fontSize: '11px'}}>
                                 {formatCurrency(openingBalance + totalMonthReceipts)}
                             </td>
-                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px', borderRightWidth: '3px'}}>
-                                {formatCurrency(openingBalance + totalCumulativeReceipts)}
+                            <td className="border border-black px-2 py-1.5 text-right font-bold" style={{fontSize: '11px'}}>
+                                {formatCurrency(openingBalanceCumulative + totalCumulativeReceipts)}
                             </td>
-                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px'}}>
-                                TOTAL:
+                            <td
+                                className="border border-black px-2 py-1.5 text-center font-bold text-xs capitalize"
+                                colSpan={2}
+                            >
+                                Total
                             </td>
-                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px'}}>
+                            <td className="border border-black px-2 py-1.5 text-right font-bold" style={{fontSize: '11px'}}>
                                 {formatCurrency(totalMonthPayments + closingBalance)}
                             </td>
-                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px'}}>
+                            <td className="border border-black px-2 py-1.5 text-right font-bold" style={{fontSize: '11px'}}>
                                 {formatCurrency(totalCumulativePayments + cumulativeClosingBalance)}
                             </td>
                         </tr>
@@ -444,28 +690,28 @@ export default function ReceiptPayment({
                 </table>
 
                 {/* Signature Section */}
-                <div className="mt-10">
+                <div className="mt-8">
                     <div className="grid grid-cols-3 gap-16">
                         <div className="text-center">
-                            <div className="border-t-2 border-black pt-1 mt-14">
-                                <p className="font-semibold" style={{fontSize: '9px'}}>Prepared By</p>
+                            <div className="border-t-2 border-black pt-1 mt-12">
+                                <p className="font-semibold" style={{fontSize: '11px'}}>Prepared By</p>
                             </div>
                         </div>
                         <div className="text-center">
-                            <div className="border-t-2 border-black pt-1 mt-14">
-                                <p className="font-semibold" style={{fontSize: '9px'}}>Checked By</p>
+                            <div className="border-t-2 border-black pt-1 mt-12">
+                                <p className="font-semibold" style={{fontSize: '11px'}}>Checked By</p>
                             </div>
                         </div>
                         <div className="text-center">
-                            <div className="border-t-2 border-black pt-1 mt-14">
-                                <p className="font-semibold" style={{fontSize: '9px'}}>Approved By</p>
+                            <div className="border-t-2 border-black pt-1 mt-12">
+                                <p className="font-semibold" style={{fontSize: '11px'}}>Approved By</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Footer */}
-                <div className="text-center mt-6 text-gray-600" style={{fontSize: '7px'}}>
+                <div className="text-center mt-4 text-gray-600" style={{fontSize: '11px'}}>
                     <p>Printed on: {new Date().toLocaleString('en-US', {
                         year: 'numeric',
                         month: 'long',
@@ -481,7 +727,7 @@ export default function ReceiptPayment({
                 @media print {
                     @page {
                         size: A4 portrait;
-                        margin: 12mm;
+                        margin: 6mm;
                     }
 
                     * {
@@ -525,12 +771,6 @@ export default function ReceiptPayment({
 
                     th, td {
                         border: 1px solid #000 !important;
-                    }
-
-                    /* Bold divider between Receipt and Payment sections */
-                    th:nth-child(3),
-                    td:nth-child(3) {
-                        border-right: 3px solid #000 !important;
                     }
 
                     .bg-gray-800,

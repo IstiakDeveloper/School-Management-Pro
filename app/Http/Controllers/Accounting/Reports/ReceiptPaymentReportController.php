@@ -20,14 +20,25 @@ class ReceiptPaymentReportController extends Controller
         $startDate = $request->start_date ? Carbon::parse($request->start_date) : now()->startOfMonth();
         $endDate = $request->end_date ? Carbon::parse($request->end_date) : now()->endOfMonth();
         $accountId = $request->account_id;
+        // Normalize empty values coming from the UI
+        if ($accountId === '' || $accountId === null) {
+            $accountId = null;
+        }
 
-        // Calculate Opening Balance
+        // Opening balances:
+        // - Period opening: running balance at startDate (opening + all activity before startDate)
+        // - Cumulative opening: configured starting balance (no date; software start)
+        $openingBalancePeriod = 0;
+        $openingBalanceCumulative = 0;
+
         if ($accountId) {
-            // Single account - calculate its opening balance
+            // Single account
             $account = Account::find($accountId);
-            $openingBalance = $account->opening_balance;
+            $openingBalanceCumulative = $account ? $account->opening_balance : 0;
 
-            // Add all previous transactions before start date
+            // Period opening = cumulative opening + all activity before start date
+            $openingBalancePeriod = $openingBalanceCumulative;
+
             $previousTransactions = Transaction::where(function ($query) use ($accountId) {
                 $query->where('account_id', $accountId)
                     ->orWhere('transfer_to_account_id', $accountId);
@@ -38,26 +49,25 @@ class ReceiptPaymentReportController extends Controller
             foreach ($previousTransactions as $trans) {
                 if ($trans->account_id == $accountId) {
                     if ($trans->type === 'income') {
-                        $openingBalance += $trans->amount;
+                        $openingBalancePeriod += $trans->amount;
                     } elseif ($trans->type === 'expense' || $trans->type === 'transfer' || $trans->type === 'asset_purchase') {
-                        $openingBalance -= $trans->amount;
+                        $openingBalancePeriod -= $trans->amount;
                     }
                 }
                 if ($trans->transfer_to_account_id == $accountId && $trans->type === 'transfer') {
-                    $openingBalance += $trans->amount;
+                    $openingBalancePeriod += $trans->amount;
                 }
             }
 
-            // Add fund transactions to opening balance
             $previousFundTransactions = FundTransaction::where('account_id', $accountId)
                 ->where('transaction_date', '<', $startDate)
                 ->get();
 
             foreach ($previousFundTransactions as $fundTrans) {
                 if ($fundTrans->transaction_type === 'in') {
-                    $openingBalance += $fundTrans->amount;
+                    $openingBalancePeriod += $fundTrans->amount;
                 } elseif ($fundTrans->transaction_type === 'out') {
-                    $openingBalance -= $fundTrans->amount;
+                    $openingBalancePeriod -= $fundTrans->amount;
                 }
             }
         } else {
@@ -66,11 +76,15 @@ class ReceiptPaymentReportController extends Controller
                 ->whereIn('account_type', ['bank', 'cash'])
                 ->get();
 
-            $openingBalance = 0;
+            $openingBalancePeriod = 0;
+            $openingBalanceCumulative = 0;
             foreach ($allAccounts as $acc) {
+                $openingBalanceCumulative += $acc->opening_balance;
+
+                // For "All Accounts", opening should reflect the combined running balance
+                // as of the start date (opening + all transactions before start date).
                 $accBalance = $acc->opening_balance;
 
-                // Add all previous transactions for this account
                 $prevTrans = Transaction::where(function ($query) use ($acc) {
                     $query->where('account_id', $acc->id)
                         ->orWhere('transfer_to_account_id', $acc->id);
@@ -91,7 +105,6 @@ class ReceiptPaymentReportController extends Controller
                     }
                 }
 
-                // Add fund transactions
                 $prevFundTrans = FundTransaction::where('account_id', $acc->id)
                     ->where('transaction_date', '<', $startDate)
                     ->get();
@@ -104,7 +117,7 @@ class ReceiptPaymentReportController extends Controller
                     }
                 }
 
-                $openingBalance += $accBalance;
+                $openingBalancePeriod += $accBalance;
             }
         }
 
@@ -263,10 +276,34 @@ class ReceiptPaymentReportController extends Controller
         $paymentsGrouped = [];
         $totalMonthPayments = 0;
         $totalCumulativePayments = 0;
+        $fixedAssetsMonthGrouped = [];
+        $fixedAssetsCumulativeGrouped = [];
 
         // Expenses - Month
         foreach ($monthTransactions as $trans) {
-            if (in_array($trans->type, ['expense', 'asset_purchase']) && (! $accountId || $trans->account_id == $accountId)) {
+            if ($trans->type === 'asset_purchase' && (! $accountId || $trans->account_id == $accountId)) {
+                // Track fixed asset purchases separately (not as "Other Expense")
+                // Description format in FixedAssetController: "Fixed Asset Purchase: {name} ({code})"
+                $desc = (string) ($trans->description ?? '');
+                $assetName = 'Fixed Asset';
+                $assetCode = null;
+                if (preg_match('/^Fixed Asset Purchase:\s*(.+?)\s*\((.+?)\)\s*$/', $desc, $m)) {
+                    $assetName = trim($m[1]);
+                    $assetCode = trim($m[2]);
+                } elseif (preg_match('/\((FA-\d+)\)/', $desc, $m)) {
+                    $assetCode = trim($m[1]);
+                    $assetName = trim(str_replace(['Fixed Asset Purchase:', '(' . $assetCode . ')'], '', $desc)) ?: 'Fixed Asset';
+                }
+
+                $assetKey = $assetCode ? ($assetName . ' (' . $assetCode . ')') : $assetName;
+                if (! isset($fixedAssetsMonthGrouped[$assetKey])) {
+                    $fixedAssetsMonthGrouped[$assetKey] = 0;
+                }
+                $fixedAssetsMonthGrouped[$assetKey] += $trans->amount;
+
+                // Totals still count as payments
+                $totalMonthPayments += $trans->amount;
+            } elseif ($trans->type === 'expense' && (! $accountId || $trans->account_id == $accountId)) {
                 $categoryName = $trans->expenseCategory ? $trans->expenseCategory->name : 'Other Expense';
                 if (! isset($paymentsGrouped[$categoryName])) {
                     $paymentsGrouped[$categoryName] = [
@@ -298,7 +335,28 @@ class ReceiptPaymentReportController extends Controller
 
         // Expenses - Cumulative
         foreach ($cumulativeTransactions as $trans) {
-            if (in_array($trans->type, ['expense', 'asset_purchase']) && (! $accountId || $trans->account_id == $accountId)) {
+            if ($trans->type === 'asset_purchase' && (! $accountId || $trans->account_id == $accountId)) {
+                // Track fixed asset purchases separately (not as "Other Expense")
+                $desc = (string) ($trans->description ?? '');
+                $assetName = 'Fixed Asset';
+                $assetCode = null;
+                if (preg_match('/^Fixed Asset Purchase:\s*(.+?)\s*\((.+?)\)\s*$/', $desc, $m)) {
+                    $assetName = trim($m[1]);
+                    $assetCode = trim($m[2]);
+                } elseif (preg_match('/\((FA-\d+)\)/', $desc, $m)) {
+                    $assetCode = trim($m[1]);
+                    $assetName = trim(str_replace(['Fixed Asset Purchase:', '(' . $assetCode . ')'], '', $desc)) ?: 'Fixed Asset';
+                }
+
+                $assetKey = $assetCode ? ($assetName . ' (' . $assetCode . ')') : $assetName;
+                if (! isset($fixedAssetsCumulativeGrouped[$assetKey])) {
+                    $fixedAssetsCumulativeGrouped[$assetKey] = 0;
+                }
+                $fixedAssetsCumulativeGrouped[$assetKey] += $trans->amount;
+
+                // Totals still count as payments
+                $totalCumulativePayments += $trans->amount;
+            } elseif ($trans->type === 'expense' && (! $accountId || $trans->account_id == $accountId)) {
                 $categoryName = $trans->expenseCategory ? $trans->expenseCategory->name : 'Other Expense';
                 if (! isset($paymentsGrouped[$categoryName])) {
                     $paymentsGrouped[$categoryName] = [
@@ -364,9 +422,30 @@ class ReceiptPaymentReportController extends Controller
 
         $payments = array_values($paymentsGrouped);
 
+        // Append Fixed Asset purchases as plain rows (no header/total)
+        if (! empty($fixedAssetsMonthGrouped) || ! empty($fixedAssetsCumulativeGrouped)) {
+            // Add detail lines (do not affect totals; totals already include asset_purchase above)
+            $allAssetKeys = array_unique(array_merge(array_keys($fixedAssetsMonthGrouped), array_keys($fixedAssetsCumulativeGrouped)));
+            sort($allAssetKeys);
+
+            $detailRows = [];
+            foreach ($allAssetKeys as $assetKey) {
+                $detailRows[] = [
+                    // Plain rows: no symbols/prefix
+                    'description' => $assetKey,
+                    'month_amount' => $fixedAssetsMonthGrouped[$assetKey] ?? 0,
+                    'cumulative_amount' => $fixedAssetsCumulativeGrouped[$assetKey] ?? 0,
+                    'type' => 'fixed_asset_detail',
+                ];
+            }
+
+            // Put fixed asset rows at the top of payments list
+            array_unshift($payments, ...$detailRows);
+        }
+
         // Calculate closing balance
-        $closingBalance = $openingBalance + $totalMonthReceipts - $totalMonthPayments;
-        $cumulativeClosingBalance = $openingBalance + $totalCumulativeReceipts - $totalCumulativePayments;
+        $closingBalance = $openingBalancePeriod + $totalMonthReceipts - $totalMonthPayments;
+        $cumulativeClosingBalance = $openingBalanceCumulative + $totalCumulativeReceipts - $totalCumulativePayments;
 
         $schoolName = Setting::where('key', 'school_name')->value('value') ?: 'School Management Pro';
         $schoolAddress = Setting::where('key', 'school_address')->value('value') ?: '';
@@ -374,7 +453,8 @@ class ReceiptPaymentReportController extends Controller
         return Inertia::render('Accounting/Reports/ReceiptPayment', [
             'receipts' => $receipts,
             'payments' => $payments,
-            'openingBalance' => $openingBalance,
+            'openingBalance' => $openingBalancePeriod,
+            'openingBalanceCumulative' => $openingBalanceCumulative,
             'totalMonthReceipts' => $totalMonthReceipts,
             'totalMonthPayments' => $totalMonthPayments,
             'totalCumulativeReceipts' => $totalCumulativeReceipts,

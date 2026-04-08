@@ -24,7 +24,10 @@ class TransactionController extends Controller
             ->when($request->account_id, fn($q) => $q->where('account_id', $request->account_id))
             ->when($request->date_from, fn($q) => $q->whereDate('transaction_date', '>=', $request->date_from))
             ->when($request->date_to, fn($q) => $q->whereDate('transaction_date', '<=', $request->date_to))
-            ->latest('transaction_date')
+            // Ensure deterministic "most recent first" ordering even when many
+            // transactions share the same transaction_date.
+            ->orderByDesc('transaction_date')
+            ->orderByDesc('id')
             ->paginate(50);
 
         $totalIncome = Transaction::where('type', 'income')->sum('amount');

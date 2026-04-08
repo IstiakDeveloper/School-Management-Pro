@@ -102,7 +102,7 @@ class BalanceSheetReportController extends Controller
         // 1. Fixed Assets (list of all active assets with their current values)
         $fixedAssets = FixedAsset::where('status', 'active')
             ->where('purchase_date', '<=', $endDate)
-            ->select('asset_name', 'current_value')
+            ->select('asset_name', 'asset_code', 'current_value')
             ->orderBy('asset_name')
             ->get();
 

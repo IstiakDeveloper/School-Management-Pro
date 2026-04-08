@@ -6,6 +6,7 @@ import { Printer } from 'lucide-react';
 
 interface FixedAssetItem {
     asset_name: string;
+    asset_code?: string;
     current_value: number;
 }
 
@@ -66,16 +67,36 @@ export default function BalanceSheet({
         window.print();
     };
 
-    const reportDate = new Date(filters.end_date).toLocaleDateString('en-US', {
-        day: 'numeric',
+    const reportDate = new Date(filters.end_date).toLocaleDateString('en-GB', {
+        day: '2-digit',
         month: 'long',
-        year: 'numeric'
+        year: 'numeric',
     });
+    const printDateText = endDate
+        ? new Date(endDate).toLocaleDateString('en-GB', {
+              day: '2-digit',
+              month: 'long',
+              year: 'numeric',
+          })
+        : reportDate;
 
-    // Calculate max rows for balanced layout
-    const leftItems = 4; // Fund, Surplus, PF, Staff Welfare Fund
-    const rightItems = propertyAndAssets.fixedAssets.length + 2; // Fixed assets + Welfare Loan + Bank Balance
-    const maxRows = Math.max(leftItems, rightItems);
+    const leftRows: Array<{ label: string; value: number; emphasize?: boolean; showSign?: boolean }> = [
+        { label: 'Fund', value: fundAndLiabilities.fund },
+        { label: 'Surplus/Deficit', value: fundAndLiabilities.surplus, showSign: true },
+        { label: 'Provident Fund', value: fundAndLiabilities.providentFund },
+        { label: 'Staff Welfare Fund', value: fundAndLiabilities.staffWelfareFund },
+    ];
+
+    const rightRows: Array<{ label: string; value: number }> = [
+        ...propertyAndAssets.fixedAssets.map((a) => ({
+            label: a.asset_code ? `${a.asset_name} (${a.asset_code})` : a.asset_name,
+            value: a.current_value,
+        })),
+        { label: 'Staff Welfare Fund (Loans)', value: propertyAndAssets.welfareLoanOutstanding },
+        { label: 'Closing Bank Balance', value: propertyAndAssets.closingBankBalance },
+    ];
+
+    const maxRows = Math.max(leftRows.length, rightRows.length);
 
     return (
         <AuthenticatedLayout>
@@ -132,9 +153,13 @@ export default function BalanceSheet({
                 {/* Screen Report Table */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     {/* Header Info */}
-                    <div className="text-center mb-6 pb-4 border-b-2 border-gray-300">
-                        <h2 className="text-2xl font-bold mb-2 text-gray-800">Balance Sheet</h2>
-                        <p className="text-sm font-semibold text-gray-600">As at {reportDate}</p>
+                    <div className="text-center mb-2 border-gray-300">
+                        <h3 className="text-2xl font-bold text-gray-800">{schoolName}</h3>
+                        {schoolAddress && <p className="text-sm text-gray-600">{schoolAddress}</p>}
+                        <h2 className="text-lg font-bold mb-2 text-gray-800">Statement of Financial Position</h2>
+                        <div className="text-sm text-right text-gray-600">
+                            Date: {printDateText}
+                        </div>
                     </div>
 
                     {/* Main Table */}
@@ -142,17 +167,37 @@ export default function BalanceSheet({
                         <table className="w-full border-collapse border border-gray-400">
                             <thead>
                                 <tr>
-                                    {/* Fund and Liabilities Headers */}
-                                    <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '35%'}}>
+                                    <th
+                                        className="border border-gray-400 px-2 py-1.5 text-center font-bold text-sm"
+                                        colSpan={3}
+                                    >
                                         Fund and Liabilities
                                     </th>
-                                    <th className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '15%'}}>
+                                    <th
+                                        className="border border-gray-400 px-2 py-1.5 text-center font-bold text-sm"
+                                        colSpan={3}
+                                    >
+                                        Property and Assets
+                                    </th>
+                                </tr>
+                                <tr>
+                                    {/* Fund and Liabilities Headers */}
+                                    <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '5%'}}>
+                                        SL
+                                    </th>
+                                    <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '35%'}}>
+                                        Particulars
+                                    </th>
+                                    <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '15%'}}>
                                         Amount
                                     </th>
 
                                     {/* Property and Assets Headers */}
+                                    <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '5%'}}>
+                                        SL
+                                    </th>
                                     <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '35%'}}>
-                                        Property and Assets
+                                        Particulars
                                     </th>
                                     <th className="border border-gray-400 px-2 py-1.5 text-center font-semibold bg-white text-xs" style={{width: '15%'}}>
                                         Amount
@@ -160,181 +205,52 @@ export default function BalanceSheet({
                                 </tr>
                             </thead>
                             <tbody>
-                                {/* Fund Row */}
-                                <tr>
-                                    <td className="border border-gray-400 px-2 py-1 text-xs">
-                                        Fund
-                                    </td>
-                                    <td className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1 text-right text-xs">
-                                        {formatCurrency(fundAndLiabilities.fund)}
-                                    </td>
+                                {Array.from({ length: maxRows }).map((_, index) => {
+                                    const left = leftRows[index];
+                                    const right = rightRows[index];
+                                    const isSurplusRow = left?.label === 'Surplus/Deficit';
+                                    const surplusBgClass = fundAndLiabilities.surplus >= 0 ? 'bg-green-50' : 'bg-red-50';
 
-                                    {/* Fixed Assets Header */}
-                                    {propertyAndAssets.fixedAssets.length > 0 ? (
-                                        <>
-                                            <td className="border border-gray-400 px-2 py-1 text-xs font-semibold">
-                                                Fixed Assets:
+                                    return (
+                                        <tr key={index}>
+                                            <td className={`border border-gray-400 px-2 py-1 text-center text-xs ${isSurplusRow ? surplusBgClass : ''}`}>
+                                                {left ? index + 1 : ''}
                                             </td>
-                                            <td className="border border-gray-400 px-2 py-1 text-right text-xs">
+                                            <td className={`border border-gray-400 px-2 py-1 text-xs ${isSurplusRow ? surplusBgClass : ''}`}>
+                                                {left ? left.label : ''}
+                                            </td>
+                                            <td className={`border border-gray-400 px-2 py-1 text-right text-xs ${isSurplusRow ? surplusBgClass : ''}`}>
+                                                {left
+                                                    ? left.showSign
+                                                        ? `${left.value < 0 ? '-' : ''} ${formatCurrency(Math.abs(left.value))}`
+                                                        : formatCurrency(left.value)
+                                                    : ''}
+                                            </td>
 
+                                            <td className="border border-gray-400 px-2 py-1 text-center text-xs">
+                                                {right ? index + 1 : ''}
                                             </td>
-                                        </>
-                                    ) : (
-                                        <>
                                             <td className="border border-gray-400 px-2 py-1 text-xs">
-                                                Fixed Assets
+                                                {right ? right.label : ''}
                                             </td>
                                             <td className="border border-gray-400 px-2 py-1 text-right text-xs">
-                                                {formatCurrency(0)}
+                                                {right ? formatCurrency(right.value) : ''}
                                             </td>
-                                        </>
-                                    )}
-                                </tr>
-
-                                {/* Surplus/Deficit Row */}
-                                <tr className={fundAndLiabilities.surplus >= 0 ? 'bg-green-50' : 'bg-red-50'}>
-                                    <td className="border border-gray-400 px-2 py-1 text-xs">
-                                        Surplus/Deficit
-                                    </td>
-                                    <td className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1 text-right text-xs">
-                                        {fundAndLiabilities.surplus >= 0 ? '+' : '-'} {formatCurrency(Math.abs(fundAndLiabilities.surplus))}
-                                    </td>
-
-                                    {/* First Fixed Asset or empty */}
-                                    {propertyAndAssets.fixedAssets[0] ? (
-                                        <>
-                                            <td className="border border-gray-400 px-2 py-1 text-xs pl-4">
-                                                {propertyAndAssets.fixedAssets[0].asset_name}
-                                            </td>
-                                            <td className="border border-gray-400 px-2 py-1 text-right text-xs">
-                                                {formatCurrency(propertyAndAssets.fixedAssets[0].current_value)}
-                                            </td>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <td className="border border-gray-400 px-2 py-1 text-xs"></td>
-                                            <td className="border border-gray-400 px-2 py-1 text-right text-xs"></td>
-                                        </>
-                                    )}
-                                </tr>
-
-                                {/* Provident Fund Row */}
-                                <tr>
-                                    <td className="border border-gray-400 px-2 py-1 text-xs">
-                                        Provident Fund
-                                    </td>
-                                    <td className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1 text-right text-xs">
-                                        {formatCurrency(fundAndLiabilities.providentFund)}
-                                    </td>
-
-                                    {/* Second Fixed Asset or empty */}
-                                    {propertyAndAssets.fixedAssets[1] ? (
-                                        <>
-                                            <td className="border border-gray-400 px-2 py-1 text-xs pl-4">
-                                                {propertyAndAssets.fixedAssets[1].asset_name}
-                                            </td>
-                                            <td className="border border-gray-400 px-2 py-1 text-right text-xs">
-                                                {formatCurrency(propertyAndAssets.fixedAssets[1].current_value)}
-                                            </td>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <td className="border border-gray-400 px-2 py-1 text-xs"></td>
-                                            <td className="border border-gray-400 px-2 py-1 text-right text-xs"></td>
-                                        </>
-                                    )}
-                                </tr>
-
-                                {/* Staff Welfare Fund Row */}
-                                <tr>
-                                    <td className="border border-gray-400 px-2 py-1 text-xs">
-                                        Staff Welfare Fund
-                                    </td>
-                                    <td className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1 text-right text-xs">
-                                        {formatCurrency(fundAndLiabilities.staffWelfareFund)}
-                                    </td>
-
-                                    {/* Remaining Fixed Assets */}
-                                    {propertyAndAssets.fixedAssets[2] ? (
-                                        <>
-                                            <td className="border border-gray-400 px-2 py-1 text-xs pl-4">
-                                                {propertyAndAssets.fixedAssets[2].asset_name}
-                                            </td>
-                                            <td className="border border-gray-400 px-2 py-1 text-right text-xs">
-                                                {formatCurrency(propertyAndAssets.fixedAssets[2].current_value)}
-                                            </td>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <td className="border border-gray-400 px-2 py-1 text-xs"></td>
-                                            <td className="border border-gray-400 px-2 py-1 text-right text-xs"></td>
-                                        </>
-                                    )}
-                                </tr>
-
-                                {/* Additional Fixed Assets (if more than 3) */}
-                                {propertyAndAssets.fixedAssets.slice(3).map((asset, index) => (
-                                    <tr key={index}>
-                                        <td className="border border-gray-400 px-2 py-1 text-xs"></td>
-                                        <td className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1 text-right text-xs"></td>
-                                        <td className="border border-gray-400 px-2 py-1 text-xs pl-4">
-                                            {asset.asset_name}
-                                        </td>
-                                        <td className="border border-gray-400 px-2 py-1 text-right text-xs">
-                                            {formatCurrency(asset.current_value)}
-                                        </td>
-                                    </tr>
-                                ))}
-
-                                {/* Fixed Assets Total */}
-                                {propertyAndAssets.fixedAssets.length > 0 && (
-                                    <tr className="bg-gray-100">
-                                        <td className="border border-gray-400 px-2 py-1 text-xs"></td>
-                                        <td className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1 text-right text-xs"></td>
-                                        <td className="border border-gray-400 px-2 py-1 text-xs font-semibold">
-                                            Total Fixed Assets
-                                        </td>
-                                        <td className="border border-gray-400 px-2 py-1 text-right text-xs font-semibold">
-                                            {formatCurrency(propertyAndAssets.totalFixedAssets)}
-                                        </td>
-                                    </tr>
-                                )}
-
-                                {/* Staff Welfare Fund (Loans) */}
-                                <tr>
-                                    <td className="border border-gray-400 px-2 py-1 text-xs"></td>
-                                    <td className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1 text-right text-xs"></td>
-                                    <td className="border border-gray-400 px-2 py-1 text-xs">
-                                        Staff Welfare Fund (Loans)
-                                    </td>
-                                    <td className="border border-gray-400 px-2 py-1 text-right text-xs">
-                                        {formatCurrency(propertyAndAssets.welfareLoanOutstanding)}
-                                    </td>
-                                </tr>
-
-                                {/* Closing Bank Balance */}
-                                <tr>
-                                    <td className="border border-gray-400 px-2 py-1 text-xs"></td>
-                                    <td className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1 text-right text-xs"></td>
-                                    <td className="border border-gray-400 px-2 py-1 text-xs">
-                                        Closing Bank Balance
-                                    </td>
-                                    <td className="border border-gray-400 px-2 py-1 text-right text-xs">
-                                        {formatCurrency(propertyAndAssets.closingBankBalance)}
-                                    </td>
-                                </tr>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                             <tfoot>
                                 {/* Total Row */}
                                 <tr className="bg-gray-50">
-                                    <td className="border border-gray-400 px-2 py-1.5 text-right font-bold text-xs">
-                                        Total:
+                                    <td className="border border-gray-400 px-2 py-1.5 text-center font-bold text-xs capitalize" colSpan={2}>
+                                        Total
                                     </td>
-                                    <td className="border border-gray-400 border-r-4 border-r-gray-700 px-2 py-1.5 text-right font-bold text-xs">
+                                    <td className="border border-gray-400 px-2 py-1.5 text-right font-bold text-xs">
                                         {formatCurrency(fundAndLiabilities.total)}
                                     </td>
-                                    <td className="border border-gray-400 px-2 py-1.5 text-right font-bold text-xs">
-                                        Total:
+                                    <td className="border border-gray-400 px-2 py-1.5 text-center font-bold text-xs capitalize" colSpan={2}>
+                                        Total
                                     </td>
                                     <td className="border border-gray-400 px-2 py-1.5 text-right font-bold text-xs">
                                         {formatCurrency(propertyAndAssets.total)}
@@ -370,193 +286,132 @@ export default function BalanceSheet({
             {/* Print View */}
             <div className="hidden print:block print-container">
                 {/* Header */}
-                <div className="text-center mb-4 pb-2 border-b-2 border-black">
-                    <h1 className="text-xl font-bold mb-1">{schoolName}</h1>
-                    {schoolAddress && <p className="text-xs mb-0.5">{schoolAddress}</p>}
-                    <h2 className="text-lg font-bold mb-1">Balance Sheet</h2>
-                    <p className="text-sm font-semibold">As at {reportDate}</p>
+                <div className="mb-1 pb-0">
+                    <div className="text-center">
+                        <h1 className="text-2xl font-bold mb-1">{schoolName}</h1>
+                        {schoolAddress && <p className="text-xs mb-0.5">{schoolAddress}</p>}
+                        <h2 className="text-base font-bold mb-0">Statement of Financial Position</h2>
+                    </div>
+                    <div className="flex items-start justify-end">
+                        <div className="text-right text-xs font-normal mt-2 mb-1">
+                            Date: {printDateText}
+                        </div>
+                    </div>
                 </div>
 
                 {/* Main Table - Print Style */}
-                <table className="w-full border-collapse border border-black">
+                <table className="w-full border-collapse border border-black" style={{ tableLayout: 'fixed' }}>
+                    <colgroup>
+                        {/* Fund/Liabilities */}
+                        <col style={{ width: '4%' }} />
+                        <col style={{ width: '31%' }} />
+                        <col style={{ width: '15%' }} />
+                        {/* Property/Assets */}
+                        <col style={{ width: '4%' }} />
+                        <col style={{ width: '31%' }} />
+                        <col style={{ width: '15%' }} />
+                    </colgroup>
                     <thead>
                         <tr>
-                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '35%'}}>
+                            <th
+                                className="border border-black px-2 py-1.5 text-center font-bold"
+                                style={{ fontSize: '13px' }}
+                                colSpan={3}
+                            >
                                 Fund and Liabilities
                             </th>
-                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '15%', borderRightWidth: '3px'}}>
-                                Amount
-                            </th>
-                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '35%'}}>
+                            <th
+                                className="border border-black px-2 py-1.5 text-center font-bold"
+                                style={{ fontSize: '13px' }}
+                                colSpan={3}
+                            >
                                 Property and Assets
                             </th>
-                            <th className="border border-black px-2 py-1 text-center font-semibold" style={{fontSize: '8px', width: '15%'}}>
+                        </tr>
+                        <tr>
+                            <th className="border border-black px-2 py-1.5 text-center font-semibold" style={{fontSize: '11px'}}>
+                                SL
+                            </th>
+                            <th className="border border-black px-2 py-1.5 text-center font-semibold" style={{fontSize: '11px'}}>
+                                Particulars
+                            </th>
+                            <th className="border border-black px-2 py-1.5 text-center font-semibold" style={{fontSize: '11px'}}>
+                                Amount
+                            </th>
+                            <th className="border border-black px-2 py-1.5 text-center font-semibold" style={{fontSize: '11px'}}>
+                                SL
+                            </th>
+                            <th className="border border-black px-2 py-1.5 text-center font-semibold" style={{fontSize: '11px'}}>
+                                Particulars
+                            </th>
+                            <th className="border border-black px-2 py-1.5 text-center font-semibold" style={{fontSize: '11px'}}>
                                 Amount
                             </th>
                         </tr>
                     </thead>
                     <tbody>
-                        {/* Fund Row */}
-                        <tr>
-                            <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px'}}>
-                                Fund
-                            </td>
-                            <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px', borderRightWidth: '3px'}}>
-                                {formatCurrency(fundAndLiabilities.fund)}
-                            </td>
-                            {propertyAndAssets.fixedAssets.length > 0 ? (
-                                <>
-                                    <td className="border border-black px-2 py-0.5 font-semibold" style={{fontSize: '6.5px'}}>
-                                        Fixed Assets:
-                                    </td>
-                                    <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px'}}>
+                        {Array.from({ length: maxRows }).map((_, index) => {
+                            const left = leftRows[index];
+                            const right = rightRows[index];
 
+                            return (
+                                <tr key={index}>
+                                    <td className="border border-black px-2 py-1 text-center" style={{fontSize: '11px'}}>
+                                        {left ? index + 1 : ''}
                                     </td>
-                                </>
-                            ) : (
-                                <>
-                                    <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px'}}>
-                                        Fixed Assets
+                                    <td
+                                        className="border border-black px-2 py-1"
+                                        style={{
+                                            fontSize: '11px',
+                                            whiteSpace: 'normal',
+                                            wordBreak: 'break-word',
+                                            lineHeight: 1.1,
+                                        }}
+                                        title={left ? left.label : ''}
+                                    >
+                                        {left ? left.label : ''}
                                     </td>
-                                    <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px'}}>
-                                        {formatCurrency(0)}
+                                    <td className="border border-black px-2 py-1 text-right" style={{fontSize: '11px'}}>
+                                        {left
+                                            ? left.showSign
+                                                ? `${left.value < 0 ? '-' : ''} ${formatCurrency(Math.abs(left.value))}`
+                                                : formatCurrency(left.value)
+                                            : ''}
                                     </td>
-                                </>
-                            )}
-                        </tr>
-
-                        <tr>
-                            <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px'}}>
-                                Surplus/Deficit
-                            </td>
-                            <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px', borderRightWidth: '3px'}}>
-                                {fundAndLiabilities.surplus >= 0 ? '+' : '-'} {formatCurrency(Math.abs(fundAndLiabilities.surplus))}
-                            </td>
-                            {propertyAndAssets.fixedAssets[0] ? (
-                                <>
-                                    <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px', paddingLeft: '8px'}}>
-                                        {propertyAndAssets.fixedAssets[0].asset_name}
+                                    <td className="border border-black px-2 py-1 text-center" style={{fontSize: '11px'}}>
+                                        {right ? index + 1 : ''}
                                     </td>
-                                    <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px'}}>
-                                        {formatCurrency(propertyAndAssets.fixedAssets[0].current_value)}
+                                    <td
+                                        className="border border-black px-2 py-1"
+                                        style={{
+                                            fontSize: '11px',
+                                            whiteSpace: 'normal',
+                                            wordBreak: 'break-word',
+                                            lineHeight: 1.1,
+                                        }}
+                                        title={right ? right.label : ''}
+                                    >
+                                        {right ? right.label : ''}
                                     </td>
-                                </>
-                            ) : (
-                                <>
-                                    <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px'}}></td>
-                                    <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px'}}></td>
-                                </>
-                            )}
-                        </tr>
-
-                        <tr>
-                            <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px'}}>
-                                Provident Fund
-                            </td>
-                            <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px', borderRightWidth: '3px'}}>
-                                {formatCurrency(fundAndLiabilities.providentFund)}
-                            </td>
-                            {propertyAndAssets.fixedAssets[1] ? (
-                                <>
-                                    <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px', paddingLeft: '8px'}}>
-                                        {propertyAndAssets.fixedAssets[1].asset_name}
+                                    <td className="border border-black px-2 py-1 text-right" style={{fontSize: '11px'}}>
+                                        {right ? formatCurrency(right.value) : ''}
                                     </td>
-                                    <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px'}}>
-                                        {formatCurrency(propertyAndAssets.fixedAssets[1].current_value)}
-                                    </td>
-                                </>
-                            ) : (
-                                <>
-                                    <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px'}}></td>
-                                    <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px'}}></td>
-                                </>
-                            )}
-                        </tr>
-
-                        <tr>
-                            <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px'}}>
-                                Staff Welfare Fund
-                            </td>
-                            <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px', borderRightWidth: '3px'}}>
-                                {formatCurrency(fundAndLiabilities.staffWelfareFund)}
-                            </td>
-                            {propertyAndAssets.fixedAssets[2] ? (
-                                <>
-                                    <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px', paddingLeft: '8px'}}>
-                                        {propertyAndAssets.fixedAssets[2].asset_name}
-                                    </td>
-                                    <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px'}}>
-                                        {formatCurrency(propertyAndAssets.fixedAssets[2].current_value)}
-                                    </td>
-                                </>
-                            ) : (
-                                <>
-                                    <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px'}}></td>
-                                    <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px'}}></td>
-                                </>
-                            )}
-                        </tr>
-
-                        {propertyAndAssets.fixedAssets.slice(3).map((asset, index) => (
-                            <tr key={index}>
-                                <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px'}}></td>
-                                <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px', borderRightWidth: '3px'}}></td>
-                                <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px', paddingLeft: '8px'}}>
-                                    {asset.asset_name}
-                                </td>
-                                <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px'}}>
-                                    {formatCurrency(asset.current_value)}
-                                </td>
-                            </tr>
-                        ))}
-
-                        {propertyAndAssets.fixedAssets.length > 0 && (
-                            <tr className="bg-gray-100">
-                                <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px'}}></td>
-                                <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px', borderRightWidth: '3px'}}></td>
-                                <td className="border border-black px-2 py-0.5 font-semibold" style={{fontSize: '6.5px'}}>
-                                    Total Fixed Assets
-                                </td>
-                                <td className="border border-black px-2 py-0.5 text-right font-semibold" style={{fontSize: '6.5px'}}>
-                                    {formatCurrency(propertyAndAssets.totalFixedAssets)}
-                                </td>
-                            </tr>
-                        )}
-
-                        <tr>
-                            <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px'}}></td>
-                            <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px', borderRightWidth: '3px'}}></td>
-                            <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px'}}>
-                                Staff Welfare Fund (Loans)
-                            </td>
-                            <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px'}}>
-                                {formatCurrency(propertyAndAssets.welfareLoanOutstanding)}
-                            </td>
-                        </tr>
-
-                        <tr>
-                            <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px'}}></td>
-                            <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px', borderRightWidth: '3px'}}></td>
-                            <td className="border border-black px-2 py-0.5" style={{fontSize: '6.5px'}}>
-                                Closing Bank Balance
-                            </td>
-                            <td className="border border-black px-2 py-0.5 text-right" style={{fontSize: '6.5px'}}>
-                                {formatCurrency(propertyAndAssets.closingBankBalance)}
-                            </td>
-                        </tr>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                     <tfoot>
-                        <tr className="bg-gray-100">
-                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px'}}>
-                                Total:
+                        <tr>
+                            <td className="border border-black px-2 py-1.5 text-center font-bold capitalize" style={{fontSize: '11px'}} colSpan={2}>
+                                Total
                             </td>
-                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px', borderRightWidth: '3px'}}>
+                            <td className="border border-black px-2 py-1.5 text-right font-bold" style={{fontSize: '11px'}}>
                                 {formatCurrency(fundAndLiabilities.total)}
                             </td>
-                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px'}}>
-                                Total:
+                            <td className="border border-black px-2 py-1.5 text-center font-bold capitalize" style={{fontSize: '11px'}} colSpan={2}>
+                                Total
                             </td>
-                            <td className="border border-black px-2 py-1 text-right font-bold" style={{fontSize: '8px'}}>
+                            <td className="border border-black px-2 py-1.5 text-right font-bold" style={{fontSize: '11px'}}>
                                 {formatCurrency(propertyAndAssets.total)}
                             </td>
                         </tr>
@@ -564,28 +419,28 @@ export default function BalanceSheet({
                 </table>
 
                 {/* Signature Section */}
-                <div className="mt-10">
+                <div className="mt-8">
                     <div className="grid grid-cols-3 gap-16">
                         <div className="text-center">
-                            <div className="border-t-2 border-black pt-1 mt-14">
-                                <p className="font-semibold" style={{fontSize: '9px'}}>Prepared By</p>
+                            <div className="border-t-2 border-black pt-1 mt-12">
+                                <p className="font-semibold" style={{fontSize: '11px'}}>Prepared By</p>
                             </div>
                         </div>
                         <div className="text-center">
-                            <div className="border-t-2 border-black pt-1 mt-14">
-                                <p className="font-semibold" style={{fontSize: '9px'}}>Checked By</p>
+                            <div className="border-t-2 border-black pt-1 mt-12">
+                                <p className="font-semibold" style={{fontSize: '11px'}}>Checked By</p>
                             </div>
                         </div>
                         <div className="text-center">
-                            <div className="border-t-2 border-black pt-1 mt-14">
-                                <p className="font-semibold" style={{fontSize: '9px'}}>Approved By</p>
+                            <div className="border-t-2 border-black pt-1 mt-12">
+                                <p className="font-semibold" style={{fontSize: '11px'}}>Approved By</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Footer */}
-                <div className="text-center mt-6 text-gray-600" style={{fontSize: '7px'}}>
+                <div className="text-center mt-4 text-gray-600" style={{fontSize: '11px'}}>
                     <p>Printed on: {new Date().toLocaleString('en-US', {
                         year: 'numeric',
                         month: 'long',
@@ -601,7 +456,7 @@ export default function BalanceSheet({
                 @media print {
                     @page {
                         size: A4 portrait;
-                        margin: 12mm;
+                        margin: 6mm;
                     }
 
                     * {
@@ -647,16 +502,6 @@ export default function BalanceSheet({
                         border: 1px solid #000 !important;
                     }
 
-                    /* Bold divider between Fund/Liabilities and Property/Assets */
-                    th:nth-child(2),
-                    td:nth-child(2) {
-                        border-right: 3px solid #000 !important;
-                    }
-
-                    .bg-gray-100 {
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
-                    }
                 }
             `}</style>
         </AuthenticatedLayout>

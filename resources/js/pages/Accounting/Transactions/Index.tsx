@@ -50,8 +50,23 @@ export default function Index({ transactions, filters, accounts, stats }: IndexP
     const formatDate = (date: string) =>
         new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
-    const categoryName = (t: Transaction) =>
-        (t as any).income_category?.name ?? (t as any).expense_category?.name ?? t.incomeCategory?.name ?? t.expenseCategory?.name ?? '—';
+    const categoryName = (t: Transaction) => {
+        // Always resolve category based on transaction type to avoid mismatches
+        // (e.g., an expense accidentally showing an income category).
+        if (t.type === 'income') {
+            return (t as any).income_category?.name ?? t.incomeCategory?.name ?? '—';
+        }
+        if (t.type === 'expense') {
+            return (t as any).expense_category?.name ?? t.expenseCategory?.name ?? '—';
+        }
+        if (t.type === 'asset_purchase') {
+            return 'Fixed Assets';
+        }
+        if (t.type === 'transfer') {
+            return 'Transfer';
+        }
+        return '—';
+    };
 
     return (
         <AuthenticatedLayout>
