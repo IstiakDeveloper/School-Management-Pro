@@ -47,11 +47,19 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'phone' => 'nullable|string|max:20',
-            'password' => 'required|string|min:8',
-            'roles' => 'required|array',
+            'password' => 'required|string|min:8|confirmed',
+            // Frontend sends role_ids; accept both keys for backward compatibility.
+            'role_ids' => 'nullable|array',
+            'role_ids.*' => 'exists:roles,id',
+            'roles' => 'nullable|array',
             'roles.*' => 'exists:roles,id',
             'status' => 'required|in:active,inactive,suspended',
         ]);
+
+        $roleIds = $validated['role_ids'] ?? $validated['roles'] ?? null;
+        if (empty($roleIds) || ! is_array($roleIds)) {
+            return back()->withErrors(['role_ids' => 'Please select at least one role.'])->withInput();
+        }
 
         $user = User::create([
             'name' => $validated['name'],
@@ -61,7 +69,7 @@ class UserController extends Controller
             'status' => $validated['status'],
         ]);
 
-        $user->roles()->sync($validated['roles']);
+        $user->roles()->sync($roleIds);
 
         logActivity('create', "Created user: {$user->name}", User::class, $user->id);
 

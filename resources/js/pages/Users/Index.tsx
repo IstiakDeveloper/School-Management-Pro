@@ -4,6 +4,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
 import Badge from '@/Components/Badge';
 import IndexPagination from '@/Components/IndexPagination';
+import DeleteModal from '@/Components/DeleteModal';
 import { Plus, Search, Edit, Trash2, Mail, Phone, User as UserIcon, Eye, Shield } from 'lucide-react';
 
 interface User {
@@ -38,16 +39,35 @@ interface UsersIndexProps {
 
 export default function Index({ users, filters }: UsersIndexProps) {
     const [search, setSearch] = useState(filters.search || '');
+    const [deleteOpen, setDeleteOpen] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string | null } | null>(null);
+    const [deleting, setDeleting] = useState(false);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
         router.get('/users', { search }, { preserveState: true });
     };
 
-    const handleDelete = (id: number) => {
-        if (confirm('Are you sure you want to delete this user?')) {
-            router.delete(`/users/${id}`);
-        }
+    const openDelete = (user: User) => {
+        setDeleteTarget({ id: user.id, name: user.name });
+        setDeleteOpen(true);
+    };
+
+    const closeDelete = () => {
+        if (deleting) return;
+        setDeleteOpen(false);
+        setDeleteTarget(null);
+    };
+
+    const confirmDelete = () => {
+        if (!deleteTarget) return;
+        setDeleting(true);
+        router.delete(`/users/${deleteTarget.id}`, {
+            onFinish: () => {
+                setDeleting(false);
+                closeDelete();
+            },
+        });
     };
 
     const getStatusVariant = (status: string) => (status === 'active' ? 'success' : 'default');
@@ -133,7 +153,7 @@ export default function Index({ users, filters }: UsersIndexProps) {
                                             <div className="flex items-center justify-end gap-1">
                                                 <Link href={`/users/${user.id}`} className="p-1.5 text-gray-400 hover:text-gray-600 rounded"><Eye className="w-3.5 h-3.5" /></Link>
                                                 <Link href={`/users/${user.id}/edit`} className="p-1.5 text-gray-400 hover:text-gray-600 rounded"><Edit className="w-3.5 h-3.5" /></Link>
-                                                <button type="button" onClick={() => handleDelete(user.id)} className="p-1.5 text-gray-400 hover:text-red-600 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
+                                                <button type="button" onClick={() => openDelete(user)} className="p-1.5 text-gray-400 hover:text-red-600 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
                                             </div>
                                         </td>
                                     </tr>
@@ -154,6 +174,16 @@ export default function Index({ users, filters }: UsersIndexProps) {
                     />
                 </div>
             </div>
+
+            <DeleteModal
+                isOpen={deleteOpen}
+                onClose={closeDelete}
+                onConfirm={confirmDelete}
+                isDeleting={deleting}
+                title="Delete user"
+                message="You’re about to permanently delete this user from the system."
+                itemName={deleteTarget?.name ?? undefined}
+            />
         </AuthenticatedLayout>
     );
 }

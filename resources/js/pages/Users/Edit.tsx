@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
 import Input from '@/Components/Input';
+import DeleteModal from '@/Components/DeleteModal';
 import {
     User,
     Mail,
@@ -51,6 +52,8 @@ export default function Edit({ user, roles }: EditProps) {
     const [processing, setProcessing] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [deleteOpen, setDeleteOpen] = useState(false);
+    const [deleting, setDeleting] = useState(false);
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
@@ -67,10 +70,19 @@ export default function Edit({ user, roles }: EditProps) {
         });
     };
 
-    const handleDelete = () => {
-        if (confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-            router.delete(`/users/${user.id}`);
-        }
+    const openDelete = () => setDeleteOpen(true);
+    const closeDelete = () => {
+        if (deleting) return;
+        setDeleteOpen(false);
+    };
+    const confirmDelete = () => {
+        setDeleting(true);
+        router.delete(`/users/${user.id}`, {
+            onFinish: () => {
+                setDeleting(false);
+                closeDelete();
+            },
+        });
     };
 
     const toggleRoleSelection = (roleId: number) => {
@@ -103,7 +115,7 @@ export default function Edit({ user, roles }: EditProps) {
                     </div>
                     <Button
                         variant="outline"
-                        onClick={handleDelete}
+                        onClick={openDelete}
                         className="text-xs text-red-600 hover:bg-red-50 border-red-200"
                         icon={<Trash2 className="w-3.5 h-3.5" />}
                     >
@@ -347,6 +359,16 @@ export default function Edit({ user, roles }: EditProps) {
                     </div>
                 </form>
             </div>
+
+            <DeleteModal
+                isOpen={deleteOpen}
+                onClose={closeDelete}
+                onConfirm={confirmDelete}
+                isDeleting={deleting}
+                title="Delete user"
+                message="You’re about to permanently delete this user from the system."
+                itemName={user.name}
+            />
         </AuthenticatedLayout>
     );
 }
