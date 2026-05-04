@@ -116,7 +116,7 @@ class DashboardController extends Controller
     {
         $stats = [];
 
-        if ($user->isSuperAdmin() || $user->isPrincipal()) {
+        if ($user->isSuperAdmin() || $user->isAdmin() || $user->isPrincipal()) {
             $stats = [
                 'total_students' => Student::where('status', 'active')->count(),
                 'total_teachers' => Teacher::where('status', 'active')->count(),

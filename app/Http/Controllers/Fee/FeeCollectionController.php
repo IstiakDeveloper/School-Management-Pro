@@ -8,6 +8,7 @@ use App\Models\FeeCollection;
 use App\Models\FeeStructure;
 use App\Models\FeeType;
 use App\Models\Student;
+use App\Models\Transaction;
 use App\Traits\CreatesAccountingTransactions;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -479,6 +480,210 @@ class FeeCollectionController extends Controller
             return redirect()->back()
                 ->withInput()
                 ->with('error', 'Failed to collect fees: '.$e->getMessage());
+        }
+    }
+
+    /**
+     * Show form to edit a paid receipt (all rows sharing the same receipt_number).
+     */
+    public function edit(FeeCollection $feeCollection)
+    {
+        $this->authorize('manage_fees');
+
+        $feeCollection->load(['student.user', 'student.schoolClass']);
+
+        $related = FeeCollection::with(['feeType'])
+            ->where('receipt_number', $feeCollection->receipt_number)
+            ->orderBy('year')
+            ->orderBy('month')
+            ->orderBy('fee_type_id')
+            ->get();
+
+        if ($related->contains(fn ($r) => $r->status !== 'paid')) {
+            return redirect()->route('fee-collections.index')
+                ->with('error', 'Only paid receipts can be edited.');
+        }
+
+        $first = $related->first();
+        $lines = $related->map(fn ($r) => [
+            'id' => $r->id,
+            'fee_type' => ['name' => $r->feeType->name ?? 'N/A'],
+            'month' => $r->month,
+            'year' => $r->year,
+            'amount' => (float) $r->amount,
+            'late_fee' => (float) $r->late_fee,
+            'discount' => (float) $r->discount,
+        ]);
+
+        return Inertia::render('Fees/Collections/Edit', [
+            'receipt_number' => $feeCollection->receipt_number,
+            'student' => [
+                'user' => ['name' => $feeCollection->student->user->name ?? 'N/A'],
+                'admission_number' => $feeCollection->student->admission_number ?? 'N/A',
+                'school_class' => ['name' => $feeCollection->student->schoolClass->name ?? 'N/A'],
+            ],
+            'payment_date' => $first->payment_date->format('Y-m-d'),
+            'payment_method' => $first->payment_method,
+            'account_id' => $first->account_id,
+            'remarks' => $first->remarks ?? '',
+            'lines' => $lines,
+            'accounts' => Account::where('status', 'active')
+                ->get(['id', 'account_name', 'current_balance']),
+            'fee_collection_id' => $feeCollection->id,
+        ]);
+    }
+
+    /**
+     * Update a paid receipt and sync accounting (reverse old income txs by reference, recreate).
+     */
+    public function update(Request $request, FeeCollection $feeCollection)
+    {
+        $this->authorize('manage_fees');
+
+        $receiptNumber = $feeCollection->receipt_number;
+
+        $related = FeeCollection::with(['student.user', 'feeType'])
+            ->where('receipt_number', $receiptNumber)
+            ->get();
+
+        if ($related->isEmpty()) {
+            return redirect()->route('fee-collections.index')
+                ->with('error', 'Receipt not found.');
+        }
+
+        if ($related->contains(fn ($r) => $r->status !== 'paid')) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Only paid receipts can be edited.');
+        }
+
+        $validated = $request->validate([
+            'account_id' => 'required|exists:accounts,id',
+            'payment_method' => 'required|in:cash,bank_transfer,cheque,mobile_banking,online',
+            'payment_date' => 'required|date',
+            'remarks' => 'nullable|string|max:500',
+            'lines' => 'required|array|min:1',
+            'lines.*.id' => 'required|exists:fee_collections,id',
+            'lines.*.amount' => 'required|numeric|min:0',
+            'lines.*.late_fee' => 'nullable|numeric|min:0',
+            'lines.*.discount' => 'nullable|numeric|min:0',
+        ]);
+
+        $lineIds = collect($validated['lines'])->pluck('id')->sort()->values();
+        $existingIds = $related->pluck('id')->sort()->values();
+        if ($lineIds->count() !== $existingIds->count() || $lineIds->diff($existingIds)->isNotEmpty()) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Line items must match this receipt exactly.');
+        }
+
+        DB::beginTransaction();
+        try {
+            $student = $related->first()->student;
+
+            $oldTransactions = Transaction::where('reference_number', $receiptNumber)
+                ->where('type', 'income')
+                ->get();
+
+            foreach ($oldTransactions as $trx) {
+                $this->reverseAccountingTransaction($trx->id);
+            }
+
+            $totalAmount = 0;
+            $allProcessedFees = [];
+
+            foreach ($validated['lines'] as $line) {
+                $fee = $related->firstWhere('id', $line['id']);
+                if (! $fee || $fee->receipt_number !== $receiptNumber) {
+                    throw new \Exception('Invalid fee line for this receipt.');
+                }
+
+                $amount = floatval($line['amount']);
+                $lateFee = floatval($line['late_fee'] ?? 0);
+                $discount = floatval($line['discount'] ?? 0);
+                $paidAmount = $amount + $lateFee - $discount;
+
+                if ($paidAmount < 0) {
+                    throw new \Exception('Discount cannot exceed amount plus late fee.');
+                }
+
+                $fee->update([
+                    'account_id' => $validated['account_id'],
+                    'amount' => $amount,
+                    'late_fee' => $lateFee,
+                    'discount' => $discount,
+                    'total_amount' => $paidAmount,
+                    'paid_amount' => $paidAmount,
+                    'payment_date' => $validated['payment_date'],
+                    'payment_method' => $validated['payment_method'],
+                    'remarks' => $validated['remarks'] ?? null,
+                ]);
+
+                $totalAmount += $paidAmount;
+                $allProcessedFees[] = [
+                    'fee_type_id' => $fee->fee_type_id,
+                    'fee_type_name' => $fee->feeType->name,
+                    'amount' => $paidAmount,
+                    'month' => $fee->month,
+                    'year' => $fee->year,
+                ];
+            }
+
+            if ($totalAmount > 0) {
+                $feesByType = [];
+                foreach ($allProcessedFees as $feeData) {
+                    $feeTypeKey = $feeData['fee_type_id'];
+                    if (! isset($feesByType[$feeTypeKey])) {
+                        $feesByType[$feeTypeKey] = [
+                            'fee_type_id' => $feeData['fee_type_id'],
+                            'fee_type_name' => $feeData['fee_type_name'],
+                            'amount' => 0,
+                            'descriptions' => [],
+                        ];
+                    }
+                    $feesByType[$feeTypeKey]['amount'] += $feeData['amount'];
+                    $monthName = Carbon::create($feeData['year'], $feeData['month'], 1)->format('M Y');
+                    $feesByType[$feeTypeKey]['descriptions'][] = $monthName;
+                }
+
+                foreach ($feesByType as $feeTypeData) {
+                    $description = "{$feeTypeData['fee_type_name']} from {$student->user->name} - ".implode(', ', $feeTypeData['descriptions']);
+                    if (! empty($validated['remarks'])) {
+                        $description .= " | {$validated['remarks']}";
+                    }
+
+                    $this->createFeeIncomeTransactionByType(
+                        accountId: (int) $validated['account_id'],
+                        feeTypeId: $feeTypeData['fee_type_id'],
+                        feeTypeName: $feeTypeData['fee_type_name'],
+                        amount: $feeTypeData['amount'],
+                        date: $validated['payment_date'],
+                        paymentMethod: $validated['payment_method'],
+                        referenceNumber: $receiptNumber,
+                        description: $description
+                    );
+                }
+
+                Account::find($validated['account_id'])->increment('current_balance', $totalAmount);
+            }
+
+            DB::commit();
+
+            logActivity(
+                'update',
+                "Updated fee receipt {$receiptNumber} for {$student->user->name}",
+                FeeCollection::class
+            );
+
+            return redirect()->route('fee-collections.index')
+                ->with('success', "Receipt {$receiptNumber} updated successfully.");
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Failed to update receipt: '.$e->getMessage());
         }
     }
 

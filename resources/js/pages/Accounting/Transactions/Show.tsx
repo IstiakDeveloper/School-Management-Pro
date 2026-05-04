@@ -3,7 +3,7 @@ import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
 import Badge from '@/Components/Badge';
-import { ArrowLeft, Calendar, User } from 'lucide-react';
+import { ArrowLeft, Calendar, User, Pencil } from 'lucide-react';
 import { Transaction } from '@/types/accounting';
 
 interface ShowProps {
@@ -37,11 +37,18 @@ export default function Show({ transaction }: ShowProps) {
                         </h1>
                         <p className="text-gray-600 mt-1">{transaction.transaction_number}</p>
                     </div>
-                    <Link href="/accounting/transactions">
-                        <Button variant="ghost" icon={<ArrowLeft className="w-5 h-5" />}>
-                            Back to Transactions
-                        </Button>
-                    </Link>
+                    <div className="flex items-center gap-2">
+                        <Link href={`/accounting/transactions/${transaction.id}/edit`}>
+                            <Button variant="ghost" icon={<Pencil className="w-5 h-5" />}>
+                                Edit
+                            </Button>
+                        </Link>
+                        <Link href="/accounting/transactions">
+                            <Button variant="ghost" icon={<ArrowLeft className="w-5 h-5" />}>
+                                Back to Transactions
+                            </Button>
+                        </Link>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

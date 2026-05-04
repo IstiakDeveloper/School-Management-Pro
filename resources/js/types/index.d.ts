@@ -1,5 +1,7 @@
 export interface Auth {
-    user: User;
+    user: User | null;
+    /** Super Admin only; Admin role is view/create without editing or deleting records */
+    can_edit_or_delete?: boolean;
 }
 
 export interface SharedData {

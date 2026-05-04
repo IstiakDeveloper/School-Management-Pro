@@ -293,7 +293,7 @@ class StaffWelfareLoanController extends Controller
             // Create installments
             $firstInstallmentDate = Carbon::parse($validated['first_installment_date']);
             for ($i = 1; $i <= $installmentCount; $i++) {
-                $dueDate = $firstInstallmentDate->copy()->addMonths($i - 1);
+                $dueDate = $firstInstallmentDate->copy()->addMonthsNoOverflow($i - 1);
 
                 // Calculate amount for this installment
                 // Last installment should be the remaining amount to match exact loan amount
@@ -605,7 +605,7 @@ class StaffWelfareLoanController extends Controller
 
             $firstInstallmentDate = Carbon::parse($validated['first_installment_date']);
             for ($i = 1; $i <= $validated['installment_count']; $i++) {
-                $dueDate = $firstInstallmentDate->copy()->addMonths($i - 1);
+                $dueDate = $firstInstallmentDate->copy()->addMonthsNoOverflow($i - 1);
 
                 // Calculate amount for this installment
                 // Last installment should be the remaining amount to match exact loan amount

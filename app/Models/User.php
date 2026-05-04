@@ -103,4 +103,12 @@ class User extends Authenticatable
             $q->where('slug', $permission)->orWhere('name', $permission);
         });
     }
+
+    /**
+     * Only Super Admin may change or remove existing records (Admin role is view/create only).
+     */
+    public function canEditOrDeleteRecords(): bool
+    {
+        return $this->isSuperAdmin();
+    }
 }

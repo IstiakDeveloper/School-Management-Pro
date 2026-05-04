@@ -3,7 +3,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
 import IndexPagination from '@/Components/IndexPagination';
-import { Plus, Search, Eye, Trash2, TrendingUp, TrendingDown, DollarSign, Calendar, RefreshCw } from 'lucide-react';
+import { Plus, Search, Eye, Trash2, TrendingUp, TrendingDown, DollarSign, Calendar, RefreshCw, Pencil } from 'lucide-react';
 import { Transaction, Account, TransactionFilters, PaginatedData } from '@/types/accounting';
 
 interface IndexProps {
@@ -238,6 +238,13 @@ export default function Index({ transactions, filters, accounts, stats }: IndexP
                                                     title="View"
                                                 >
                                                     <Eye className="w-3.5 h-3.5" />
+                                                </Link>
+                                                <Link
+                                                    href={`/accounting/transactions/${transaction.id}/edit`}
+                                                    className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
+                                                    title="Edit"
+                                                >
+                                                    <Pencil className="w-3.5 h-3.5" />
                                                 </Link>
                                                 <button
                                                     type="button"

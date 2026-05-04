@@ -39,18 +39,18 @@ class RoleController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:roles',
             'description' => 'nullable|string',
-            'permissions' => 'array',
-            'permissions.*' => 'exists:permissions,id',
+            'permission_ids' => 'array',
+            'permission_ids.*' => 'exists:permissions,id',
         ]);
 
         $role = Role::create([
             'name' => $validated['name'],
             'slug' => Str::slug($validated['name']),
-            'description' => $validated['description'],
+            'description' => $validated['description'] ?? null,
         ]);
 
-        if (!empty($validated['permissions'])) {
-            $role->permissions()->sync($validated['permissions']);
+        if (!empty($validated['permission_ids'])) {
+            $role->permissions()->sync($validated['permission_ids']);
         }
 
         logActivity('create', "Created role: {$role->name}", Role::class, $role->id);
@@ -79,17 +79,17 @@ class RoleController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:roles,name,'.$role->id,
             'description' => 'nullable|string',
-            'permissions' => 'array',
-            'permissions.*' => 'exists:permissions,id',
+            'permission_ids' => 'array',
+            'permission_ids.*' => 'exists:permissions,id',
         ]);
 
         $role->update([
             'name' => $validated['name'],
             'slug' => Str::slug($validated['name']),
-            'description' => $validated['description'],
+            'description' => $validated['description'] ?? null,
         ]);
 
-        $role->permissions()->sync($validated['permissions'] ?? []);
+        $role->permissions()->sync($validated['permission_ids'] ?? []);
 
         logActivity('update', "Updated role: {$role->name}", Role::class, $role->id);
 

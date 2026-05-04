@@ -1,7 +1,7 @@
 import React from 'react';
 import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Printer, Download, ArrowLeft } from 'lucide-react';
+import { Printer, Download, ArrowLeft, Pencil } from 'lucide-react';
 
 function formatDate(dateString: string): string {
     const date = new Date(dateString);
@@ -184,10 +184,28 @@ export default function Receipt({ collection, relatedCollections, totalAmount }:
             <div className="receipt-container">
                 {/* Action Buttons */}
                 <div className="action-buttons no-print">
-                    <button onClick={() => router.visit('/fee-collections')} className="btn-back">
-                        <ArrowLeft className="w-4 h-4" />
-                        Back to Collections
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <button type="button" onClick={() => router.visit('/fee-collections')} className="btn-back">
+                            <ArrowLeft className="w-4 h-4" />
+                            Back to Collections
+                        </button>
+                        {collection.status === 'paid' && (
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    router.visit(
+                                        typeof route !== 'undefined'
+                                            ? route('fee-collections.edit', collection.id)
+                                            : `/fee-collections/${collection.id}/edit`
+                                    )
+                                }
+                                className="btn-edit-receipt"
+                            >
+                                <Pencil className="w-4 h-4" />
+                                Edit receipt
+                            </button>
+                        )}
+                    </div>
                     <div className="btn-group">
                         <button onClick={handlePrint} className="btn-download">
                             <Download className="w-4 h-4" />
@@ -245,6 +263,25 @@ export default function Receipt({ collection, relatedCollections, totalAmount }:
                 .btn-back {
                     background: #f3f4f6;
                     color: #374151;
+                }
+
+                .btn-edit-receipt {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 10px 16px;
+                    border-radius: 8px;
+                    border: 1px solid #fcd34d;
+                    cursor: pointer;
+                    font-size: 14px;
+                    font-weight: 500;
+                    transition: all 0.2s;
+                    background: #fffbeb;
+                    color: #78350f;
+                }
+
+                .btn-edit-receipt:hover {
+                    background: #fef3c7;
                 }
 
                 .btn-back:hover {

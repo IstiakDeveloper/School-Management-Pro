@@ -5,7 +5,8 @@ import Button from '@/Components/Button';
 import Badge from '@/Components/Badge';
 import IndexPagination from '@/Components/IndexPagination';
 import DeleteModal from '@/Components/DeleteModal';
-import { Plus, Search, Edit, Trash2, Mail, Phone, User as UserIcon, Eye, Shield } from 'lucide-react';
+import { useCanEditOrDelete } from '@/hooks/useCanEditOrDelete';
+import { Plus, Search, Edit, Trash2, Mail, Phone, User as UserIcon, Eye } from 'lucide-react';
 
 interface User {
     id: number;
@@ -38,6 +39,7 @@ interface UsersIndexProps {
 }
 
 export default function Index({ users, filters }: UsersIndexProps) {
+    const canMutate = useCanEditOrDelete();
     const [search, setSearch] = useState(filters.search || '');
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string | null } | null>(null);
@@ -73,7 +75,7 @@ export default function Index({ users, filters }: UsersIndexProps) {
     const getStatusVariant = (status: string) => (status === 'active' ? 'success' : 'default');
     const getRoleVariant = (role: string) => {
         const m: Record<string, string> = {
-            'Super Admin': 'purple', 'Principal': 'info', 'Teacher': 'success',
+            'Super Admin': 'purple', 'Admin': 'violet', 'Principal': 'info', 'Teacher': 'success',
             'Accountant': 'warning', 'Librarian': 'cyan', 'Student': 'pink', 'Parent': 'indigo',
         };
         return m[role] || 'default';
@@ -152,8 +154,12 @@ export default function Index({ users, filters }: UsersIndexProps) {
                                         <td className="px-4 py-3 text-right">
                                             <div className="flex items-center justify-end gap-1">
                                                 <Link href={`/users/${user.id}`} className="p-1.5 text-gray-400 hover:text-gray-600 rounded"><Eye className="w-3.5 h-3.5" /></Link>
-                                                <Link href={`/users/${user.id}/edit`} className="p-1.5 text-gray-400 hover:text-gray-600 rounded"><Edit className="w-3.5 h-3.5" /></Link>
-                                                <button type="button" onClick={() => openDelete(user)} className="p-1.5 text-gray-400 hover:text-red-600 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
+                                                {canMutate && (
+                                                    <>
+                                                        <Link href={`/users/${user.id}/edit`} className="p-1.5 text-gray-400 hover:text-gray-600 rounded"><Edit className="w-3.5 h-3.5" /></Link>
+                                                        <button type="button" onClick={() => openDelete(user)} className="p-1.5 text-gray-400 hover:text-red-600 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
+                                                    </>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

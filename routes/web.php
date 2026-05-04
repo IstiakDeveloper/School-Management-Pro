@@ -1,64 +1,64 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
-use App\Http\Controllers\Auth\LoginController;
-use App\Http\Controllers\Auth\RegisterController;
-use App\Http\Controllers\Auth\ForgotPasswordController;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\RoleController;
-use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\Academic\AcademicYearController;
 use App\Http\Controllers\Academic\ClassController;
 use App\Http\Controllers\Academic\SectionController;
 use App\Http\Controllers\Academic\SubjectController;
-use App\Http\Controllers\Student\StudentController;
-use App\Http\Controllers\Student\StudentPromotionController;
-use App\Http\Controllers\Student\StudentParentController;
-use App\Http\Controllers\Student\StudentDocumentController;
-use App\Http\Controllers\Teacher\TeacherController;
-use App\Http\Controllers\Teacher\TeacherSubjectController;
-use App\Http\Controllers\StaffController;
-use App\Http\Controllers\SalaryController;
+use App\Http\Controllers\Accounting\AccountController;
+use App\Http\Controllers\Accounting\DashboardController as AccountingDashboardController;
+use App\Http\Controllers\Accounting\ExpenseCategoryController;
+use App\Http\Controllers\Accounting\FixedAssetController;
+use App\Http\Controllers\Accounting\FundController;
+use App\Http\Controllers\Accounting\IncomeCategoryController;
+use App\Http\Controllers\Accounting\InvestorController;
+use App\Http\Controllers\Accounting\Reports\BalanceSheetReportController;
+use App\Http\Controllers\Accounting\Reports\BankReportController;
+use App\Http\Controllers\Accounting\Reports\DueReportController;
+use App\Http\Controllers\Accounting\Reports\IncomeExpenditureReportController;
+use App\Http\Controllers\Accounting\Reports\ReceiptPaymentReportController;
+use App\Http\Controllers\Accounting\TransactionController;
+use App\Http\Controllers\ActivityLogController;
+use App\Http\Controllers\Attendance\AttendanceSummaryController;
 use App\Http\Controllers\Attendance\StudentAttendanceController;
 use App\Http\Controllers\Attendance\TeacherAttendanceController;
-use App\Http\Controllers\Attendance\AttendanceSummaryController;
+use App\Http\Controllers\Auth\ForgotPasswordController;
+use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\RegisterController;
+use App\Http\Controllers\Communication\EventController;
+use App\Http\Controllers\Communication\MessageController;
+use App\Http\Controllers\Communication\NoticeController;
+use App\Http\Controllers\Communication\NotificationController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DeviceSettingController;
 use App\Http\Controllers\Exam\ExamController;
-use App\Http\Controllers\Exam\ExamScheduleController;
 use App\Http\Controllers\Exam\ExamHallController;
-use App\Http\Controllers\Exam\ExamSeatPlanController;
 use App\Http\Controllers\Exam\ExamInvigilatorController;
+use App\Http\Controllers\Exam\ExamScheduleController;
+use App\Http\Controllers\Exam\ExamSeatPlanController;
+use App\Http\Controllers\Exam\GradeSettingController;
 use App\Http\Controllers\Exam\MarkController;
 use App\Http\Controllers\Exam\ResultController;
-use App\Http\Controllers\Exam\GradeSettingController;
-use App\Http\Controllers\Fee\FeeTypeController;
-use App\Http\Controllers\Fee\FeeStructureController;
 use App\Http\Controllers\Fee\FeeCollectionController;
+use App\Http\Controllers\Fee\FeeStructureController;
+use App\Http\Controllers\Fee\FeeTypeController;
 use App\Http\Controllers\Fee\FeeWaiverController;
 use App\Http\Controllers\Library\BookController;
 use App\Http\Controllers\Library\BookIssueController;
-use App\Http\Controllers\Accounting\DashboardController as AccountingDashboardController;
-use App\Http\Controllers\Accounting\AccountController;
-use App\Http\Controllers\Accounting\TransactionController;
-use App\Http\Controllers\Accounting\FixedAssetController;
-use App\Http\Controllers\Accounting\ExpenseCategoryController;
-use App\Http\Controllers\Accounting\IncomeCategoryController;
-use App\Http\Controllers\Accounting\InvestorController;
-use App\Http\Controllers\Accounting\FundController;
-use App\Http\Controllers\Accounting\Reports\BankReportController;
-use App\Http\Controllers\Accounting\Reports\ReceiptPaymentReportController;
-use App\Http\Controllers\Accounting\Reports\IncomeExpenditureReportController;
-use App\Http\Controllers\Accounting\Reports\BalanceSheetReportController;
-use App\Http\Controllers\Accounting\Reports\DueReportController;
-use App\Http\Controllers\Communication\NoticeController;
-use App\Http\Controllers\Communication\MessageController;
-use App\Http\Controllers\DeviceSettingController;
-use App\Http\Controllers\Communication\NotificationController;
-use App\Http\Controllers\Communication\EventController;
+use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ReportController;
-use App\Http\Controllers\ActivityLogController;
+use App\Http\Controllers\RoleController;
+use App\Http\Controllers\SalaryController;
 use App\Http\Controllers\SettingController;
+use App\Http\Controllers\StaffController;
+use App\Http\Controllers\Student\StudentController;
+use App\Http\Controllers\Student\StudentDocumentController;
+use App\Http\Controllers\Student\StudentParentController;
+use App\Http\Controllers\Student\StudentPromotionController;
+use App\Http\Controllers\Teacher\TeacherController;
+use App\Http\Controllers\Teacher\TeacherSubjectController;
+use App\Http\Controllers\UserController;
+use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 // ============================================
 // PUBLIC ROUTES
@@ -86,7 +86,7 @@ Route::middleware('guest')->group(function () {
 // ============================================
 // AUTHENTICATED ROUTES
 // ============================================
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'restrict.admin.mutations'])->group(function () {
 
     // Logout
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
@@ -99,7 +99,7 @@ Route::middleware('auth')->group(function () {
     // ============================================
     // ADMIN ROUTES (User, Role, Permission Management)
     // ============================================
-    Route::middleware(['role:Super Admin'])->group(function () {
+    Route::middleware(['role:Super Admin,Admin'])->group(function () {
         Route::resource('users', UserController::class);
         Route::resource('roles', RoleController::class)->except(['show']);
         Route::resource('permissions', PermissionController::class)->only(['index', 'store', 'update', 'destroy']);
@@ -109,7 +109,7 @@ Route::middleware('auth')->group(function () {
     // ============================================
     // ACADEMIC SETUP (Super Admin & Principal Access)
     // ============================================
-    Route::middleware(['role:Super Admin,Principal'])->group(function () {
+    Route::middleware(['role:Super Admin,Admin,Principal'])->group(function () {
         Route::resource('academic-years', AcademicYearController::class);
         Route::post('academic-years/{academic_year}/set-current', [AcademicYearController::class, 'setCurrent'])->name('academic-years.set-current');
 
@@ -121,7 +121,7 @@ Route::middleware('auth')->group(function () {
     // ============================================
     // STUDENT MANAGEMENT (Super Admin, Principal, Teacher Access)
     // ============================================
-    Route::middleware(['role:Super Admin,Principal,Teacher'])->group(function () {
+    Route::middleware(['role:Super Admin,Admin,Principal,Teacher'])->group(function () {
         Route::resource('students', StudentController::class);
         Route::get('students/sections/{classId}', [StudentController::class, 'getSections'])->name('students.sections');
 
@@ -136,7 +136,7 @@ Route::middleware('auth')->group(function () {
     // ============================================
     // STUDENT PROMOTION (Super Admin & Principal Only)
     // ============================================
-    Route::middleware(['role:Super Admin,Principal'])->group(function () {
+    Route::middleware(['role:Super Admin,Admin,Principal'])->group(function () {
         // Custom route must come BEFORE resource route to avoid conflicts
         Route::get('student-promotions/students', [StudentPromotionController::class, 'getStudentsForPromotion'])->name('student-promotions.students');
         Route::resource('student-promotions', StudentPromotionController::class)->except(['edit', 'update']);
@@ -145,7 +145,7 @@ Route::middleware('auth')->group(function () {
     // ============================================
     // TEACHER MANAGEMENT (Super Admin & Principal Access)
     // ============================================
-    Route::middleware(['role:Super Admin,Principal'])->group(function () {
+    Route::middleware(['role:Super Admin,Admin,Principal'])->group(function () {
         // Print routes (must be before resource route)
         Route::get('teachers/{teacher}/print-profile', [TeacherController::class, 'printProfile'])->name('teachers.print-profile');
         Route::get('teachers/{teacher}/print-id-card', [TeacherController::class, 'printIdCard'])->name('teachers.print-id-card');
@@ -159,7 +159,7 @@ Route::middleware('auth')->group(function () {
     // ============================================
     // STAFF & SALARY MANAGEMENT (Super Admin & Principal Access)
     // ============================================
-    Route::middleware(['role:Super Admin,Principal'])->group(function () {
+    Route::middleware(['role:Super Admin,Admin,Principal'])->group(function () {
         Route::resource('staff', StaffController::class);
         Route::resource('salaries', SalaryController::class);
 
@@ -180,7 +180,7 @@ Route::middleware('auth')->group(function () {
     // ============================================
     // ATTENDANCE MANAGEMENT (Super Admin, Principal, Teacher Access)
     // ============================================
-    Route::middleware(['role:Super Admin,Principal,Teacher'])->group(function () {
+    Route::middleware(['role:Super Admin,Admin,Principal,Teacher'])->group(function () {
         // Custom routes BEFORE resource routes
         Route::get('student-attendance/students', [StudentAttendanceController::class, 'getStudents'])->name('student-attendance.students');
         Route::get('student-attendance/report', [StudentAttendanceController::class, 'report'])->name('student-attendance.report');
@@ -200,7 +200,7 @@ Route::middleware('auth')->group(function () {
     // ============================================
     // EXAM MANAGEMENT (Super Admin, Principal, Teacher Access)
     // ============================================
-    Route::middleware(['role:Super Admin,Principal,Teacher'])->group(function () {
+    Route::middleware(['role:Super Admin,Admin,Principal,Teacher'])->group(function () {
         Route::resource('exams', ExamController::class);
 
         Route::resource('exam-schedules', ExamScheduleController::class);
@@ -230,13 +230,13 @@ Route::middleware('auth')->group(function () {
     // ============================================
     // FEE MANAGEMENT (Super Admin, Principal, Accountant Access)
     // ============================================
-    Route::middleware(['role:Super Admin,Principal,Accountant'])->group(function () {
+    Route::middleware(['role:Super Admin,Admin,Principal,Accountant'])->group(function () {
         Route::resource('fee-types', FeeTypeController::class)->except(['show']);
         Route::resource('fee-structures', FeeStructureController::class)->except(['show']);
 
         // Fee collections with auto-generation middleware
         Route::resource('fee-collections', FeeCollectionController::class)
-            ->except(['edit', 'update', 'show'])
+            ->except(['show', 'create'])
             ->middleware('auto.fees');
 
         // Custom fee collection routes (must be before resource routes to avoid conflicts)
@@ -262,7 +262,7 @@ Route::middleware('auth')->group(function () {
     // ============================================
     // LIBRARY MANAGEMENT (Super Admin, Principal, Librarian Access)
     // ============================================
-    Route::middleware(['role:Super Admin,Principal,Librarian'])->group(function () {
+    Route::middleware(['role:Super Admin,Admin,Principal,Librarian'])->group(function () {
         Route::resource('books', BookController::class);
 
         Route::resource('book-issues', BookIssueController::class)->except(['edit', 'update']);
@@ -273,7 +273,7 @@ Route::middleware('auth')->group(function () {
     // ============================================
     // ACCOUNTING SYSTEM (Super Admin, Principal, Accountant Access)
     // ============================================
-    Route::prefix('accounting')->middleware(['role:Super Admin,Principal,Accountant'])->group(function () {
+    Route::prefix('accounting')->middleware(['role:Super Admin,Admin,Principal,Accountant'])->group(function () {
         Route::get('dashboard', [AccountingDashboardController::class, 'index'])->name('accounting.dashboard');
 
         Route::resource('accounts', AccountController::class)->names([
@@ -286,11 +286,13 @@ Route::middleware('auth')->group(function () {
             'destroy' => 'accounting.accounts.destroy',
         ]);
 
-        Route::resource('transactions', TransactionController::class)->except(['edit', 'update'])->names([
+        Route::resource('transactions', TransactionController::class)->names([
             'index' => 'accounting.transactions.index',
             'create' => 'accounting.transactions.create',
             'store' => 'accounting.transactions.store',
             'show' => 'accounting.transactions.show',
+            'edit' => 'accounting.transactions.edit',
+            'update' => 'accounting.transactions.update',
             'destroy' => 'accounting.transactions.destroy',
         ]);
 
@@ -358,7 +360,7 @@ Route::middleware('auth')->group(function () {
     // ============================================
     // COMMUNICATION (All Authenticated Users)
     // ============================================
-    Route::middleware(['role:Super Admin,Principal,Teacher,Accountant,Librarian,Student,Parent'])->group(function () {
+    Route::middleware(['role:Super Admin,Admin,Principal,Teacher,Accountant,Librarian,Student,Parent'])->group(function () {
         Route::resource('notices', NoticeController::class);
 
         Route::resource('messages', MessageController::class)->except(['edit', 'update']);
@@ -382,7 +384,7 @@ Route::middleware('auth')->group(function () {
     // ============================================
     // REPORTS (Super Admin, Principal, Teacher, Accountant Access)
     // ============================================
-    Route::middleware(['role:Super Admin,Principal,Teacher,Accountant'])->group(function () {
+    Route::middleware(['role:Super Admin,Admin,Principal,Teacher,Accountant'])->group(function () {
         Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
         Route::get('reports/attendance', [ReportController::class, 'attendanceReport'])->name('reports.attendance');
         Route::get('reports/fees', [ReportController::class, 'feeReport'])->name('reports.fees');
@@ -404,7 +406,7 @@ Route::middleware('auth')->group(function () {
     // ============================================
     // SETTINGS (Super Admin & Principal Access)
     // ============================================
-    Route::middleware(['role:Super Admin,Principal'])->group(function () {
+    Route::middleware(['role:Super Admin,Admin,Principal'])->group(function () {
         Route::get('settings', [SettingController::class, 'index'])->name('settings.index');
         Route::post('settings', [SettingController::class, 'update'])->name('settings.update');
         Route::get('settings/general', [SettingController::class, 'general'])->name('settings.general');
@@ -566,15 +568,16 @@ Route::middleware('auth')->group(function () {
 Route::get('/storage-link', function () {
     try {
         \Illuminate\Support\Facades\Artisan::call('storage:link');
+
         return response()->json([
             'success' => true,
             'message' => 'Storage link created successfully!',
-            'output' => \Illuminate\Support\Facades\Artisan::output()
+            'output' => \Illuminate\Support\Facades\Artisan::output(),
         ]);
     } catch (\Exception $e) {
         return response()->json([
             'success' => false,
-            'message' => 'Failed to create storage link: ' . $e->getMessage()
+            'message' => 'Failed to create storage link: '.$e->getMessage(),
         ], 500);
     }
 })->name('setup.storage-link');
@@ -582,15 +585,16 @@ Route::get('/storage-link', function () {
 Route::get('/migrate', function () {
     try {
         \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+
         return response()->json([
             'success' => true,
             'message' => 'Database migration completed successfully!',
-            'output' => \Illuminate\Support\Facades\Artisan::output()
+            'output' => \Illuminate\Support\Facades\Artisan::output(),
         ]);
     } catch (\Exception $e) {
         return response()->json([
             'success' => false,
-            'message' => 'Failed to migrate database: ' . $e->getMessage()
+            'message' => 'Failed to migrate database: '.$e->getMessage(),
         ], 500);
     }
 })->name('setup.migrate');

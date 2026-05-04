@@ -60,6 +60,12 @@ class AuthorizationServiceProvider extends ServiceProvider
         Gate::define('edit_classes', fn (User $user) => $user->hasPermission('edit_classes'));
         Gate::define('delete_classes', fn (User $user) => $user->hasPermission('delete_classes'));
 
+        // Subject Management Gates
+        Gate::define('view_subjects', fn (User $user) => $user->hasPermission('view_subjects'));
+        Gate::define('create_subjects', fn (User $user) => $user->hasPermission('create_subjects'));
+        Gate::define('edit_subjects', fn (User $user) => $user->hasPermission('edit_subjects'));
+        Gate::define('delete_subjects', fn (User $user) => $user->hasPermission('delete_subjects'));
+
         // Attendance Management Gates
         Gate::define('view_attendance', fn (User $user) => $user->hasPermission('view_attendance'));
         Gate::define('mark_attendance', fn (User $user) => $user->hasPermission('mark_attendance'));
@@ -75,6 +81,13 @@ class AuthorizationServiceProvider extends ServiceProvider
         Gate::define('edit_marks', fn (User $user) => $user->hasPermission('edit_marks'));
         Gate::define('view_results', fn (User $user) => $user->hasPermission('view_results'));
         Gate::define('publish_results', fn (User $user) => $user->hasPermission('publish_results'));
+
+        // App-level "manage_*" gates used by controllers
+        Gate::define('manage_exams', fn (User $user) => $user->hasPermission('manage_exams'));
+        Gate::define('manage_fees', fn (User $user) => $user->hasPermission('manage_fees'));
+        Gate::define('manage_library', fn (User $user) => $user->hasPermission('manage_library'));
+        Gate::define('manage_notices', fn (User $user) => $user->hasPermission('manage_notices'));
+        Gate::define('manage_accounting', fn (User $user) => $user->hasPermission('manage_accounting'));
 
         // Fee Management Gates
         Gate::define('view_fees', fn (User $user) => $user->hasPermission('view_fees'));

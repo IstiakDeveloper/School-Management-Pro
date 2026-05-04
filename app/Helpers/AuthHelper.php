@@ -60,6 +60,26 @@ if (!function_exists('isSuperAdmin')) {
     }
 }
 
+if (!function_exists('isAdmin')) {
+    /**
+     * Check if the current user has the school Admin role (non–Super Admin).
+     */
+    function isAdmin(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
+}
+
+if (!function_exists('canEditOrDeleteRecords')) {
+    /**
+     * Whether the user may edit or delete existing records (Super Admin only).
+     */
+    function canEditOrDeleteRecords(): bool
+    {
+        return auth()->user()?->canEditOrDeleteRecords() ?? false;
+    }
+}
+
 if (!function_exists('isPrincipal')) {
     /**
      * Check if the current user is a principal.

@@ -121,6 +121,90 @@ class TransactionController extends Controller
         ]);
     }
 
+    public function edit(Transaction $transaction)
+    {
+        $this->authorize('manage_accounting');
+
+        $transaction->load(['account', 'incomeCategory', 'expenseCategory', 'transferToAccount']);
+
+        return Inertia::render('Accounting/Transactions/Edit', [
+            'transaction' => $transaction,
+            'accounts' => Account::where('status', 'active')->get(),
+            'incomeCategories' => IncomeCategory::where('status', 'active')->get(),
+            'expenseCategories' => ExpenseCategory::where('status', 'active')->get(),
+        ]);
+    }
+
+    public function update(Request $request, Transaction $transaction)
+    {
+        $this->authorize('manage_accounting');
+
+        $validated = $request->validate([
+            'account_id' => 'required|exists:accounts,id',
+            'type' => 'required|in:income,expense,transfer',
+            'income_category_id' => 'required_if:type,income|nullable|exists:income_categories,id',
+            'expense_category_id' => 'required_if:type,expense|nullable|exists:expense_categories,id',
+            'transfer_to_account_id' => 'required_if:type,transfer|nullable|exists:accounts,id|different:account_id',
+            'amount' => 'required|numeric|min:0.01',
+            'transaction_date' => 'required|date',
+            'payment_method' => 'nullable|string|max:255',
+            'reference_number' => 'nullable|string|max:255',
+            'description' => 'nullable|string',
+        ]);
+
+        // Normalize irrelevant fields for the selected type
+        if ($validated['type'] !== 'income') {
+            $validated['income_category_id'] = null;
+        }
+        if ($validated['type'] !== 'expense') {
+            $validated['expense_category_id'] = null;
+        }
+        if ($validated['type'] !== 'transfer') {
+            $validated['transfer_to_account_id'] = null;
+        }
+
+        DB::beginTransaction();
+        try {
+            // Reverse old balance effects
+            $oldAccount = Account::find($transaction->account_id);
+            $oldTransferTo = $transaction->transfer_to_account_id ? Account::find($transaction->transfer_to_account_id) : null;
+
+            if ($transaction->type === 'income') {
+                $oldAccount?->decrement('current_balance', $transaction->amount);
+            } elseif ($transaction->type === 'expense') {
+                $oldAccount?->increment('current_balance', $transaction->amount);
+            } elseif ($transaction->type === 'transfer') {
+                $oldAccount?->increment('current_balance', $transaction->amount);
+                $oldTransferTo?->decrement('current_balance', $transaction->amount);
+            }
+
+            // Apply new balance effects
+            $newAccount = Account::find($validated['account_id']);
+            $newTransferTo = $validated['transfer_to_account_id'] ? Account::find($validated['transfer_to_account_id']) : null;
+
+            if ($validated['type'] === 'income') {
+                $newAccount?->increment('current_balance', $validated['amount']);
+            } elseif ($validated['type'] === 'expense') {
+                $newAccount?->decrement('current_balance', $validated['amount']);
+            } elseif ($validated['type'] === 'transfer') {
+                $newAccount?->decrement('current_balance', $validated['amount']);
+                $newTransferTo?->increment('current_balance', $validated['amount']);
+            }
+
+            $transaction->update($validated);
+
+            DB::commit();
+
+            logActivity('update', "Updated transaction: {$transaction->transaction_number}", Transaction::class, $transaction->id);
+
+            return redirect()->route('accounting.transactions.show', $transaction)
+                ->with('success', 'Transaction updated successfully');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withInput()->with('error', 'Failed to update transaction: ' . $e->getMessage());
+        }
+    }
+
     public function destroy(Transaction $transaction)
     {
         $this->authorize('manage_accounting');

@@ -148,6 +148,14 @@ trait HasRoles
     }
 
     /**
+     * School-wide Admin (below Super Admin): broad access but no edit/delete of records.
+     */
+    public function isAdmin(): bool
+    {
+        return $this->hasRole('Admin') || $this->hasRole('admin');
+    }
+
+    /**
      * Check if user is a principal.
      */
     public function isPrincipal(): bool

@@ -50,6 +50,7 @@ class HandleInertiaRequests extends Middleware
                     'user_type' => $request->user()->user_type,
                     'roles' => $request->user()->roles,
                 ] : null,
+                'can_edit_or_delete' => $request->user()?->canEditOrDeleteRecords() ?? false,
             ],
             'flash' => [
                 'success' => $request->session()->get('success'),

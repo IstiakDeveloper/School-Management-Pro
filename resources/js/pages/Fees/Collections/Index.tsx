@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Plus, DollarSign, AlertCircle, Clock, CheckCircle, Printer, Eye, ChevronLeft, ChevronRight, Search, X, CalendarDays, RotateCcw, SlidersHorizontal } from 'lucide-react';
+import { useCanEditOrDelete } from '@/hooks/useCanEditOrDelete';
+import { Plus, DollarSign, AlertCircle, Clock, CheckCircle, Printer, Eye, ChevronLeft, ChevronRight, Search, X, CalendarDays, RotateCcw, SlidersHorizontal, Pencil } from 'lucide-react';
 import FeeCollectionModal from './FeeCollectionModal';
 
 function formatDate(dateString: string): string {
@@ -100,6 +101,7 @@ interface Props {
 }
 
 export default function Index({ collections, uniqueStudentCount, students, accounts, classes, sections, feeTypes = [], stats, filters }: Props) {
+    const canMutate = useCanEditOrDelete();
     const [showModal, setShowModal] = useState(false);
     const [filterStatus, setFilterStatus] = useState<string>(filters.status || 'all');
     const [filterClass, setFilterClass] = useState<string>(filters.class_id?.toString() || 'all');
@@ -120,6 +122,26 @@ export default function Index({ collections, uniqueStudentCount, students, accou
         setSearchTerm(filters.search || '');
     }, [filters]);
 
+    const applyFilters = useCallback(() => {
+        const params: Record<string, any> = {};
+
+        if (filterStatus !== 'all') params.status = filterStatus;
+        if (filterClass !== 'all') params.class_id = filterClass;
+        if (filterSection !== 'all') params.section_id = filterSection;
+        if (filterFeeType !== 'all') params.fee_type_id = filterFeeType;
+        if (dateFrom) params.date_from = dateFrom;
+        if (dateTo) params.date_to = dateTo;
+        if (searchTerm) params.search = searchTerm;
+
+        const routeName = typeof route !== 'undefined' ? route('fee-collections.index') : '/fee-collections';
+
+        router.get(routeName, params, {
+            preserveState: true,
+            preserveScroll: true,
+            only: ['collections', 'uniqueStudentCount', 'filters', 'stats']
+        });
+    }, [dateFrom, dateTo, filterClass, filterFeeType, filterSection, filterStatus, searchTerm]);
+
     const isFirstRender = useRef(true);
 
     // Mark after first render so debounce doesn't fire on mount
@@ -131,9 +153,9 @@ export default function Index({ collections, uniqueStudentCount, students, accou
     useEffect(() => {
         if (isFirstRender.current) return;
         if (searchTerm === (filters.search || '')) return;
-        const timer = setTimeout(() => applyFilters(), 500);
+        const timer = setTimeout(() => applyFilters(), 900);
         return () => clearTimeout(timer);
-    }, [searchTerm]);
+    }, [applyFilters, filters.search, searchTerm]);
 
     // Status pill click applies immediately
     const handleStatusClick = (status: string) => {
@@ -156,26 +178,6 @@ export default function Index({ collections, uniqueStudentCount, students, accou
     const filteredSections = filterClass === 'all'
         ? sections
         : sections.filter(section => section.class_id === parseInt(filterClass));
-
-    const applyFilters = () => {
-        const params: Record<string, any> = {};
-
-        if (filterStatus !== 'all') params.status = filterStatus;
-        if (filterClass !== 'all') params.class_id = filterClass;
-        if (filterSection !== 'all') params.section_id = filterSection;
-        if (filterFeeType !== 'all') params.fee_type_id = filterFeeType;
-        if (dateFrom) params.date_from = dateFrom;
-        if (dateTo) params.date_to = dateTo;
-        if (searchTerm) params.search = searchTerm;
-
-        const routeName = typeof route !== 'undefined' ? route('fee-collections.index') : '/fee-collections';
-
-        router.get(routeName, params, {
-            preserveState: true,
-            preserveScroll: true,
-            only: ['collections', 'uniqueStudentCount', 'filters', 'stats']
-        });
-    };
 
     const resetFilters = () => {
         setFilterStatus('all');
@@ -321,11 +323,11 @@ export default function Index({ collections, uniqueStudentCount, students, accou
                                     type="text"
                                     placeholder="Student name, receipt no..."
                                     value={searchTerm}
-                                    onChange={(e) => { isFirstRender.current = false; setSearchTerm(e.target.value); }}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
                                     className="w-full pl-8 pr-8 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 focus:bg-white transition"
                                 />
                                 {searchTerm && (
-                                    <button onClick={() => { isFirstRender.current = false; setSearchTerm(''); }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                    <button onClick={() => setSearchTerm('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                                         <X className="w-3.5 h-3.5" />
                                     </button>
                                 )}
@@ -513,7 +515,24 @@ export default function Index({ collections, uniqueStudentCount, students, accou
                                             </td>
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center gap-1">
+                                                    {collection.status === 'paid' && canMutate && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                router.visit(
+                                                                    typeof route !== 'undefined'
+                                                                        ? route('fee-collections.edit', collection.id)
+                                                                        : `/fee-collections/${collection.id}/edit`
+                                                                )
+                                                            }
+                                                            className="text-amber-700 hover:text-amber-900 p-1.5 hover:bg-amber-50 rounded transition"
+                                                            title="Edit receipt"
+                                                        >
+                                                            <Pencil className="w-4 h-4" />
+                                                        </button>
+                                                    )}
                                                     <button
+                                                        type="button"
                                                         onClick={() => router.visit(`/fee-collections/${collection.id}/receipt`)}
                                                         className="text-indigo-600 hover:text-indigo-800 p-1.5 hover:bg-indigo-50 rounded transition"
                                                         title="View Receipt"
@@ -521,6 +540,7 @@ export default function Index({ collections, uniqueStudentCount, students, accou
                                                         <Eye className="w-4 h-4" />
                                                     </button>
                                                     <button
+                                                        type="button"
                                                         onClick={() => {
                                                             router.visit(`/fee-collections/${collection.id}/receipt`);
                                                             setTimeout(() => window.print(), 500);
