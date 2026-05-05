@@ -44,12 +44,10 @@ class StaffWelfareLoanController extends Controller
 
         $transactionNumber = $prefix . str_pad($newNumber, 6, '0', STR_PAD_LEFT);
 
-        // Double check if this number already exists (safety check)
-        $attempts = 0;
-        while (Transaction::withTrashed()->where('transaction_number', $transactionNumber)->exists() && $attempts < 10) {
+        // Keep incrementing until we find a unique number
+        while (Transaction::withTrashed()->where('transaction_number', $transactionNumber)->exists()) {
             $newNumber++;
             $transactionNumber = $prefix . str_pad($newNumber, 6, '0', STR_PAD_LEFT);
-            $attempts++;
         }
 
         return $transactionNumber;
