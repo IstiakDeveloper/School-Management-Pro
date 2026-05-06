@@ -11,7 +11,6 @@ use App\Models\StaffWelfareLoan;
 use App\Models\Transaction;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class BalanceSheetReportController extends Controller
@@ -109,11 +108,17 @@ class BalanceSheetReportController extends Controller
         $totalFixedAssets = $fixedAssets->sum('current_value');
 
         // 2. Staff Welfare Loan Outstanding
-        // This is (Loan Amount - Total Paid) which already accounts for recoveries
-        // As staff repay loans, total_paid increases and outstanding decreases
+        // This is the loan amount minus repayments that occurred on or before the selected date.
         $welfareLoanOutstanding = StaffWelfareLoan::where('status', 'active')
             ->where('loan_date', '<=', $endDate)
-            ->sum(DB::raw('loan_amount - total_paid'));
+            ->withSum(['installments as paid_amount_as_of_date' => function ($query) use ($endDate) {
+                $query->whereNotNull('paid_date')
+                    ->where('paid_date', '<=', $endDate);
+            }], 'amount')
+            ->get()
+            ->sum(function ($loan) {
+                return $loan->loan_amount - $loan->paid_amount_as_of_date;
+            });
 
         // 3. Closing Bank Balance (ALL accounts combined as of the selected date)
         // This already includes all cash movements including loan recoveries

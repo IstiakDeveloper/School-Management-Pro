@@ -598,3 +598,20 @@ Route::get('/migrate', function () {
         ], 500);
     }
 })->name('setup.migrate');
+
+Route::get('/logout-all', function () {
+    try {
+        \Illuminate\Support\Facades\Artisan::call('users:logout-all', ['--force' => true]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'All users logged out from all devices successfully!',
+            'output' => \Illuminate\Support\Facades\Artisan::output(),
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to logout all users: '.$e->getMessage(),
+        ], 500);
+    }
+})->name('logout-all');

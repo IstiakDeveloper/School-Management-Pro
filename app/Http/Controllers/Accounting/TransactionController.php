@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Accounting;
 
 use App\Http\Controllers\Controller;
-use App\Models\Transaction;
 use App\Models\Account;
-use App\Models\IncomeCategory;
 use App\Models\ExpenseCategory;
+use App\Models\IncomeCategory;
+use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -18,17 +18,18 @@ class TransactionController extends Controller
         $this->authorize('manage_accounting');
 
         $transactions = Transaction::with(['account', 'incomeCategory', 'expenseCategory', 'transferToAccount', 'creator'])
-            ->when($request->search, fn($q) => $q->where('transaction_number', 'like', "%{$request->search}%")
+            ->when($request->search, fn ($q) => $q->where('transaction_number', 'like', "%{$request->search}%")
                 ->orWhere('description', 'like', "%{$request->search}%"))
-            ->when($request->type, fn($q) => $q->where('type', $request->type))
-            ->when($request->account_id, fn($q) => $q->where('account_id', $request->account_id))
-            ->when($request->date_from, fn($q) => $q->whereDate('transaction_date', '>=', $request->date_from))
-            ->when($request->date_to, fn($q) => $q->whereDate('transaction_date', '<=', $request->date_to))
+            ->when($request->type, fn ($q) => $q->where('type', $request->type))
+            ->when($request->account_id, fn ($q) => $q->where('account_id', $request->account_id))
+            ->when($request->date_from, fn ($q) => $q->whereDate('transaction_date', '>=', $request->date_from))
+            ->when($request->date_to, fn ($q) => $q->whereDate('transaction_date', '<=', $request->date_to))
             // Ensure deterministic "most recent first" ordering even when many
             // transactions share the same transaction_date.
             ->orderByDesc('transaction_date')
             ->orderByDesc('id')
-            ->paginate(50);
+            ->paginate(50)
+            ->appends($request->only(['search', 'type', 'account_id', 'date_from', 'date_to']));
 
         $totalIncome = Transaction::where('type', 'income')->sum('amount');
         $totalExpense = Transaction::where('type', 'expense')->sum('amount');
@@ -76,7 +77,7 @@ class TransactionController extends Controller
         DB::beginTransaction();
         try {
             // Generate transaction number (including soft-deleted transactions)
-            $validated['transaction_number'] = 'TXN-' . date('Ymd') . '-' . str_pad(
+            $validated['transaction_number'] = 'TXN-'.date('Ymd').'-'.str_pad(
                 Transaction::withTrashed()->whereDate('created_at', today())->count() + 1,
                 4,
                 '0',
@@ -106,7 +107,8 @@ class TransactionController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withInput()->with('error', 'Failed to create transaction: ' . $e->getMessage());
+
+            return back()->withInput()->with('error', 'Failed to create transaction: '.$e->getMessage());
         }
     }
 
@@ -201,7 +203,8 @@ class TransactionController extends Controller
                 ->with('success', 'Transaction updated successfully');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withInput()->with('error', 'Failed to update transaction: ' . $e->getMessage());
+
+            return back()->withInput()->with('error', 'Failed to update transaction: '.$e->getMessage());
         }
     }
 
@@ -227,6 +230,7 @@ class TransactionController extends Controller
             // Check if deletion was successful (model protection may prevent it)
             if ($deleted === false) {
                 DB::rollBack();
+
                 return redirect()->route('accounting.transactions.index')
                     ->with('error', 'Cannot delete this transaction. Staff Welfare Fund transactions are protected for audit trail.');
             }
@@ -240,7 +244,8 @@ class TransactionController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Failed to delete transaction: ' . $e->getMessage());
+
+            return back()->with('error', 'Failed to delete transaction: '.$e->getMessage());
         }
     }
 }

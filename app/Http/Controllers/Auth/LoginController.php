@@ -26,7 +26,7 @@ class LoginController extends Controller
         $remember = $credentials['remember'] ?? false;
         unset($credentials['remember']);
 
-        if (!Auth::attempt($credentials, $remember)) {
+        if (! Auth::attempt($credentials, $remember)) {
             throw ValidationException::withMessages([
                 'email' => 'The provided credentials are incorrect.',
             ]);
@@ -66,5 +66,17 @@ class LoginController extends Controller
         $request->session()->regenerateToken();
 
         return redirect()->route('login');
+    }
+
+    public function logoutAllDevices(Request $request)
+    {
+        $user = Auth::user();
+
+        logActivity('logout_all_devices', 'User logged out from all devices');
+
+        // Invalidate all sessions for this user
+        $user->invalidateAllSessions();
+
+        return redirect()->route('login')->with('message', 'You have been logged out from all devices.');
     }
 }

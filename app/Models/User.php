@@ -2,8 +2,9 @@
 
 namespace App\Models;
 
-use App\Traits\HasRoles;
 use App\Traits\HasPermissions;
+use App\Traits\HasRoles;
+use App\Traits\ManagesUserSessions;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -11,7 +12,7 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, SoftDeletes, HasRoles, HasPermissions;
+    use HasFactory, HasPermissions, HasRoles, ManagesUserSessions, Notifiable, SoftDeletes;
 
     protected $fillable = [
         'name',
@@ -92,14 +93,14 @@ class User extends Authenticatable
 
     public function scopeByRole($query, $role)
     {
-        return $query->whereHas('roles', function($q) use ($role) {
+        return $query->whereHas('roles', function ($q) use ($role) {
             $q->where('slug', $role)->orWhere('name', $role);
         });
     }
 
     public function scopeByPermission($query, $permission)
     {
-        return $query->whereHas('roles.permissions', function($q) use ($permission) {
+        return $query->whereHas('roles.permissions', function ($q) use ($permission) {
             $q->where('slug', $permission)->orWhere('name', $permission);
         });
     }

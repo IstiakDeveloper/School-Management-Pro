@@ -19,7 +19,7 @@ export default function Create({ accounts, nextAssetCode }: CreateProps) {
         asset_name: '',
         asset_code: nextAssetCode,
         category: '',
-        account_id: '',
+        account_id: '4',
         purchase_price: '',
         purchase_date: new Date().toISOString().split('T')[0],
         depreciation_rate: '0',
@@ -111,6 +111,7 @@ export default function Create({ accounts, nextAssetCode }: CreateProps) {
                                     onChange={(e) => setFormData({ ...formData, account_id: e.target.value })}
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     required
+                                    disabled
                                 >
                                     <option value="">Select Account</option>
                                     {accounts.map((account) => (

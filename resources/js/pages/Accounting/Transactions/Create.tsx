@@ -18,7 +18,7 @@ export default function Create({ accounts, incomeCategories, expenseCategories }
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [formData, setFormData] = useState({
         type: 'income',
-        account_id: accounts.length > 0 ? accounts[0].id.toString() : '',
+        account_id: '4',
         income_category_id: incomeCategories.length > 0 ? incomeCategories[0].id.toString() : '',
         expense_category_id: expenseCategories.length > 0 ? expenseCategories[0].id.toString() : '',
         transfer_to_account_id: '',
@@ -94,6 +94,7 @@ export default function Create({ accounts, incomeCategories, expenseCategories }
                                     onChange={(e) => setFormData({ ...formData, account_id: e.target.value })}
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     required
+                                    disabled
                                 >
                                     <option value="">Select Account</option>
                                     {accounts.map((account) => (
