@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Traits\HasPermissions;
 use App\Traits\HasRoles;
-use App\Traits\ManagesUserSessions;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -12,7 +11,7 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    use HasFactory, HasPermissions, HasRoles, ManagesUserSessions, Notifiable, SoftDeletes;
+    use HasFactory, HasPermissions, HasRoles, Notifiable, SoftDeletes;
 
     protected $fillable = [
         'name',

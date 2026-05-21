@@ -563,7 +563,7 @@ class StaffWelfareLoanController extends Controller
         $this->authorize('manage_accounting');
 
         $validated = $request->validate([
-            'loan_amount' => 'required|numeric|min:1',
+            'loan_amount' => 'required|numeric|min:0.01',
             'installment_count' => 'required|integer|min:1',
             'loan_date' => 'required|date',
             'first_installment_date' => 'required|date|after_or_equal:loan_date',
@@ -573,76 +573,125 @@ class StaffWelfareLoanController extends Controller
 
         DB::beginTransaction();
         try {
-            $loan = StaffWelfareLoan::with('installments')->findOrFail($id);
+            $loan = StaffWelfareLoan::with(['installments' => function ($query) {
+                $query->orderBy('installment_number');
+            }])->findOrFail($id);
 
             if ($loan->status !== 'active') {
                 return redirect()->back()->with('error', 'Only active loans can be edited!');
             }
 
-            if ($loan->total_paid > 0) {
-                return redirect()->back()->with('error', 'Cannot edit a loan with payments already made!');
+            $paidInstallments = $loan->installments->where('status', 'paid')->values();
+            $paidCount = $paidInstallments->count();
+            $totalPaid = round((float) $paidInstallments->sum('amount'), 2);
+
+            $newLoanAmount = round((float) $validated['loan_amount'], 2);
+
+            if ($newLoanAmount + 0.0001 < $totalPaid) {
+                return redirect()->back()
+                    ->withInput()
+                    ->with('error', 'Loan amount cannot be less than total already paid (৳' . number_format($totalPaid, 2) . ').');
             }
 
-            $oldAmount = $loan->loan_amount;
-            $newInstallmentAmount = round($validated['loan_amount'] / $validated['installment_count'], 2);
+            if ((int) $validated['installment_count'] < $paidCount) {
+                return redirect()->back()
+                    ->withInput()
+                    ->with('error', 'Total installments cannot be less than the number of installments already paid (' . $paidCount . ').');
+            }
 
-            // Update loan
+            $remainingAmount = round($newLoanAmount - $totalPaid, 2);
+            if ($remainingAmount < 0) {
+                $remainingAmount = 0;
+            }
+
+            $pendingCount = (int) $validated['installment_count'] - $paidCount;
+
+            if ($remainingAmount > 0.009 && $pendingCount < 1) {
+                return redirect()->back()
+                    ->withInput()
+                    ->with('error', 'Increase total installments so there is at least one pending slot for the remaining balance (৳' . number_format($remainingAmount, 2) . ').');
+            }
+
+            if ($remainingAmount <= 0.009 && $pendingCount > 0) {
+                return redirect()->back()
+                    ->withInput()
+                    ->with('error', 'This loan is already fully covered by recorded payments. Set total installments to ' . $paidCount . ' or increase the loan amount.');
+            }
+
+            $oldAmount = (float) $loan->loan_amount;
+
+            // Remove only unpaid schedule rows; paid installments and their history stay intact
+            StaffWelfareLoanInstallment::where('loan_id', $loan->id)
+                ->whereIn('status', ['pending', 'overdue'])
+                ->delete();
+
+            $firstInstallmentDate = Carbon::parse($validated['first_installment_date']);
+            $newInstallmentAmountForLoan = (int) $validated['installment_count'] > 0
+                ? round($newLoanAmount / (int) $validated['installment_count'], 2)
+                : 0;
+
+            // Keep payment records on paid rows; only move due dates to match the edited
+            // first installment anchor so the whole schedule stays one continuous calendar chain.
+            foreach ($paidInstallments->sortBy('installment_number') as $paidInst) {
+                $paidInst->update([
+                    'due_date' => $firstInstallmentDate->copy()->addMonthsNoOverflow($paidInst->installment_number - 1),
+                ]);
+            }
+
+            if ($pendingCount > 0) {
+                $basePendingAmount = round($remainingAmount / $pendingCount, 2);
+                for ($i = 1; $i <= $pendingCount; $i++) {
+                    $installmentNumber = $paidCount + $i;
+                    $dueDate = $firstInstallmentDate->copy()->addMonthsNoOverflow($installmentNumber - 1);
+
+                    if ($i === $pendingCount) {
+                        $thisInstallmentAmount = round($remainingAmount - ($basePendingAmount * ($pendingCount - 1)), 2);
+                    } else {
+                        $thisInstallmentAmount = $basePendingAmount;
+                    }
+
+                    StaffWelfareLoanInstallment::create([
+                        'loan_id' => $loan->id,
+                        'installment_number' => $installmentNumber,
+                        'amount' => $thisInstallmentAmount,
+                        'due_date' => $dueDate,
+                        'status' => 'pending',
+                    ]);
+                }
+            }
+
             $loan->update([
-                'loan_amount' => $validated['loan_amount'],
-                'remaining_amount' => $validated['loan_amount'],
-                'installment_count' => $validated['installment_count'],
-                'installment_amount' => $newInstallmentAmount,
+                'loan_amount' => $newLoanAmount,
+                'total_paid' => $totalPaid,
+                'remaining_amount' => $remainingAmount,
+                'installment_count' => (int) $validated['installment_count'],
+                'paid_installments' => $paidCount,
+                'installment_amount' => $newInstallmentAmountForLoan,
                 'loan_date' => $validated['loan_date'],
                 'first_installment_date' => $validated['first_installment_date'],
                 'purpose' => $validated['purpose'] ?? null,
                 'remarks' => $validated['remarks'] ?? null,
+                'status' => $remainingAmount <= 0.009 ? 'paid' : 'active',
             ]);
 
-            // Delete old installments and create new ones
-            $loan->installments()->delete();
-
-            $firstInstallmentDate = Carbon::parse($validated['first_installment_date']);
-            for ($i = 1; $i <= $validated['installment_count']; $i++) {
-                $dueDate = $firstInstallmentDate->copy()->addMonthsNoOverflow($i - 1);
-
-                // Calculate amount for this installment
-                // Last installment should be the remaining amount to match exact loan amount
-                if ($i == $validated['installment_count']) {
-                    $thisInstallmentAmount = $validated['loan_amount'] - ($newInstallmentAmount * ($validated['installment_count'] - 1));
-                } else {
-                    $thisInstallmentAmount = $newInstallmentAmount;
-                }
-
-                StaffWelfareLoanInstallment::create([
-                    'loan_id' => $loan->id,
-                    'installment_number' => $i,
-                    'amount' => $thisInstallmentAmount,
-                    'due_date' => $dueDate,
-                    'status' => 'pending',
-                ]);
-            }
-
-            // Adjust account balance
-            $difference = $validated['loan_amount'] - $oldAmount;
+            // Adjust account balance for corrected disbursement amount
+            $difference = $newLoanAmount - $oldAmount;
             if ($difference > 0) {
-                // New amount is higher, deduct more
                 Account::find($loan->account_id)->decrement('current_balance', $difference);
             } elseif ($difference < 0) {
-                // New amount is lower, return difference
                 Account::find($loan->account_id)->increment('current_balance', abs($difference));
             }
 
-            // Update the transaction
             $teacher = $loan->teacher;
             Transaction::where('description', 'LIKE', "%{$loan->loan_number}%")
                 ->where('type', 'expense')
                 ->update([
-                    'amount' => $validated['loan_amount'],
+                    'amount' => $newLoanAmount,
                     'transaction_date' => $validated['loan_date'],
                     'description' => "Welfare Fund Loan to {$teacher->user->name} ({$teacher->employee_id}) - {$loan->loan_number}",
                 ]);
 
-            logActivity('update', "Staff Welfare Loan edited: {$loan->loan_number} - ৳{$validated['loan_amount']}", StaffWelfareLoan::class, $loan->id);
+            logActivity('update', "Staff Welfare Loan edited: {$loan->loan_number} - ৳{$newLoanAmount}", StaffWelfareLoan::class, $loan->id);
 
             DB::commit();
 

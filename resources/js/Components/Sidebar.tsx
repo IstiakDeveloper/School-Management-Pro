@@ -208,6 +208,7 @@ const menuItems: MenuItem[] = [
         roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'],
         children: [
             { name: 'Due Report', href: '/accounting/reports/due-report', icon: <CalendarClock className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+            { name: 'Welfare Loan Ledger', href: '/accounting/reports/staff-welfare-loan-ledger', icon: <HandCoins className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
             { name: 'Bank Report', href: '/accounting/reports/bank-report', icon: <Landmark className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
             { name: 'Receipt Payment', href: '/accounting/reports/receipt-payment', icon: <Receipt className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
             { name: 'Income Expenditure', href: '/accounting/reports/income-expenditure', icon: <PieChart className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },

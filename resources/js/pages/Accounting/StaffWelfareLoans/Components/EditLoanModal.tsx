@@ -6,6 +6,8 @@ interface Loan {
     id: number;
     loan_number: string;
     loan_amount: number;
+    total_paid: number;
+    paid_installments: number;
     installment_count: number;
     loan_date: string;
     first_installment_date: string;
@@ -46,6 +48,40 @@ export default function EditLoanModal({ show, loan, onClose }: EditLoanModalProp
         e.preventDefault();
         if (!loan) return;
 
+        const totalPaid = Number(loan.total_paid) || 0;
+        const paidSlots = Number(loan.paid_installments) || 0;
+        const newAmount = parseFloat(String(form.data.loan_amount));
+        const newCount = parseInt(String(form.data.installment_count), 10);
+
+        if (Number.isNaN(newAmount) || newAmount < totalPaid) {
+            window.alert(
+                `Loan amount must be at least the total already paid (৳${totalPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}).`
+            );
+            return;
+        }
+
+        if (Number.isNaN(newCount) || newCount < paidSlots) {
+            window.alert(
+                `Total installments must be at least ${paidSlots} (already paid or recorded).`
+            );
+            return;
+        }
+
+        const remaining = Math.round((newAmount - totalPaid) * 100) / 100;
+        const pendingSlots = newCount - paidSlots;
+
+        if (remaining > 0.01 && pendingSlots < 1) {
+            window.alert('Increase total installments so there is at least one pending row for the remaining balance.');
+            return;
+        }
+
+        if (remaining <= 0.01 && pendingSlots > 0) {
+            window.alert(
+                'This loan is already fully covered by payments. Either set total installments equal to the number paid or increase the loan amount.'
+            );
+            return;
+        }
+
         form.put(`/accounting/welfare-loans/${loan.id}`, {
             onSuccess: () => {
                 onClose();
@@ -66,6 +102,17 @@ export default function EditLoanModal({ show, loan, onClose }: EditLoanModalProp
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    {(Number(loan.total_paid) > 0 || loan.paid_installments > 0) && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-900">
+                            <p className="font-medium">Payments already recorded</p>
+                            <p className="mt-1">
+                                Paid: ৳{Number(loan.total_paid).toLocaleString('en-IN', { minimumFractionDigits: 2 })} (
+                                {loan.paid_installments} installment{loan.paid_installments !== 1 ? 's' : ''}). Loan amount
+                                cannot be below this; unpaid installments will be rebuilt; paid rows are unchanged.
+                            </p>
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -74,6 +121,7 @@ export default function EditLoanModal({ show, loan, onClose }: EditLoanModalProp
                             <input
                                 type="number"
                                 step="0.01"
+                                min={Number(loan.total_paid) || 0}
                                 value={form.data.loan_amount}
                                 onChange={(e) => form.setData('loan_amount', e.target.value)}
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
@@ -87,7 +135,7 @@ export default function EditLoanModal({ show, loan, onClose }: EditLoanModalProp
                             </label>
                             <input
                                 type="number"
-                                min="1"
+                                min={Math.max(1, loan.paid_installments)}
                                 value={form.data.installment_count}
                                 onChange={(e) => form.setData('installment_count', e.target.value)}
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
@@ -154,7 +202,8 @@ export default function EditLoanModal({ show, loan, onClose }: EditLoanModalProp
 
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                         <p className="text-sm font-medium text-yellow-800">
-                            ⚠️ Changes will adjust the account balance accordingly
+                            Changes to loan amount adjust the welfare fund account by the difference from the previous
+                            principal. Remaining balance is recalculated as loan amount minus total paid.
                         </p>
                     </div>
 

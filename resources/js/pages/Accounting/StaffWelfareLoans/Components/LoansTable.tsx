@@ -146,18 +146,11 @@ export default function LoansTable({ loans, onEdit, onDelete }: LoansTableProps)
                                                 View
                                             </Link>
 
-                                            {/* Show Edit button for all active loans */}
                                             {loan.status === 'active' && (
                                                 <button
-                                                    onClick={() => {
-                                                        if (Number(loan.total_paid) > 0) {
-                                                            alert('Cannot edit a loan with payments already made!\n\nPaid Amount: ৳' + loan.total_paid.toLocaleString('en-IN'));
-                                                            return;
-                                                        }
-                                                        onEdit(loan);
-                                                    }}
+                                                    onClick={() => onEdit(loan)}
                                                     className="inline-flex items-center gap-1 text-orange-600 hover:text-orange-800 hover:bg-orange-50 px-3 py-1 rounded transition"
-                                                    title={Number(loan.total_paid) > 0 ? 'Cannot edit - payments already made' : 'Edit this loan'}
+                                                    title="Edit loan amount and schedule (paid installments are kept)"
                                                 >
                                                     <Edit className="w-4 h-4" />
                                                     Edit

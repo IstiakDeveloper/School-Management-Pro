@@ -15,6 +15,7 @@ use App\Http\Controllers\Accounting\Reports\BalanceSheetReportController;
 use App\Http\Controllers\Accounting\Reports\BankReportController;
 use App\Http\Controllers\Accounting\Reports\DueReportController;
 use App\Http\Controllers\Accounting\Reports\IncomeExpenditureReportController;
+use App\Http\Controllers\Accounting\Reports\StaffWelfareLoanLedgerReportController;
 use App\Http\Controllers\Accounting\Reports\ReceiptPaymentReportController;
 use App\Http\Controllers\Accounting\TransactionController;
 use App\Http\Controllers\ActivityLogController;
@@ -355,6 +356,7 @@ Route::middleware(['auth', 'restrict.admin.mutations'])->group(function () {
         Route::get('reports/income-expenditure', [IncomeExpenditureReportController::class, 'index'])->name('accounting.reports.income-expenditure');
         Route::get('reports/balance-sheet', [BalanceSheetReportController::class, 'index'])->name('accounting.reports.balance-sheet');
         Route::get('reports/due-report', [DueReportController::class, 'index'])->name('accounting.reports.due-report');
+        Route::get('reports/staff-welfare-loan-ledger', [StaffWelfareLoanLedgerReportController::class, 'index'])->name('accounting.reports.staff-welfare-loan-ledger');
     });
 
     // ============================================
