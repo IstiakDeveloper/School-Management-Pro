@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { useCanEditOrDelete } from '@/hooks/useCanEditOrDelete';
 import { Plus, DollarSign, AlertCircle, Clock, CheckCircle, Printer, Eye, ChevronLeft, ChevronRight, Search, X, CalendarDays, RotateCcw, SlidersHorizontal, Pencil } from 'lucide-react';
+import { formatAmount } from '@/lib/formatCurrency';
 import FeeCollectionModal from './FeeCollectionModal';
 
 function formatDate(dateString: string): string {
@@ -87,6 +88,7 @@ interface Props {
     sections: Section[];
     feeTypes: FeeType[];
     stats: { total_collected: number; pending_fees: number; overdue_fees: number };
+    defaultAccountId?: number | null;
     filters: {
         status?: string;
         search?: string;
@@ -100,7 +102,7 @@ interface Props {
     };
 }
 
-export default function Index({ collections, uniqueStudentCount, students, accounts, classes, sections, feeTypes = [], stats, filters }: Props) {
+export default function Index({ collections, uniqueStudentCount, students, accounts, classes, sections, feeTypes = [], stats, defaultAccountId, filters }: Props) {
     const canMutate = useCanEditOrDelete();
     const [showModal, setShowModal] = useState(false);
     const [filterStatus, setFilterStatus] = useState<string>(filters.status || 'all');
@@ -244,7 +246,7 @@ export default function Index({ collections, uniqueStudentCount, students, accou
                             <div>
                                 <p className="text-green-100 text-xs font-medium">Total Collected</p>
                                 <p className="text-2xl font-bold mt-1">
-                                    ৳{stats.total_collected.toLocaleString('en-IN')}
+                                    ৳{formatAmount(stats.total_collected)}
                                 </p>
                             </div>
                             <div className="bg-white/20 p-3 rounded-lg">
@@ -258,7 +260,7 @@ export default function Index({ collections, uniqueStudentCount, students, accou
                             <div>
                                 <p className="text-yellow-100 text-xs font-medium">Pending Fees</p>
                                 <p className="text-2xl font-bold mt-1">
-                                    ৳{stats.pending_fees.toLocaleString('en-IN')}
+                                    ৳{formatAmount(stats.pending_fees)}
                                 </p>
                             </div>
                             <div className="bg-white/20 p-3 rounded-lg">
@@ -272,7 +274,7 @@ export default function Index({ collections, uniqueStudentCount, students, accou
                             <div>
                                 <p className="text-red-100 text-xs font-medium">Overdue Fees</p>
                                 <p className="text-2xl font-bold mt-1">
-                                    ৳{stats.overdue_fees.toLocaleString('en-IN')}
+                                    ৳{formatAmount(stats.overdue_fees)}
                                 </p>
                             </div>
                             <div className="bg-white/20 p-3 rounded-lg">
@@ -484,15 +486,15 @@ export default function Index({ collections, uniqueStudentCount, students, accou
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3 text-sm font-semibold text-gray-900">
-                                                ৳{collection.amount.toLocaleString('en-IN')}
+                                                ৳{formatAmount(collection.amount)}
                                             </td>
                                             <td className="px-4 py-3">
                                                 <span className="text-sm font-semibold text-green-600">
-                                                    ৳{collection.paid_amount.toLocaleString('en-IN')}
+                                                    ৳{formatAmount(collection.paid_amount)}
                                                 </span>
                                                 {collection.discount > 0 && (
                                                     <p className="text-xs text-gray-500">
-                                                        -৳{collection.discount.toLocaleString('en-IN')}
+                                                        -৳{formatAmount(collection.discount)}
                                                     </p>
                                                 )}
                                             </td>
@@ -636,6 +638,7 @@ export default function Index({ collections, uniqueStudentCount, students, accou
                 onClose={() => setShowModal(false)}
                 students={students}
                 accounts={accounts}
+                defaultAccountId={defaultAccountId}
             />
         </AuthenticatedLayout>
     );

@@ -4,6 +4,8 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
 import { Printer, FileText, Users, Building2, GraduationCap } from 'lucide-react';
 
+import { formatAmount as formatCurrency } from '@/lib/formatCurrency';
+
 interface SchoolClass {
     id: number;
     name: string;
@@ -20,6 +22,7 @@ interface Student {
 interface FeeTypeWiseData {
     fee_type: string;
     total_amount: number;
+    discount_amount: number;
     paid_amount: number;
     due_amount: number;
     student_count: number;
@@ -28,6 +31,7 @@ interface FeeTypeWiseData {
 interface ClassWiseData {
     class_name: string;
     total_amount: number;
+    discount_amount: number;
     paid_amount: number;
     due_amount: number;
     student_count: number;
@@ -40,6 +44,7 @@ interface FeeDetail {
     month: number | null;
     year: number | null;
     total_amount: number;
+    discount_amount: number;
     paid_amount: number;
     due_amount: number;
     late_fee?: number;
@@ -58,6 +63,7 @@ interface StudentDueData {
     father_name?: string;
     phone?: string;
     total_amount: number;
+    discount_amount: number;
     paid_amount: number;
     due_amount: number;
     fees: FeeDetail[];
@@ -66,7 +72,9 @@ interface StudentDueData {
 interface ClassDueData {
     class_name: string;
     students: StudentDueData[];
-    total_due: number;
+    student_count?: number;
+    total_gross: number;
+    total_discount: number;
     total_paid: number;
     total_remaining: number;
 }
@@ -78,9 +86,11 @@ interface OrganizationReportData {
 
 interface Summary {
     totalDue: number;
+    totalDiscount: number;
     totalPaid: number;
     totalRemaining: number;
     totalRecords: number;
+    uniqueStudents: number;
 }
 
 interface AcademicYear {
@@ -174,14 +184,6 @@ export default function DueReport({
         );
     };
 
-    const formatCurrency = (amount: number) => {
-        const num = Number(amount) || 0;
-        return new Intl.NumberFormat('en-US', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        }).format(num);
-    };
-
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleDateString('en-GB', {
             day: 'numeric',
@@ -215,10 +217,51 @@ export default function DueReport({
         }
     };
 
+    const sumRows = (
+        items: Array<{ total_amount?: number; discount_amount?: number; paid_amount?: number; due_amount?: number; student_count?: number }>
+    ) => ({
+        studentCount: items.reduce((sum, item) => sum + (item.student_count ?? 0), 0),
+        total: items.reduce((sum, item) => sum + (Number(item.total_amount) || 0), 0),
+        discount: items.reduce((sum, item) => sum + (Number(item.discount_amount) || 0), 0),
+        paid: items.reduce((sum, item) => sum + (Number(item.paid_amount) || 0), 0),
+        due: items.reduce((sum, item) => sum + (Number(item.due_amount) || 0), 0),
+    });
+
+    const renderAmountFooter = (
+        labelColSpan: number,
+        totals: { studentCount?: number; total: number; discount: number; paid: number; due: number },
+        options?: { showStudentCount?: boolean; studentCountValue?: number | string; extraColSpan?: number; cellClass?: string }
+    ) => {
+        const { showStudentCount = false, studentCountValue, extraColSpan = 0, cellClass = 'border border-gray-400 p-2' } = options ?? {};
+
+        return (
+            <tfoot>
+                <tr className="bg-gray-100 font-semibold">
+                    <td colSpan={labelColSpan} className={`${cellClass} text-right`}>
+                        Total
+                    </td>
+                    {showStudentCount && (
+                        <td className={`${cellClass} text-center`}>
+                            {studentCountValue ?? totals.studentCount ?? ''}
+                        </td>
+                    )}
+                    <td className={`${cellClass} text-right`}>{formatCurrency(totals.total)}</td>
+                    <td className={`${cellClass} text-right text-amber-600`}>{formatCurrency(totals.discount)}</td>
+                    <td className={`${cellClass} text-right text-green-600`}>{formatCurrency(totals.paid)}</td>
+                    <td className={`${cellClass} text-right text-red-600`}>{formatCurrency(totals.due)}</td>
+                    {extraColSpan > 0 && <td colSpan={extraColSpan} className={cellClass} />}
+                </tr>
+            </tfoot>
+        );
+    };
+
     const renderOrganizationReport = () => {
         const data = reportData as OrganizationReportData;
         const feeTypeWise = data?.feeTypeWise || [];
         const classWise = data?.classWise || [];
+        const feeTypeTotals = sumRows(feeTypeWise);
+        const classTotals = sumRows(classWise);
+
         return (
             <>
                 {/* Fee Type Wise Summary */}
@@ -232,9 +275,10 @@ export default function DueReport({
                             <tr className="bg-blue-100">
                                 <th className="border border-gray-400 p-2 text-left">Fee Type</th>
                                 <th className="border border-gray-400 p-2 text-center">Students</th>
-                                <th className="border border-gray-400 p-2 text-right">Total Amount</th>
-                                <th className="border border-gray-400 p-2 text-right">Paid Amount</th>
-                                <th className="border border-gray-400 p-2 text-right">Due Amount</th>
+                                <th className="border border-gray-400 p-2 text-right">Total</th>
+                                <th className="border border-gray-400 p-2 text-right">Discount</th>
+                                <th className="border border-gray-400 p-2 text-right">Paid</th>
+                                <th className="border border-gray-400 p-2 text-right">Due</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -244,18 +288,23 @@ export default function DueReport({
                                         <td className="border border-gray-400 p-2">{item.fee_type}</td>
                                         <td className="border border-gray-400 p-2 text-center">{item.student_count}</td>
                                         <td className="border border-gray-400 p-2 text-right">{formatCurrency(item.total_amount)}</td>
+                                        <td className="border border-gray-400 p-2 text-right text-amber-600">{formatCurrency(item.discount_amount)}</td>
                                         <td className="border border-gray-400 p-2 text-right text-green-600">{formatCurrency(item.paid_amount)}</td>
                                         <td className="border border-gray-400 p-2 text-right text-red-600 font-semibold">{formatCurrency(item.due_amount)}</td>
                                     </tr>
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={5} className="border border-gray-400 p-4 text-center text-gray-500">
+                                    <td colSpan={6} className="border border-gray-400 p-4 text-center text-gray-500">
                                         No due records found
                                     </td>
                                 </tr>
                             )}
                         </tbody>
+                        {feeTypeWise.length > 0 && renderAmountFooter(1, feeTypeTotals, {
+                            showStudentCount: true,
+                            studentCountValue: summary.uniqueStudents,
+                        })}
                     </table>
                 </div>
 
@@ -270,9 +319,10 @@ export default function DueReport({
                             <tr className="bg-green-100">
                                 <th className="border border-gray-400 p-2 text-left">Class</th>
                                 <th className="border border-gray-400 p-2 text-center">Students</th>
-                                <th className="border border-gray-400 p-2 text-right">Total Amount</th>
-                                <th className="border border-gray-400 p-2 text-right">Paid Amount</th>
-                                <th className="border border-gray-400 p-2 text-right">Due Amount</th>
+                                <th className="border border-gray-400 p-2 text-right">Total</th>
+                                <th className="border border-gray-400 p-2 text-right">Discount</th>
+                                <th className="border border-gray-400 p-2 text-right">Paid</th>
+                                <th className="border border-gray-400 p-2 text-right">Due</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -282,18 +332,20 @@ export default function DueReport({
                                         <td className="border border-gray-400 p-2">{item.class_name}</td>
                                         <td className="border border-gray-400 p-2 text-center">{item.student_count}</td>
                                         <td className="border border-gray-400 p-2 text-right">{formatCurrency(item.total_amount)}</td>
+                                        <td className="border border-gray-400 p-2 text-right text-amber-600">{formatCurrency(item.discount_amount)}</td>
                                         <td className="border border-gray-400 p-2 text-right text-green-600">{formatCurrency(item.paid_amount)}</td>
                                         <td className="border border-gray-400 p-2 text-right text-red-600 font-semibold">{formatCurrency(item.due_amount)}</td>
                                     </tr>
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={5} className="border border-gray-400 p-4 text-center text-gray-500">
+                                    <td colSpan={6} className="border border-gray-400 p-4 text-center text-gray-500">
                                         No due records found
                                     </td>
                                 </tr>
                             )}
                         </tbody>
+                        {classWise.length > 0 && renderAmountFooter(1, classTotals, { showStudentCount: true })}
                     </table>
                 </div>
             </>
@@ -315,9 +367,15 @@ export default function DueReport({
                     data.map((classData, classIndex) => (
                         <div key={classIndex} className="border border-gray-300 rounded-lg overflow-hidden">
                             <div className="bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-3 flex justify-between items-center">
-                                <h3 className="font-semibold text-lg">{classData.class_name}</h3>
-                                <div className="flex gap-4 text-sm">
-                                    <span>Total: ৳{formatCurrency(classData.total_due)}</span>
+                                <h3 className="font-semibold text-lg">
+                                    {classData.class_name}
+                                    <span className="ml-2 text-sm font-normal text-green-100">
+                                        ({classData.student_count ?? classData.students?.length ?? 0} students)
+                                    </span>
+                                </h3>
+                                <div className="flex gap-4 text-sm flex-wrap justify-end">
+                                    <span>Total: ৳{formatCurrency(classData.total_gross)}</span>
+                                    <span>Discount: ৳{formatCurrency(classData.total_discount)}</span>
                                     <span>Paid: ৳{formatCurrency(classData.total_paid)}</span>
                                     <span className="font-bold">Due: ৳{formatCurrency(classData.total_remaining)}</span>
                                 </div>
@@ -330,6 +388,7 @@ export default function DueReport({
                                         <th className="border border-gray-300 p-2 text-left">Student Name</th>
                                         <th className="border border-gray-300 p-2 text-center">Section</th>
                                         <th className="border border-gray-300 p-2 text-right">Total</th>
+                                        <th className="border border-gray-300 p-2 text-right">Discount</th>
                                         <th className="border border-gray-300 p-2 text-right">Paid</th>
                                         <th className="border border-gray-300 p-2 text-right">Due</th>
                                     </tr>
@@ -342,11 +401,18 @@ export default function DueReport({
                                             <td className="border border-gray-300 p-2 font-medium">{student.student_name}</td>
                                             <td className="border border-gray-300 p-2 text-center">{student.section}</td>
                                             <td className="border border-gray-300 p-2 text-right">{formatCurrency(student.total_amount)}</td>
+                                            <td className="border border-gray-300 p-2 text-right text-amber-600">{formatCurrency(student.discount_amount)}</td>
                                             <td className="border border-gray-300 p-2 text-right text-green-600">{formatCurrency(student.paid_amount)}</td>
                                             <td className="border border-gray-300 p-2 text-right text-red-600 font-semibold">{formatCurrency(student.due_amount)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
+                                {(classData.students || []).length > 0 && renderAmountFooter(4, {
+                                    total: classData.total_gross,
+                                    discount: classData.total_discount,
+                                    paid: classData.total_paid,
+                                    due: classData.total_remaining,
+                                }, { cellClass: 'border border-gray-300 p-2' })}
                             </table>
                         </div>
                     ))
@@ -402,6 +468,7 @@ export default function DueReport({
                                         <th className="border border-gray-300 p-2 text-center">Month/Year</th>
                                         <th className="border border-gray-300 p-2 text-center">Date</th>
                                         <th className="border border-gray-300 p-2 text-right">Total</th>
+                                        <th className="border border-gray-300 p-2 text-right">Discount</th>
                                         <th className="border border-gray-300 p-2 text-right">Paid</th>
                                         <th className="border border-gray-300 p-2 text-right">Due</th>
                                         <th className="border border-gray-300 p-2 text-center">Status</th>
@@ -416,6 +483,7 @@ export default function DueReport({
                                             </td>
                                             <td className="border border-gray-300 p-2 text-center">{formatDate(fee.payment_date)}</td>
                                             <td className="border border-gray-300 p-2 text-right">{formatCurrency(fee.total_amount)}</td>
+                                            <td className="border border-gray-300 p-2 text-right text-amber-600">{formatCurrency(fee.discount_amount)}</td>
                                             <td className="border border-gray-300 p-2 text-right text-green-600">{formatCurrency(fee.paid_amount)}</td>
                                             <td className="border border-gray-300 p-2 text-right text-red-600 font-semibold">{formatCurrency(fee.due_amount)}</td>
                                             <td className="border border-gray-300 p-2 text-center">
@@ -430,15 +498,12 @@ export default function DueReport({
                                         </tr>
                                     ))}
                                 </tbody>
-                                <tfoot>
-                                    <tr className="bg-gray-100 font-semibold">
-                                        <td colSpan={3} className="border border-gray-300 p-2 text-right">Total:</td>
-                                        <td className="border border-gray-300 p-2 text-right">{formatCurrency(student.total_amount)}</td>
-                                        <td className="border border-gray-300 p-2 text-right text-green-600">{formatCurrency(student.paid_amount)}</td>
-                                        <td className="border border-gray-300 p-2 text-right text-red-600">{formatCurrency(student.due_amount)}</td>
-                                        <td className="border border-gray-300 p-2"></td>
-                                    </tr>
-                                </tfoot>
+                                {(student.fees || []).length > 0 && renderAmountFooter(3, {
+                                    total: student.total_amount,
+                                    discount: student.discount_amount,
+                                    paid: student.paid_amount,
+                                    due: student.due_amount,
+                                }, { extraColSpan: 1, cellClass: 'border border-gray-300 p-2' })}
                             </table>
                         </div>
                     ))
@@ -463,7 +528,7 @@ export default function DueReport({
                             <h1 className="text-3xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent">
                                 Due Report
                             </h1>
-                            <p className="text-gray-600 mt-1">View pending and partial fee payments</p>
+                            <p className="text-gray-600 mt-1">View outstanding dues and collections for the selected period</p>
                         </div>
                         <div className="flex gap-2">
                             <Button
@@ -596,21 +661,26 @@ export default function DueReport({
                 </div>
 
                 {/* Summary Cards */}
-                <div className="grid grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
                     <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                        <p className="text-gray-600 text-sm mb-1">Total Records</p>
-                        <p className="text-2xl font-bold text-blue-600">{summary.totalRecords}</p>
+                        <p className="text-gray-600 text-sm mb-1">Students with Due</p>
+                        <p className="text-2xl font-bold text-blue-600">{summary.uniqueStudents ?? 0}</p>
+                        <p className="text-xs text-gray-500 mt-1">{summary.totalRecords} fee records</p>
                     </div>
                     <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                        <p className="text-gray-600 text-sm mb-1">Total Amount</p>
+                        <p className="text-gray-600 text-sm mb-1">Total</p>
                         <p className="text-2xl font-bold text-gray-700">৳ {formatCurrency(summary.totalDue)}</p>
                     </div>
+                    <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
+                        <p className="text-gray-600 text-sm mb-1">Discount</p>
+                        <p className="text-2xl font-bold text-amber-600">৳ {formatCurrency(summary.totalDiscount ?? 0)}</p>
+                    </div>
                     <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                        <p className="text-gray-600 text-sm mb-1">Total Paid</p>
+                        <p className="text-gray-600 text-sm mb-1">Paid</p>
                         <p className="text-2xl font-bold text-green-600">৳ {formatCurrency(summary.totalPaid)}</p>
                     </div>
                     <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-                        <p className="text-gray-600 text-sm mb-1">Total Due</p>
+                        <p className="text-gray-600 text-sm mb-1">Due</p>
                         <p className="text-2xl font-bold text-red-600">৳ {formatCurrency(summary.totalRemaining)}</p>
                     </div>
                 </div>
@@ -634,87 +704,81 @@ export default function DueReport({
             </div>
 
             {/* Print View */}
-            <div className="hidden print:block print-container">
+            <div className="hidden print:block print-container text-[11px]">
                 {/* Header */}
                 <div className="text-center mb-4 pb-2 border-b-2 border-black">
-                    <h1 className="text-base font-bold mb-1">{schoolName}</h1>
-                    {schoolAddress && <p className="text-xs mb-0.5">{schoolAddress}</p>}
-                    <h2 className="text-sm font-bold mb-1">{getReportTitle().toUpperCase()}</h2>
-                    <p style={{ fontSize: '9px' }} className="font-semibold">For the period: {dateRange}</p>
+                    <h1 className="text-xl font-bold mb-1">{schoolName}</h1>
+                    {schoolAddress && <p className="text-sm mb-0.5">{schoolAddress}</p>}
+                    <h2 className="text-base font-bold mb-1">{getReportTitle().toUpperCase()}</h2>
+                    <p className="text-xs font-semibold">For the period: {dateRange}</p>
                     {academicYear && (
-                        <p style={{ fontSize: '8px' }} className="text-gray-600">Academic Year: {academicYear.name}</p>
+                        <p className="text-xs text-gray-600">Academic Year: {academicYear.name}</p>
                     )}
-                </div>
-
-                {/* Summary for print */}
-                <div className="grid grid-cols-4 gap-2 mb-4" style={{ fontSize: '8px' }}>
-                    <div className="border border-black p-2 text-center">
-                        <p className="font-semibold">Total Records</p>
-                        <p className="font-bold">{summary.totalRecords}</p>
-                    </div>
-                    <div className="border border-black p-2 text-center">
-                        <p className="font-semibold">Total Amount</p>
-                        <p className="font-bold">৳ {formatCurrency(summary.totalDue)}</p>
-                    </div>
-                    <div className="border border-black p-2 text-center">
-                        <p className="font-semibold">Total Paid</p>
-                        <p className="font-bold">৳ {formatCurrency(summary.totalPaid)}</p>
-                    </div>
-                    <div className="border border-black p-2 text-center">
-                        <p className="font-semibold">Total Due</p>
-                        <p className="font-bold">৳ {formatCurrency(summary.totalRemaining)}</p>
-                    </div>
                 </div>
 
                 {/* Print Content based on report type */}
                 {reportType === 'organization' && !Array.isArray(reportData) && (
                     <>
-                        <h3 style={{ fontSize: '9px' }} className="font-bold mb-2">Fee Type Wise Summary</h3>
-                        <table className="w-full border-collapse border border-black mb-4" style={{ fontSize: '7px' }}>
+                        <h3 className="text-sm font-bold mb-2">Fee Type Wise Summary</h3>
+                        <table className="w-full border-collapse border border-black mb-4 text-[10px]">
                             <thead>
                                 <tr className="bg-gray-100">
-                                    <th className="border border-black p-1 text-left">Fee Type</th>
-                                    <th className="border border-black p-1 text-center">Students</th>
-                                    <th className="border border-black p-1 text-right">Total</th>
-                                    <th className="border border-black p-1 text-right">Paid</th>
-                                    <th className="border border-black p-1 text-right">Due</th>
+                                    <th className="border border-black p-1.5 text-left">Fee Type</th>
+                                    <th className="border border-black p-1.5 text-center">Students</th>
+                                    <th className="border border-black p-1.5 text-right">Total</th>
+                                    <th className="border border-black p-1.5 text-right">Discount</th>
+                                    <th className="border border-black p-1.5 text-right">Paid</th>
+                                    <th className="border border-black p-1.5 text-right">Due</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {((reportData as OrganizationReportData)?.feeTypeWise || []).map((item, index) => (
                                     <tr key={index}>
-                                        <td className="border border-black p-1">{item.fee_type}</td>
-                                        <td className="border border-black p-1 text-center">{item.student_count}</td>
-                                        <td className="border border-black p-1 text-right">{formatCurrency(item.total_amount)}</td>
-                                        <td className="border border-black p-1 text-right">{formatCurrency(item.paid_amount)}</td>
-                                        <td className="border border-black p-1 text-right font-bold">{formatCurrency(item.due_amount)}</td>
+                                        <td className="border border-black p-1.5">{item.fee_type}</td>
+                                        <td className="border border-black p-1.5 text-center">{item.student_count}</td>
+                                        <td className="border border-black p-1.5 text-right">{formatCurrency(item.total_amount)}</td>
+                                        <td className="border border-black p-1.5 text-right">{formatCurrency(item.discount_amount)}</td>
+                                        <td className="border border-black p-1.5 text-right">{formatCurrency(item.paid_amount)}</td>
+                                        <td className="border border-black p-1.5 text-right font-bold">{formatCurrency(item.due_amount)}</td>
                                     </tr>
                                 ))}
                             </tbody>
+                            {((reportData as OrganizationReportData)?.feeTypeWise || []).length > 0 && renderAmountFooter(
+                                1,
+                                sumRows((reportData as OrganizationReportData)?.feeTypeWise || []),
+                                { showStudentCount: true, studentCountValue: summary.uniqueStudents, cellClass: 'border border-black p-1.5' }
+                            )}
                         </table>
 
-                        <h3 style={{ fontSize: '9px' }} className="font-bold mb-2">Class Wise Summary</h3>
-                        <table className="w-full border-collapse border border-black" style={{ fontSize: '7px' }}>
+                        <h3 className="text-sm font-bold mb-2">Class Wise Summary</h3>
+                        <table className="w-full border-collapse border border-black text-[10px]">
                             <thead>
                                 <tr className="bg-gray-100">
-                                    <th className="border border-black p-1 text-left">Class</th>
-                                    <th className="border border-black p-1 text-center">Students</th>
-                                    <th className="border border-black p-1 text-right">Total</th>
-                                    <th className="border border-black p-1 text-right">Paid</th>
-                                    <th className="border border-black p-1 text-right">Due</th>
+                                    <th className="border border-black p-1.5 text-left">Class</th>
+                                    <th className="border border-black p-1.5 text-center">Students</th>
+                                    <th className="border border-black p-1.5 text-right">Total</th>
+                                    <th className="border border-black p-1.5 text-right">Discount</th>
+                                    <th className="border border-black p-1.5 text-right">Paid</th>
+                                    <th className="border border-black p-1.5 text-right">Due</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {((reportData as OrganizationReportData)?.classWise || []).map((item, index) => (
                                     <tr key={index}>
-                                        <td className="border border-black p-1">{item.class_name}</td>
-                                        <td className="border border-black p-1 text-center">{item.student_count}</td>
-                                        <td className="border border-black p-1 text-right">{formatCurrency(item.total_amount)}</td>
-                                        <td className="border border-black p-1 text-right">{formatCurrency(item.paid_amount)}</td>
-                                        <td className="border border-black p-1 text-right font-bold">{formatCurrency(item.due_amount)}</td>
+                                        <td className="border border-black p-1.5">{item.class_name}</td>
+                                        <td className="border border-black p-1.5 text-center">{item.student_count}</td>
+                                        <td className="border border-black p-1.5 text-right">{formatCurrency(item.total_amount)}</td>
+                                        <td className="border border-black p-1.5 text-right">{formatCurrency(item.discount_amount)}</td>
+                                        <td className="border border-black p-1.5 text-right">{formatCurrency(item.paid_amount)}</td>
+                                        <td className="border border-black p-1.5 text-right font-bold">{formatCurrency(item.due_amount)}</td>
                                     </tr>
                                 ))}
                             </tbody>
+                            {((reportData as OrganizationReportData)?.classWise || []).length > 0 && renderAmountFooter(
+                                1,
+                                sumRows((reportData as OrganizationReportData)?.classWise || []),
+                                { showStudentCount: true, cellClass: 'border border-black p-1.5' }
+                            )}
                         </table>
                     </>
                 )}
@@ -722,35 +786,43 @@ export default function DueReport({
                 {reportType === 'class' && Array.isArray(reportData) && (
                     <>
                         {(reportData as ClassDueData[]).map((classData, classIndex) => (
-                            <div key={classIndex} className="mb-4">
-                                <h3 style={{ fontSize: '9px' }} className="font-bold mb-1 bg-gray-200 p-1">
-                                    {classData.class_name} - Due: ৳{formatCurrency(classData.total_remaining)}
+                            <div key={classIndex} className="mb-4 print-section">
+                                <h3 className="text-sm font-bold mb-1 bg-gray-200 p-1.5">
+                                    {classData.class_name} ({classData.student_count ?? classData.students?.length ?? 0} students) - Due: ৳{formatCurrency(classData.total_remaining)}
                                 </h3>
-                                <table className="w-full border-collapse border border-black" style={{ fontSize: '6px' }}>
+                                <table className="w-full border-collapse border border-black text-[9px]">
                                     <thead>
                                         <tr className="bg-gray-100">
-                                            <th className="border border-black p-0.5 text-left">Roll</th>
-                                            <th className="border border-black p-0.5 text-left">ID</th>
-                                            <th className="border border-black p-0.5 text-left">Name</th>
-                                            <th className="border border-black p-0.5 text-center">Section</th>
-                                            <th className="border border-black p-0.5 text-right">Total</th>
-                                            <th className="border border-black p-0.5 text-right">Paid</th>
-                                            <th className="border border-black p-0.5 text-right">Due</th>
+                                            <th className="border border-black p-1 text-left">Roll</th>
+                                            <th className="border border-black p-1 text-left">ID</th>
+                                            <th className="border border-black p-1 text-left">Name</th>
+                                            <th className="border border-black p-1 text-center">Section</th>
+                                            <th className="border border-black p-1 text-right">Total</th>
+                                            <th className="border border-black p-1 text-right">Discount</th>
+                                            <th className="border border-black p-1 text-right">Paid</th>
+                                            <th className="border border-black p-1 text-right">Due</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {(classData.students || []).map((student, studentIndex) => (
                                             <tr key={studentIndex}>
-                                                <td className="border border-black p-0.5">{student.roll_number}</td>
-                                                <td className="border border-black p-0.5">{student.student_id_number}</td>
-                                                <td className="border border-black p-0.5">{student.student_name}</td>
-                                                <td className="border border-black p-0.5 text-center">{student.section}</td>
-                                                <td className="border border-black p-0.5 text-right">{formatCurrency(student.total_amount)}</td>
-                                                <td className="border border-black p-0.5 text-right">{formatCurrency(student.paid_amount)}</td>
-                                                <td className="border border-black p-0.5 text-right font-bold">{formatCurrency(student.due_amount)}</td>
+                                                <td className="border border-black p-1">{student.roll_number}</td>
+                                                <td className="border border-black p-1">{student.student_id_number}</td>
+                                                <td className="border border-black p-1">{student.student_name}</td>
+                                                <td className="border border-black p-1 text-center">{student.section}</td>
+                                                <td className="border border-black p-1 text-right">{formatCurrency(student.total_amount)}</td>
+                                                <td className="border border-black p-1 text-right">{formatCurrency(student.discount_amount)}</td>
+                                                <td className="border border-black p-1 text-right">{formatCurrency(student.paid_amount)}</td>
+                                                <td className="border border-black p-1 text-right font-bold">{formatCurrency(student.due_amount)}</td>
                                             </tr>
                                         ))}
                                     </tbody>
+                                    {(classData.students || []).length > 0 && renderAmountFooter(4, {
+                                        total: classData.total_gross,
+                                        discount: classData.total_discount,
+                                        paid: classData.total_paid,
+                                        due: classData.total_remaining,
+                                    }, { cellClass: 'border border-black p-1' })}
                                 </table>
                             </div>
                         ))}
@@ -760,37 +832,45 @@ export default function DueReport({
                 {reportType === 'student' && Array.isArray(reportData) && (
                     <>
                         {(reportData as StudentDueData[]).map((student, index) => (
-                            <div key={index} className="mb-4">
-                                <div style={{ fontSize: '8px' }} className="bg-gray-200 p-1 mb-1">
+                            <div key={index} className="mb-4 print-section">
+                                <div className="bg-gray-200 p-1.5 mb-1 text-xs">
                                     <strong>{student.student_name}</strong> | ID: {student.student_id_number} | Roll: {student.roll_number} | Class: {student.class_name} | Due: ৳{formatCurrency(student.due_amount)}
                                 </div>
-                                <table className="w-full border-collapse border border-black" style={{ fontSize: '6px' }}>
+                                <table className="w-full border-collapse border border-black text-[9px]">
                                     <thead>
                                         <tr className="bg-gray-100">
-                                            <th className="border border-black p-0.5 text-left">Fee Type</th>
-                                            <th className="border border-black p-0.5 text-center">Month/Year</th>
-                                            <th className="border border-black p-0.5 text-center">Date</th>
-                                            <th className="border border-black p-0.5 text-right">Total</th>
-                                            <th className="border border-black p-0.5 text-right">Paid</th>
-                                            <th className="border border-black p-0.5 text-right">Due</th>
-                                            <th className="border border-black p-0.5 text-center">Status</th>
+                                            <th className="border border-black p-1 text-left">Fee Type</th>
+                                            <th className="border border-black p-1 text-center">Month/Year</th>
+                                            <th className="border border-black p-1 text-center">Date</th>
+                                            <th className="border border-black p-1 text-right">Total</th>
+                                            <th className="border border-black p-1 text-right">Discount</th>
+                                            <th className="border border-black p-1 text-right">Paid</th>
+                                            <th className="border border-black p-1 text-right">Due</th>
+                                            <th className="border border-black p-1 text-center">Status</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {(student.fees || []).map((fee, feeIndex) => (
                                             <tr key={feeIndex}>
-                                                <td className="border border-black p-0.5">{fee.fee_type}</td>
-                                                <td className="border border-black p-0.5 text-center">
+                                                <td className="border border-black p-1">{fee.fee_type}</td>
+                                                <td className="border border-black p-1 text-center">
                                                     {fee.month && fee.year ? `${getMonthName(fee.month)} ${fee.year}` : '-'}
                                                 </td>
-                                                <td className="border border-black p-0.5 text-center">{formatDate(fee.payment_date)}</td>
-                                                <td className="border border-black p-0.5 text-right">{formatCurrency(fee.total_amount)}</td>
-                                                <td className="border border-black p-0.5 text-right">{formatCurrency(fee.paid_amount)}</td>
-                                                <td className="border border-black p-0.5 text-right font-bold">{formatCurrency(fee.due_amount)}</td>
-                                                <td className="border border-black p-0.5 text-center">{fee.status}</td>
+                                                <td className="border border-black p-1 text-center">{formatDate(fee.payment_date)}</td>
+                                                <td className="border border-black p-1 text-right">{formatCurrency(fee.total_amount)}</td>
+                                                <td className="border border-black p-1 text-right">{formatCurrency(fee.discount_amount)}</td>
+                                                <td className="border border-black p-1 text-right">{formatCurrency(fee.paid_amount)}</td>
+                                                <td className="border border-black p-1 text-right font-bold">{formatCurrency(fee.due_amount)}</td>
+                                                <td className="border border-black p-1 text-center">{fee.status}</td>
                                             </tr>
                                         ))}
                                     </tbody>
+                                    {(student.fees || []).length > 0 && renderAmountFooter(3, {
+                                        total: student.total_amount,
+                                        discount: student.discount_amount,
+                                        paid: student.paid_amount,
+                                        due: student.due_amount,
+                                    }, { extraColSpan: 1, cellClass: 'border border-black p-1' })}
                                 </table>
                             </div>
                         ))}
@@ -802,24 +882,24 @@ export default function DueReport({
                     <div className="grid grid-cols-3 gap-12">
                         <div className="text-center">
                             <div className="border-t-2 border-black pt-1 mt-10">
-                                <p className="font-semibold" style={{ fontSize: '7px' }}>Prepared By</p>
+                                <p className="text-xs font-semibold">Prepared By</p>
                             </div>
                         </div>
                         <div className="text-center">
                             <div className="border-t-2 border-black pt-1 mt-10">
-                                <p className="font-semibold" style={{ fontSize: '7px' }}>Checked By</p>
+                                <p className="text-xs font-semibold">Checked By</p>
                             </div>
                         </div>
                         <div className="text-center">
                             <div className="border-t-2 border-black pt-1 mt-10">
-                                <p className="font-semibold" style={{ fontSize: '7px' }}>Approved By</p>
+                                <p className="text-xs font-semibold">Approved By</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Footer */}
-                <div className="text-center mt-4 text-gray-600" style={{ fontSize: '6px' }}>
+                <div className="text-center mt-4 text-gray-600 text-[10px]">
                     <p>Printed on: {new Date().toLocaleString('en-US', {
                         year: 'numeric',
                         month: 'long',
@@ -841,46 +921,65 @@ export default function DueReport({
                     * {
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
-                        color-adjust: exact !important;
                     }
 
                     html, body {
-                        width: 100%;
-                        height: 100%;
-                        margin: 0;
-                        padding: 0;
+                        width: 100% !important;
+                        height: auto !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        overflow: visible !important;
                     }
 
-                    body * {
-                        visibility: hidden;
+                    /* Hide app chrome — use display:none, NOT visibility */
+                    aside,
+                    nav,
+                    header,
+                    .print\\:hidden {
+                        display: none !important;
                     }
 
-                    .print-container,
-                    .print-container * {
-                        visibility: visible;
+                    main,
+                    .ml-56,
+                    .max-w-\\[1600px\\] {
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        width: 100% !important;
+                        max-width: none !important;
                     }
 
                     .print-container {
-                        position: fixed !important;
-                        left: 0 !important;
-                        top: 0 !important;
-                        right: 0 !important;
+                        display: block !important;
+                        position: static !important;
                         width: 100% !important;
-                        max-width: 100% !important;
-                        margin: 0 auto !important;
-                        padding: 0 !important;
-                        background: white;
+                        overflow: visible !important;
+                        background: white !important;
+                        font-size: 11px !important;
+                    }
+
+                    .print-section {
+                        page-break-inside: auto;
+                        break-inside: auto;
                     }
 
                     table {
                         border-collapse: collapse !important;
                         width: 100%;
                         page-break-inside: auto;
+                        break-inside: auto;
+                    }
+
+                    thead {
+                        display: table-header-group;
+                    }
+
+                    tfoot {
+                        display: table-footer-group;
                     }
 
                     tr {
                         page-break-inside: avoid;
-                        page-break-after: auto;
+                        break-inside: avoid;
                     }
 
                     th, td {

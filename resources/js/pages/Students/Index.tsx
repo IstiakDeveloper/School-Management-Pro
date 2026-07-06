@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
 import Badge from '@/Components/Badge';
+import StatusToggle from '@/Components/StatusToggle';
 import DeleteModal from '@/Components/DeleteModal';
 import IndexPagination from '@/Components/IndexPagination';
 import { Plus, Edit, Trash2, Eye, Users, Search, Mail, Phone, Filter } from 'lucide-react';
@@ -44,14 +45,22 @@ interface IndexProps {
     filters?: { search?: string; class_id?: string; section_id?: string; academic_year_id?: string; status?: string };
     classes: Array<{ id: number; name: string }>;
     academicYears: Array<{ id: number; name: string }>;
+    canToggleStatus?: boolean;
 }
 
-export default function Index({ students, filters = {}, classes, academicYears }: IndexProps) {
+const TOGGLEABLE_STUDENT_STATUSES = ['active', 'suspended'];
+
+const isStudentActive = (status: string) => status === 'active';
+
+const canToggleStudentStatus = (status: string) => TOGGLEABLE_STUDENT_STATUSES.includes(status);
+
+export default function Index({ students, filters = {}, classes, academicYears, canToggleStatus = false }: IndexProps) {
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
     const [classId, setClassId] = useState(filters.class_id || '');
     const [status, setStatus] = useState(filters.status || '');
     const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; id: number | null; name: string }>({ isOpen: false, id: null, name: '' });
     const [isDeleting, setIsDeleting] = useState(false);
+    const [togglingId, setTogglingId] = useState<number | null>(null);
 
     const handleDeleteClick = (id: number, name: string) => setDeleteModal({ isOpen: true, id, name });
     const handleDeleteConfirm = () => {
@@ -70,6 +79,14 @@ export default function Index({ students, filters = {}, classes, academicYears }
     const handleReset = () => {
         setSearchTerm(''); setClassId(''); setStatus('');
         router.get('/students');
+    };
+
+    const handleStatusToggle = (studentId: number) => {
+        setTogglingId(studentId);
+        router.patch(`/students/${studentId}/toggle-status`, {}, {
+            preserveScroll: true,
+            onFinish: () => setTogglingId(null),
+        });
     };
 
     const data = students.data;
@@ -116,8 +133,8 @@ export default function Index({ students, filters = {}, classes, academicYears }
                         >
                             <option value="">All Status</option>
                             <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                            <option value="graduated">Graduated</option>
+                            <option value="suspended">Inactive</option>
+                            <option value="passed">Passed</option>
                             <option value="transferred">Transferred</option>
                             <option value="dropped">Dropped</option>
                         </select>
@@ -167,12 +184,21 @@ export default function Index({ students, filters = {}, classes, academicYears }
                                             {student.phone && <div className="flex items-center gap-1"><Phone className="w-3 h-3" />{student.phone}</div>}
                                         </td>
                                         <td className="px-4 py-3">
-                                            <Badge
-                                                variant={student.status === 'active' ? 'success' : student.status === 'graduated' ? 'info' : student.status === 'transferred' ? 'warning' : 'default'}
-                                                className="capitalize text-xs"
-                                            >
-                                                {student.status}
-                                            </Badge>
+                                            {canToggleStudentStatus(student.status) ? (
+                                                <StatusToggle
+                                                    checked={isStudentActive(student.status)}
+                                                    onChange={() => handleStatusToggle(student.id)}
+                                                    disabled={!canToggleStatus}
+                                                    loading={togglingId === student.id}
+                                                />
+                                            ) : (
+                                                <Badge
+                                                    variant={student.status === 'passed' ? 'info' : student.status === 'transferred' ? 'warning' : 'default'}
+                                                    className="capitalize text-xs"
+                                                >
+                                                    {student.status}
+                                                </Badge>
+                                            )}
                                         </td>
                                         <td className="px-4 py-3 text-right">
                                             <div className="flex items-center justify-end gap-1">

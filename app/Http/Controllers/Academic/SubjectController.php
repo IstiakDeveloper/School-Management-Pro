@@ -18,7 +18,7 @@ class SubjectController extends Controller
             ->when($request->search, fn($q) => $q->where('name', 'like', "%{$request->search}%"))
             ->when($request->type, fn($q) => $q->where('type', $request->type))
             ->latest()
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         return Inertia::render('Academic/Subjects/Index', [
             'subjects' => $subjects,

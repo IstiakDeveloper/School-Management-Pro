@@ -21,7 +21,7 @@ class ExamInvigilatorController extends Controller
             ->when($request->exam_id, fn($q) => $q->where('exam_id', $request->exam_id))
             ->when($request->teacher_id, fn($q) => $q->where('teacher_id', $request->teacher_id))
             ->latest()
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         return Inertia::render('Exams/Invigilators/Index', [
             'invigilators' => $invigilators,

@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
 import { Printer } from 'lucide-react';
+import { formatAmount } from '@/lib/formatCurrency';
 
 interface Account {
     id: number;
@@ -71,14 +72,8 @@ export default function ReceiptPayment({
         router.get('/accounting/reports/receipt-payment');
     };
 
-    const formatCurrency = (amount: number | null | undefined) => {
-        if (amount === null || amount === undefined) return '';
-        const num = Number(amount) || 0;
-        return new Intl.NumberFormat('en-US', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        }).format(num);
-    };
+    const formatCurrency = (amount: number | null | undefined) =>
+        amount === null || amount === undefined ? '' : formatAmount(amount);
 
     const handlePrint = () => {
         window.print();

@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatAmount } from '@/lib/formatCurrency';
 import { useForm } from '@inertiajs/react';
 import { X } from 'lucide-react';
 
@@ -55,7 +56,7 @@ export default function DonationModal({ show, onClose, welfareFundAccount }: Don
                         {welfareFundAccount ? (
                             <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50">
                                 <p className="font-semibold text-gray-900">{welfareFundAccount.account_name}</p>
-                                <p className="text-sm text-gray-600">Balance: ৳{welfareFundAccount.current_balance.toLocaleString('en-IN')}</p>
+                                <p className="text-sm text-gray-600">Balance: ৳{formatAmount(welfareFundAccount.current_balance)}</p>
                             </div>
                         ) : (
                             <div className="w-full px-4 py-2 border border-red-300 rounded-lg bg-red-50">

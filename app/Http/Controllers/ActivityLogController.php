@@ -20,7 +20,7 @@ class ActivityLogController extends Controller
             ->when($request->from_date, fn($q) => $q->whereDate('created_at', '>=', $request->from_date))
             ->when($request->to_date, fn($q) => $q->whereDate('created_at', '<=', $request->to_date))
             ->latest()
-            ->paginate(50);
+            ->paginate(50)->withQueryString();
 
         return Inertia::render('ActivityLogs/Index', [
             'logs' => $logs,

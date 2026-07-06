@@ -24,7 +24,7 @@ class MarkController extends Controller
             ->when($request->class_id, fn($q) => $q->where('class_id', $request->class_id))
             ->when($request->subject_id, fn($q) => $q->where('subject_id', $request->subject_id))
             ->latest()
-            ->paginate(50);
+            ->paginate(50)->withQueryString();
 
         return Inertia::render('Exams/Marks/Index', [
             'marks' => $marks,

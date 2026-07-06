@@ -282,26 +282,12 @@ class ReceiptPaymentReportController extends Controller
         // Expenses - Month
         foreach ($monthTransactions as $trans) {
             if ($trans->type === 'asset_purchase' && (! $accountId || $trans->account_id == $accountId)) {
-                // Track fixed asset purchases separately (not as "Other Expense")
-                // Description format in FixedAssetController: "Fixed Asset Purchase: {name} ({code})"
-                $desc = (string) ($trans->description ?? '');
-                $assetName = 'Fixed Asset';
-                $assetCode = null;
-                if (preg_match('/^Fixed Asset Purchase:\s*(.+?)\s*\((.+?)\)\s*$/', $desc, $m)) {
-                    $assetName = trim($m[1]);
-                    $assetCode = trim($m[2]);
-                } elseif (preg_match('/\((FA-\d+)\)/', $desc, $m)) {
-                    $assetCode = trim($m[1]);
-                    $assetName = trim(str_replace(['Fixed Asset Purchase:', '(' . $assetCode . ')'], '', $desc)) ?: 'Fixed Asset';
-                }
-
-                $assetKey = $assetCode ? ($assetName . ' (' . $assetCode . ')') : $assetName;
+                $assetKey = $this->fixedAssetGroupKey((string) ($trans->description ?? ''));
                 if (! isset($fixedAssetsMonthGrouped[$assetKey])) {
                     $fixedAssetsMonthGrouped[$assetKey] = 0;
                 }
                 $fixedAssetsMonthGrouped[$assetKey] += $trans->amount;
 
-                // Totals still count as payments
                 $totalMonthPayments += $trans->amount;
             } elseif ($trans->type === 'expense' && (! $accountId || $trans->account_id == $accountId)) {
                 $categoryName = $trans->expenseCategory ? $trans->expenseCategory->name : 'Other Expense';
@@ -336,25 +322,12 @@ class ReceiptPaymentReportController extends Controller
         // Expenses - Cumulative
         foreach ($cumulativeTransactions as $trans) {
             if ($trans->type === 'asset_purchase' && (! $accountId || $trans->account_id == $accountId)) {
-                // Track fixed asset purchases separately (not as "Other Expense")
-                $desc = (string) ($trans->description ?? '');
-                $assetName = 'Fixed Asset';
-                $assetCode = null;
-                if (preg_match('/^Fixed Asset Purchase:\s*(.+?)\s*\((.+?)\)\s*$/', $desc, $m)) {
-                    $assetName = trim($m[1]);
-                    $assetCode = trim($m[2]);
-                } elseif (preg_match('/\((FA-\d+)\)/', $desc, $m)) {
-                    $assetCode = trim($m[1]);
-                    $assetName = trim(str_replace(['Fixed Asset Purchase:', '(' . $assetCode . ')'], '', $desc)) ?: 'Fixed Asset';
-                }
-
-                $assetKey = $assetCode ? ($assetName . ' (' . $assetCode . ')') : $assetName;
+                $assetKey = $this->fixedAssetGroupKey((string) ($trans->description ?? ''));
                 if (! isset($fixedAssetsCumulativeGrouped[$assetKey])) {
                     $fixedAssetsCumulativeGrouped[$assetKey] = 0;
                 }
                 $fixedAssetsCumulativeGrouped[$assetKey] += $trans->amount;
 
-                // Totals still count as payments
                 $totalCumulativePayments += $trans->amount;
             } elseif ($trans->type === 'expense' && (! $accountId || $trans->account_id == $accountId)) {
                 $categoryName = $trans->expenseCategory ? $trans->expenseCategory->name : 'Other Expense';
@@ -470,5 +443,27 @@ class ReceiptPaymentReportController extends Controller
             'schoolName' => $schoolName,
             'schoolAddress' => $schoolAddress,
         ]);
+    }
+
+    /**
+     * Build a stable display key for grouping fixed asset payment rows.
+     * Handles both initial purchase and quantity addition transactions.
+     */
+    private function fixedAssetGroupKey(string $description): string
+    {
+        if (preg_match('/Fixed Asset (?:Purchase|Addition):\s*(.+?)\s*\((FA-[^)]+)\)/', $description, $matches)) {
+            return trim($matches[1]) . ' (' . trim($matches[2]) . ')';
+        }
+
+        if (preg_match('/\((FA-[^)]+)\)/', $description, $matches)) {
+            $assetCode = trim($matches[1]);
+            if (preg_match('/Fixed Asset (?:Purchase|Addition):\s*(.+?)\s*\(/', $description, $nameMatch)) {
+                return trim($nameMatch[1]) . ' (' . $assetCode . ')';
+            }
+
+            return 'Fixed Asset (' . $assetCode . ')';
+        }
+
+        return 'Fixed Asset';
     }
 }

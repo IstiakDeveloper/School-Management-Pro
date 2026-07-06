@@ -20,7 +20,7 @@ class BookController extends Controller
             ->when($request->category, fn($q) => $q->where('category', $request->category))
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->latest()
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         return Inertia::render('Library/Books/Index', [
             'books' => $books,

@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { formatAmount } from '@/lib/formatCurrency';
 import { Head, Link, useForm, router } from '@inertiajs/react';
 import { useReactToPrint } from 'react-to-print';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
@@ -226,7 +227,7 @@ export default function Show({ teacher, transactions, withdrawals, summary, filt
                             </div>
                             <div>
                                 <p className="text-sm text-gray-600">Current Salary</p>
-                                <p className="text-lg font-semibold text-gray-900">৳{teacher?.salary ? parseFloat(teacher.salary.toString()).toLocaleString('en-IN') : '0'}</p>
+                                <p className="text-lg font-semibold text-gray-900">৳{teacher?.salary ? formatAmount(parseFloat(teacher.salary.toString())) : '0'}</p>
                             </div>
                         </div>
                     </div>
@@ -275,28 +276,28 @@ export default function Show({ teacher, transactions, withdrawals, summary, filt
                         <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
                             <p className="text-sm text-gray-600">Employee Contribution</p>
                             <p className="text-2xl font-bold text-gray-900 mt-1">
-                                ৳{parseFloat(summary.total_employee_contribution.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                ৳{formatAmount(summary.total_employee_contribution)}
                             </p>
                         </div>
 
                         <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
                             <p className="text-sm text-gray-600">Employer Contribution</p>
                             <p className="text-2xl font-bold text-gray-900 mt-1">
-                                ৳{parseFloat(summary.total_employer_contribution.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                ৳{formatAmount(summary.total_employer_contribution)}
                             </p>
                         </div>
 
                         <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
                             <p className="text-sm text-gray-600">Total Withdrawn</p>
                             <p className="text-2xl font-bold text-gray-900 mt-1">
-                                ৳{parseFloat(summary.total_withdrawn.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                ৳{formatAmount(summary.total_withdrawn)}
                             </p>
                         </div>
 
                         <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
                             <p className="text-sm text-gray-600">Current Balance</p>
                             <p className="text-2xl font-bold text-green-600 mt-1">
-                                ৳{parseFloat(summary.current_balance.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                ৳{formatAmount(summary.current_balance)}
                             </p>
                         </div>
                     </div>
@@ -359,13 +360,13 @@ export default function Show({ teacher, transactions, withdrawals, summary, filt
                                                 {formatDate(transaction.transaction_date)}
                                             </td>
                                             <td className="px-6 py-4 text-right font-medium text-gray-900">
-                                                ৳{parseFloat(transaction.employee_contribution.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                ৳{formatAmount(transaction.employee_contribution)}
                                             </td>
                                             <td className="px-6 py-4 text-right font-medium text-gray-900">
-                                                ৳{parseFloat(transaction.employer_contribution.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                ৳{formatAmount(transaction.employer_contribution)}
                                             </td>
                                             <td className="px-6 py-4 text-right font-semibold text-gray-900">
-                                                ৳{parseFloat(transaction.total_contribution.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                ৳{formatAmount(transaction.total_contribution)}
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 {transaction.salaryPayment ? (
@@ -444,13 +445,13 @@ export default function Show({ teacher, transactions, withdrawals, summary, filt
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 text-right font-semibold text-blue-600">
-                                                    ৳{parseFloat(withdrawal.employee_contribution.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    ৳{formatAmount(withdrawal.employee_contribution)}
                                                 </td>
                                                 <td className="px-6 py-4 text-right font-semibold text-purple-600">
-                                                    ৳{parseFloat(withdrawal.employer_contribution.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    ৳{formatAmount(withdrawal.employer_contribution)}
                                                 </td>
                                                 <td className="px-6 py-4 text-right font-bold text-red-600">
-                                                    ৳{parseFloat(withdrawal.total_amount.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    ৳{formatAmount(withdrawal.total_amount)}
                                                 </td>
                                                 <td className="px-6 py-4 text-sm text-gray-900">
                                                     {withdrawal.approved_by || 'N/A'}
@@ -524,7 +525,7 @@ export default function Show({ teacher, transactions, withdrawals, summary, filt
 
                                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                                         <p className="text-sm text-blue-900">
-                                            <strong>Total Opening Balance: ৳{(parseFloat(openingForm.data.employee_contribution || '0') + parseFloat(openingForm.data.employer_contribution || '0')).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
+                                            <strong>Total Opening Balance: ৳{formatAmount(parseFloat(openingForm.data.employee_contribution || '0') + parseFloat(openingForm.data.employer_contribution || '0'))}</strong>
                                         </p>
                                     </div>
 
@@ -568,7 +569,7 @@ export default function Show({ teacher, transactions, withdrawals, summary, filt
                                         <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                                         <div className="text-sm text-yellow-900">
                                             <p className="font-semibold mb-1">Warning: This will withdraw the entire PF balance</p>
-                                            <p>Current Balance: <strong>৳{parseFloat(summary.current_balance.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong></p>
+                                            <p>Current Balance: <strong>৳{formatAmount(parseFloat(summary.current_balance.toString()))}</strong></p>
                                         </div>
                                     </div>
                                 </div>

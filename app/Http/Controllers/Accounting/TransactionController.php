@@ -28,7 +28,7 @@ class TransactionController extends Controller
             // transactions share the same transaction_date.
             ->orderByDesc('transaction_date')
             ->orderByDesc('id')
-            ->paginate(50)
+            ->paginate(50)->withQueryString()
             ->appends($request->only(['search', 'type', 'account_id', 'date_from', 'date_to']));
 
         $totalIncome = Transaction::where('type', 'income')->sum('amount');

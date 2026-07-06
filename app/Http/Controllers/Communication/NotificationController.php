@@ -14,7 +14,7 @@ class NotificationController extends Controller
     {
         $notifications = Notification::where('user_id', auth()->id())
             ->latest()
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         return Inertia::render('Communication/Notifications/Index', [
             'notifications' => $notifications,

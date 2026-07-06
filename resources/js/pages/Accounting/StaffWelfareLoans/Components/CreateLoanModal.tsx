@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatAmount } from '@/lib/formatCurrency';
 import { useForm } from '@inertiajs/react';
 import { X } from 'lucide-react';
 
@@ -109,7 +110,7 @@ export default function CreateLoanModal({ show, onClose, teachers, welfareFundAc
                         {welfareFundAccount ? (
                             <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50">
                                 <p className="font-semibold text-gray-900">{welfareFundAccount.account_name}</p>
-                                <p className="text-sm text-gray-600">Balance: ৳{welfareFundAccount.current_balance.toLocaleString('en-IN')}</p>
+                                <p className="text-sm text-gray-600">Balance: ৳{formatAmount(welfareFundAccount.current_balance)}</p>
                             </div>
                         ) : (
                             <div className="w-full px-4 py-2 border border-red-300 rounded-lg bg-red-50">
@@ -163,18 +164,18 @@ export default function CreateLoanModal({ show, onClose, teachers, welfareFundAc
                                 <div className="text-right">
                                     <p className="text-sm font-medium text-blue-800 mb-1">Monthly Payment</p>
                                     <p className="text-xl font-bold text-green-600">
-                                        ৳{parseFloat(form.data.installment_amount).toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                        ৳{formatAmount(parseFloat(form.data.installment_amount))}
                                     </p>
                                 </div>
                             </div>
                             <div className="mt-3 pt-3 border-t border-blue-200">
                                 <p className="text-xs text-blue-700">
-                                    Total loan of ৳{parseFloat(form.data.loan_amount).toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                    Total loan of ৳{formatAmount(parseFloat(form.data.loan_amount))}
                                     {' '}will be paid in {months} installments
                                 </p>
                                 {lastInstallmentAmount !== parseFloat(form.data.installment_amount) && (
                                     <p className="text-xs text-purple-700 mt-1 font-semibold">
-                                        Note: Last installment will be ৳{lastInstallmentAmount.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                        Note: Last installment will be ৳{formatAmount(lastInstallmentAmount)}
                                     </p>
                                 )}
                             </div>

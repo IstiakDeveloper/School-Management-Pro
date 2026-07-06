@@ -1,5 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
+import { formatAmount } from '@/lib/formatCurrency';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Plus, Edit, Trash2, X, FileText } from 'lucide-react';
 
@@ -174,7 +175,7 @@ export default function Index({ feeStructures, feeTypes, classes, academicYears 
                                                     {structure.fee_type.name}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600">
-                                                    ৳{parseFloat(structure.amount.toString()).toLocaleString('en-IN')}
+                                                    ৳{formatAmount(parseFloat(structure.amount.toString()))}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                                                     {formatDate(structure.due_date)}
@@ -237,7 +238,7 @@ export default function Index({ feeStructures, feeTypes, classes, academicYears 
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Fee Type <span className="text-red-500">*</span></label>
                                 <select value={createForm.data.fee_type_id} onChange={(e) => handleFeeTypeChange(e.target.value, createForm)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" required>
                                     <option value="">Select fee type...</option>
-                                    {feeTypes.map(type => <option key={type.id} value={type.id}>{type.name} - ৳{type.amount.toLocaleString('en-IN')}</option>)}
+                                    {feeTypes.map(type => <option key={type.id} value={type.id}>{type.name} - ৳{formatAmount(type.amount)}</option>)}
                                 </select>
                             </div>
 

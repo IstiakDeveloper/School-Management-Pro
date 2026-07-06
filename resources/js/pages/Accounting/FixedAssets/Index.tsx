@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import IndexPagination from '@/Components/IndexPagination';
 import { Plus, Search, Eye, Edit, Trash2, Building2, RefreshCw } from 'lucide-react';
+import { formatCurrency } from '@/lib/formatCurrency';
 import { FixedAsset, PaginatedData } from '@/types/accounting';
 
 interface IndexProps {
@@ -29,8 +30,6 @@ export default function Index({ assets, filters, stats }: IndexProps) {
         if (confirm(`Delete fixed asset "${name}"?`)) router.delete(`/accounting/fixed-assets/${id}`);
     };
 
-    const formatCurrency = (n: number) =>
-        new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
     const formatDate = (d: string) =>
         new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -117,6 +116,7 @@ export default function Index({ assets, filters, stats }: IndexProps) {
                                     <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Asset</th>
                                     <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Code</th>
                                     <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                                    <th className="px-4 py-2.5 text-center text-[11px] font-medium text-gray-500 uppercase tracking-wider">Qty</th>
                                     <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Purchase</th>
                                     <th className="px-4 py-2.5 text-right text-[11px] font-medium text-gray-500 uppercase tracking-wider">Price</th>
                                     <th className="px-4 py-2.5 text-right text-[11px] font-medium text-gray-500 uppercase tracking-wider">Current</th>
@@ -130,6 +130,7 @@ export default function Index({ assets, filters, stats }: IndexProps) {
                                         <td className="px-4 py-3 text-sm font-medium text-gray-900">{asset.asset_name}</td>
                                         <td className="px-4 py-3"><code className="px-1.5 py-0.5 bg-gray-100 rounded text-xs">{asset.asset_code}</code></td>
                                         <td className="px-4 py-3 text-xs text-gray-600">{asset.category}</td>
+                                        <td className="px-4 py-3 text-center text-xs text-gray-600">{asset.total_quantity ?? '—'}</td>
                                         <td className="px-4 py-3 text-xs text-gray-600">{formatDate(asset.purchase_date)}</td>
                                         <td className="px-4 py-3 text-right text-sm font-medium text-gray-900">৳{formatCurrency(asset.purchase_price)}</td>
                                         <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900">৳{formatCurrency(asset.current_value)}</td>

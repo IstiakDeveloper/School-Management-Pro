@@ -23,7 +23,7 @@ class AttendanceSummaryController extends Controller
             ->when($request->month, fn($q) => $q->where('month', $request->month))
             ->when($request->year, fn($q) => $q->where('year', $request->year))
             ->latest()
-            ->paginate(50);
+            ->paginate(50)->withQueryString();
 
         return Inertia::render('Attendance/Summary/Index', [
             'summaries' => $summaries,

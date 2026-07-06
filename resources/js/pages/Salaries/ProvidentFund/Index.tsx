@@ -1,9 +1,11 @@
 import React, { useState, useRef } from 'react';
+import { formatAmount } from '@/lib/formatCurrency';
 import { Head, Link, router } from '@inertiajs/react';
 import { useReactToPrint } from 'react-to-print';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Input from '@/Components/Input';
 import Badge from '@/Components/Badge';
+import IndexPagination from '@/Components/IndexPagination';
 import PrintProvidentFundIndex from './PrintProvidentFundIndex';
 import { Search, Wallet, TrendingUp, Users, Calendar, DollarSign, Eye, Printer } from 'lucide-react';
 
@@ -100,249 +102,228 @@ export default function Index({ teacherSummary, summary, allTeachers, filters }:
                 <PrintProvidentFundIndex ref={printRef} teachers={teacherSummary.data} summary={summary} />
             </div>
 
-            <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-                <div className="max-w-7xl mx-auto space-y-6">
-                    {/* Header */}
-                    <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className="p-3 bg-green-600 rounded-lg">
-                                    <Wallet className="w-8 h-8 text-white" />
-                                </div>
-                                <div>
-                                    <h1 className="text-3xl font-bold text-gray-900">
-                                        Provident Fund Ledger
-                                    </h1>
-                                    <p className="text-gray-600 mt-1">View teacher PF contributions and balances</p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={handlePrint}
-                                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                            >
-                                <Printer className="w-4 h-4" />
-                                Print
-                            </button>
+            <div className="space-y-6">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
+                            <Wallet className="h-6 w-6" />
+                            Provident Fund Ledger
+                        </h1>
+                        <p className="text-xs text-gray-500 mt-0.5">View teacher PF contributions and balances</p>
+                    </div>
+                    <button
+                        onClick={handlePrint}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-white border border-emerald-200 text-emerald-800 rounded-lg hover:bg-emerald-50 active:scale-95 transition-all duration-200 text-sm font-semibold shadow-sm shadow-emerald-500/5"
+                    >
+                        <Printer className="w-4 h-4" />
+                        Print Ledger
+                    </button>
+                </div>
+
+                {/* Summary Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-white border border-emerald-100/80 rounded-xl p-5 shadow-sm shadow-emerald-500/5 flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-semibold text-emerald-800/70 uppercase tracking-wider">Employee Share (5%)</p>
+                            <p className="text-2xl font-bold text-gray-900 mt-1.5">
+                                ৳{formatAmount(summary.total_employee_contribution)}
+                            </p>
+                        </div>
+                        <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+                            <Users className="w-5 h-5" />
                         </div>
                     </div>
 
-                    {/* Summary Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
-                            <p className="text-sm text-gray-600">Employee Contribution</p>
-                            <p className="text-2xl font-bold text-gray-900 mt-1">
-                                ৳{parseFloat(summary.total_employee_contribution.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <div className="bg-white border border-emerald-100/80 rounded-xl p-5 shadow-sm shadow-emerald-500/5 flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-semibold text-emerald-800/70 uppercase tracking-wider">Employer Share (5%)</p>
+                            <p className="text-2xl font-bold text-gray-900 mt-1.5">
+                                ৳{formatAmount(summary.total_employer_contribution)}
                             </p>
                         </div>
-
-                        <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
-                            <p className="text-sm text-gray-600">Employer Contribution</p>
-                            <p className="text-2xl font-bold text-gray-900 mt-1">
-                                ৳{parseFloat(summary.total_employer_contribution.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </p>
-                        </div>
-
-                        <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
-                            <p className="text-sm text-gray-600">Total Withdrawn</p>
-                            <p className="text-2xl font-bold text-gray-900 mt-1">
-                                ৳{parseFloat(summary.total_withdrawn.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </p>
-                        </div>
-
-                        <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
-                            <p className="text-sm text-gray-600">Current Balance</p>
-                            <p className="text-2xl font-bold text-green-600 mt-1">
-                                ৳{parseFloat(summary.total_pf_balance.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </p>
+                        <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+                            <DollarSign className="w-5 h-5" />
                         </div>
                     </div>
 
-                    {/* Search & Filters */}
-                    <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
-                        <form onSubmit={handleSearch} className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                                {/* Search */}
-                                <div className="lg:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
-                                    <div className="relative">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                        <Input
-                                            type="text"
-                                            placeholder="Name or Employee ID..."
-                                            value={search}
-                                            onChange={(e) => setSearch(e.target.value)}
-                                            className="pl-10 w-full"
-                                        />
-                                    </div>
-                                </div>
+                    <div className="bg-white border border-emerald-100/80 rounded-xl p-5 shadow-sm shadow-emerald-500/5 flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-semibold text-emerald-800/70 uppercase tracking-wider">Total Withdrawn</p>
+                            <p className="text-2xl font-bold text-red-600 mt-1.5">
+                                ৳{formatAmount(summary.total_withdrawn)}
+                            </p>
+                        </div>
+                        <div className="p-3 bg-red-50 text-red-600 rounded-xl">
+                            <TrendingUp className="w-5 h-5" />
+                        </div>
+                    </div>
 
-                                {/* Teacher Filter */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Teacher</label>
-                                    <select
-                                        value={teacherId}
-                                        onChange={(e) => setTeacherId(e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    >
-                                        <option value="">All Teachers</option>
-                                        {allTeachers.map((teacher) => (
-                                            <option key={teacher.id} value={teacher.id}>
-                                                {teacher.name} ({teacher.employee_id})
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
+                    <div className="bg-white border border-emerald-100/80 rounded-xl p-5 shadow-sm shadow-emerald-500/5 flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-semibold text-emerald-800/70 uppercase tracking-wider">Available Balance</p>
+                            <p className="text-2xl font-extrabold text-emerald-600 mt-1.5">
+                                ৳{formatAmount(summary.total_pf_balance)}
+                            </p>
+                        </div>
+                        <div className="p-3 bg-emerald-600 text-white rounded-xl shadow-md shadow-emerald-600/10">
+                            <Wallet className="w-5 h-5" />
+                        </div>
+                    </div>
+                </div>
 
-                                {/* From Date */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+                {/* Search & Filters */}
+                <div className="bg-white rounded-lg border border-emerald-100 p-4">
+                    <form onSubmit={handleSearch} className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+                            {/* Search */}
+                            <div className="lg:col-span-2">
+                                <label className="block text-xs font-semibold text-emerald-800/70 uppercase tracking-wider mb-2">Search Name/ID</label>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-600" />
                                     <Input
-                                        type="date"
-                                        value={fromDate}
-                                        onChange={(e) => setFromDate(e.target.value)}
-                                        className="w-full"
-                                    />
-                                </div>
-
-                                {/* To Date */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
-                                    <Input
-                                        type="date"
-                                        value={toDate}
-                                        onChange={(e) => setToDate(e.target.value)}
-                                        className="w-full"
+                                        type="text"
+                                        placeholder="Name or Employee ID..."
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                        className="pl-9 w-full text-sm"
                                     />
                                 </div>
                             </div>
 
-                            {/* Action Buttons */}
-                            <div className="flex gap-2">
-                                <button
-                                    type="submit"
-                                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                            {/* Teacher Filter */}
+                            <div>
+                                <label className="block text-xs font-semibold text-emerald-800/70 uppercase tracking-wider mb-2">Select Teacher</label>
+                                <select
+                                    value={teacherId}
+                                    onChange={(e) => setTeacherId(e.target.value)}
+                                    className="w-full text-sm bg-white"
                                 >
-                                    Apply Filters
-                                </button>
+                                    <option value="">All Teachers</option>
+                                    {allTeachers.map((teacher) => (
+                                        <option key={teacher.id} value={teacher.id}>
+                                            {teacher.name} ({teacher.employee_id})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* From Date */}
+                            <div>
+                                <label className="block text-xs font-semibold text-emerald-800/70 uppercase tracking-wider mb-2">From Date</label>
+                                <Input
+                                    type="date"
+                                    value={fromDate}
+                                    onChange={(e) => setFromDate(e.target.value)}
+                                    className="w-full text-sm"
+                                />
+                            </div>
+
+                            {/* To Date */}
+                            <div>
+                                <label className="block text-xs font-semibold text-emerald-800/70 uppercase tracking-wider mb-2">To Date</label>
+                                <Input
+                                    type="date"
+                                    value={toDate}
+                                    onChange={(e) => setToDate(e.target.value)}
+                                    className="w-full text-sm"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-2">
+                            <button
+                                type="submit"
+                                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-all duration-200 active:scale-95 shadow-sm shadow-emerald-600/10"
+                            >
+                                Apply Filters
+                            </button>
+                            {(search || teacherId || fromDate || toDate) && (
                                 <button
                                     type="button"
                                     onClick={handleClearFilters}
-                                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                                    className="px-5 py-2 bg-emerald-50 text-emerald-800 border border-emerald-100 rounded-lg text-xs font-semibold hover:bg-emerald-100 transition-colors"
                                 >
-                                    Clear
+                                    Clear Filters
                                 </button>
-                            </div>
-                        </form>
-                    </div>
-
-                    {/* Teacher PF Table */}
-                    <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="bg-gray-50 border-b border-gray-200">
-                                        <th className="px-6 py-4 text-left">
-                                            <span className="text-sm font-semibold text-gray-900">Teacher</span>
-                                        </th>
-                                        <th className="px-6 py-4 text-right">
-                                            <span className="text-sm font-semibold text-gray-900">Employee PF</span>
-                                        </th>
-                                        <th className="px-6 py-4 text-right">
-                                            <span className="text-sm font-semibold text-gray-900">Employer PF</span>
-                                        </th>
-                                        <th className="px-6 py-4 text-right">
-                                            <span className="text-sm font-semibold text-gray-900">Withdrawn</span>
-                                        </th>
-                                        <th className="px-6 py-4 text-right">
-                                            <span className="text-sm font-semibold text-gray-900">Current Balance</span>
-                                        </th>
-                                        <th className="px-6 py-4 text-center">
-                                            <span className="text-sm font-semibold text-gray-900">Contributions</span>
-                                        </th>
-                                        <th className="px-6 py-4 text-left">
-                                            <span className="text-sm font-semibold text-gray-900">Last Date</span>
-                                        </th>
-                                        <th className="px-6 py-4 text-center">
-                                            <span className="text-sm font-semibold text-gray-900">Action</span>
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200">
-                                    {teacherSummary.data.length > 0 ? teacherSummary.data.map((teacher, index) => (
-                                        <tr
-                                            key={teacher.id}
-                                            className="hover:bg-gray-50 transition-colors"
-                                        >
-                                            <td className="px-6 py-4">
-                                                <div>
-                                                    <p className="font-semibold text-gray-900">{teacher.user.name}</p>
-                                                    <p className="text-sm text-gray-600">{teacher.employee_id}</p>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-right font-medium text-gray-900">
-                                                ৳{parseFloat(teacher.total_employee_pf.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                            </td>
-                                            <td className="px-6 py-4 text-right font-medium text-gray-900">
-                                                ৳{parseFloat(teacher.total_employer_pf.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                            </td>
-                                            <td className="px-6 py-4 text-right font-medium text-gray-900">
-                                                ৳{parseFloat((teacher.total_withdrawn || 0).toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                            </td>
-                                            <td className="px-6 py-4 text-right font-semibold text-gray-900">
-                                                ৳{parseFloat(teacher.total_pf.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <Badge variant="info" size="sm">{teacher.contribution_count || 0} times</Badge>
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-gray-900">
-                                                {formatDate(teacher.last_contribution_date)}
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <Link
-                                                    href={route('provident-fund.show', teacher.id)}
-                                                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
-                                                >
-                                                    <Eye className="w-4 h-4" />
-                                                    View Details
-                                                </Link>
-                                            </td>
-                                        </tr>
-                                    )) : (
-                                        <tr>
-                                            <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
-                                                No PF records found
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
+                            )}
                         </div>
+                    </form>
+                </div>
 
-                        {/* Pagination */}
-                        {teacherSummary.last_page > 1 && (
-                            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-                                <p className="text-sm text-gray-600">
-                                    Showing {((teacherSummary.current_page - 1) * teacherSummary.per_page) + 1} to{' '}
-                                    {Math.min(teacherSummary.current_page * teacherSummary.per_page, teacherSummary.total)} of{' '}
-                                    {teacherSummary.total} results
-                                </p>
-                                <div className="flex gap-2">
-                                    {teacherSummary.links.map((link, index) => (
-                                        <Link
-                                            key={index}
-                                            href={link.url || '#'}
-                                            className={`px-3 py-1 rounded ${
-                                                link.active
-                                                    ? 'bg-blue-600 text-white'
-                                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                            }`}
-                                            dangerouslySetInnerHTML={{ __html: link.label }}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+                {/* Teacher PF Table */}
+                <div className="bg-white rounded-xl border border-emerald-100 overflow-hidden shadow-sm shadow-emerald-500/5">
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead>
+                                <tr>
+                                    <th className="px-6 py-4 text-left">Teacher</th>
+                                    <th className="px-6 py-4 text-right">Employee PF</th>
+                                    <th className="px-6 py-4 text-right">Employer PF</th>
+                                    <th className="px-6 py-4 text-right">Withdrawn</th>
+                                    <th className="px-6 py-4 text-right">Current Balance</th>
+                                    <th className="px-6 py-4 text-center">Contributions</th>
+                                    <th className="px-6 py-4 text-left">Last Date</th>
+                                    <th className="px-6 py-4 text-center w-28"></th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {teacherSummary.data.length > 0 ? teacherSummary.data.map((teacher) => (
+                                    <tr key={teacher.id}>
+                                        <td className="px-6 py-4">
+                                            <div>
+                                                <p className="font-semibold text-gray-900">{teacher.user.name}</p>
+                                                <p className="text-xs text-gray-500 font-medium mt-0.5">{teacher.employee_id}</p>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-right font-medium text-gray-900">
+                                            ৳{formatAmount(teacher.total_employee_pf)}
+                                        </td>
+                                        <td className="px-6 py-4 text-right font-medium text-gray-900">
+                                            ৳{formatAmount(teacher.total_employer_pf)}
+                                        </td>
+                                        <td className="px-6 py-4 text-right font-medium text-red-600">
+                                            ৳{parseFloat((teacher.total_withdrawn || formatAmount(0).toString()))}
+                                        </td>
+                                        <td className="px-6 py-4 text-right font-bold text-emerald-700">
+                                            ৳{formatAmount(teacher.total_pf)}
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <Badge variant="success" size="sm">{teacher.contribution_count || 0} times</Badge>
+                                        </td>
+                                        <td className="px-6 py-4 text-xs font-mono text-gray-600">
+                                            {formatDate(teacher.last_contribution_date)}
+                                        </td>
+                                        <td className="px-6 py-4 text-center whitespace-nowrap">
+                                            <Link
+                                                href={route('provident-fund.show', teacher.id)}
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold rounded-lg hover:bg-emerald-600 hover:text-white transition-all duration-200 active:scale-95 shadow-sm shadow-emerald-500/5"
+                                            >
+                                                <Eye className="w-3.5 h-3.5" />
+                                                View Details
+                                            </Link>
+                                        </td>
+                                    </tr>
+                                )) : (
+                                    <tr>
+                                        <td colSpan={8} className="px-6 py-12 text-center text-gray-500 text-sm">
+                                            No PF records found
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
                     </div>
+
+                    {/* Pagination */}
+                    <IndexPagination
+                        links={teacherSummary.links ?? []}
+                        from={((teacherSummary.current_page - 1) * teacherSummary.per_page) + 1}
+                        to={Math.min(teacherSummary.current_page * teacherSummary.per_page, teacherSummary.total)}
+                        total={teacherSummary.total}
+                        lastPage={teacherSummary.last_page}
+                    />
                 </div>
             </div>
         </AuthenticatedLayout>

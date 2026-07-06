@@ -24,10 +24,15 @@ class StudentFeeController extends Controller
 
         // Build query
         $query = FeeCollection::with(['feeType', 'academicYear', 'collector'])
-            ->where('student_id', $student->id);
+            ->where('student_id', $student->id)
+            ->visible();
 
         if ($status) {
-            $query->where('status', $status);
+            if (in_array($status, ['pending', 'partial', 'overdue'], true)) {
+                $query->outstanding()->where('status', $status);
+            } else {
+                $query->where('status', $status);
+            }
         }
 
         if ($year) {
@@ -36,7 +41,7 @@ class StudentFeeController extends Controller
 
         $fees = $query->orderBy('payment_date', 'desc')
             ->get()
-            ->map(function($fee) {
+            ->map(function ($fee) {
                 return [
                     'id' => $fee->id,
                     'receipt_number' => $fee->receipt_number,
@@ -48,22 +53,22 @@ class StudentFeeController extends Controller
                     'discount' => $fee->discount,
                     'total_amount' => $fee->total_amount,
                     'paid_amount' => $fee->paid_amount,
-                    'remaining' => $fee->total_amount - $fee->paid_amount,
+                    'remaining' => $fee->remaining,
                     'payment_date' => $fee->payment_date?->format('d M Y'),
                     'payment_method' => $fee->payment_method,
                     'status' => $fee->status,
                     'remarks' => $fee->remarks,
                     'collected_by' => $fee->collector->name ?? 'N/A',
-                    'is_overdue' => $fee->status !== 'paid' && Carbon::parse($fee->payment_date)->isPast(),
+                    'is_overdue' => $fee->is_overdue,
                 ];
             });
 
+        $outstanding = FeeCollection::where('student_id', $student->id)->outstanding()->get();
+
         // Calculate summary
-        $totalPaid = $fees->where('status', 'paid')->sum('paid_amount');
-        $totalPending = $fees->where('status', 'pending')->sum('total_amount');
-        $totalPartial = $fees->where('status', 'partial')->sum('remaining');
-        $totalDue = $totalPending + $totalPartial;
-        $overdueCount = $fees->where('is_overdue', true)->count();
+        $totalPaid = FeeCollection::where('student_id', $student->id)->where('status', 'paid')->sum('paid_amount');
+        $totalDue = $outstanding->sum(fn ($fee) => $fee->remaining);
+        $overdueCount = $outstanding->where('status', 'overdue')->count();
 
         // Get fee waivers
         $waivers = FeeWaiver::with(['feeType'])

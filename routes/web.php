@@ -123,6 +123,7 @@ Route::middleware(['auth', 'restrict.admin.mutations'])->group(function () {
     // STUDENT MANAGEMENT (Super Admin, Principal, Teacher Access)
     // ============================================
     Route::middleware(['role:Super Admin,Admin,Principal,Teacher'])->group(function () {
+        Route::patch('students/{student}/toggle-status', [StudentController::class, 'toggleStatus'])->name('students.toggle-status');
         Route::resource('students', StudentController::class);
         Route::get('students/sections/{classId}', [StudentController::class, 'getSections'])->name('students.sections');
 
@@ -150,6 +151,7 @@ Route::middleware(['auth', 'restrict.admin.mutations'])->group(function () {
         // Print routes (must be before resource route)
         Route::get('teachers/{teacher}/print-profile', [TeacherController::class, 'printProfile'])->name('teachers.print-profile');
         Route::get('teachers/{teacher}/print-id-card', [TeacherController::class, 'printIdCard'])->name('teachers.print-id-card');
+        Route::patch('teachers/{teacher}/toggle-status', [TeacherController::class, 'toggleStatus'])->name('teachers.toggle-status');
 
         Route::resource('teachers', TeacherController::class);
 
@@ -168,6 +170,8 @@ Route::middleware(['auth', 'restrict.admin.mutations'])->group(function () {
         Route::get('salary-payments', [App\Http\Controllers\Salary\SalaryPaymentController::class, 'index'])->name('salary-payments.index');
         Route::post('salary-payments', [App\Http\Controllers\Salary\SalaryPaymentController::class, 'store'])->name('salary-payments.store');
         Route::post('salary-payments/bulk', [App\Http\Controllers\Salary\SalaryPaymentController::class, 'bulkStore'])->name('salary-payments.bulk');
+        Route::get('salary-payments/{payment}/edit', [App\Http\Controllers\Salary\SalaryPaymentController::class, 'edit'])->name('salary-payments.edit');
+        Route::put('salary-payments/{payment}', [App\Http\Controllers\Salary\SalaryPaymentController::class, 'update'])->name('salary-payments.update');
         Route::get('salary-payments/{payment}', [App\Http\Controllers\Salary\SalaryPaymentController::class, 'show'])->name('salary-payments.show');
         Route::delete('salary-payments/{payment}', [App\Http\Controllers\Salary\SalaryPaymentController::class, 'destroy'])->name('salary-payments.destroy');
 
@@ -296,6 +300,9 @@ Route::middleware(['auth', 'restrict.admin.mutations'])->group(function () {
             'update' => 'accounting.transactions.update',
             'destroy' => 'accounting.transactions.destroy',
         ]);
+
+        Route::post('fixed-assets/{fixed_asset}/items', [FixedAssetController::class, 'storeItems'])
+            ->name('accounting.fixed-assets.items.store');
 
         Route::resource('fixed-assets', FixedAssetController::class)->names([
             'index' => 'accounting.fixed-assets.index',

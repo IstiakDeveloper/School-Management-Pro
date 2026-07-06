@@ -590,7 +590,7 @@ class StaffWelfareLoanController extends Controller
             if ($newLoanAmount + 0.0001 < $totalPaid) {
                 return redirect()->back()
                     ->withInput()
-                    ->with('error', 'Loan amount cannot be less than total already paid (৳' . number_format($totalPaid, 2) . ').');
+                    ->with('error', 'Loan amount cannot be less than total already paid (৳' . format_amount($totalPaid) . ').');
             }
 
             if ((int) $validated['installment_count'] < $paidCount) {
@@ -609,7 +609,7 @@ class StaffWelfareLoanController extends Controller
             if ($remainingAmount > 0.009 && $pendingCount < 1) {
                 return redirect()->back()
                     ->withInput()
-                    ->with('error', 'Increase total installments so there is at least one pending slot for the remaining balance (৳' . number_format($remainingAmount, 2) . ').');
+                    ->with('error', 'Increase total installments so there is at least one pending slot for the remaining balance (৳' . format_amount($remainingAmount) . ').');
             }
 
             if ($remainingAmount <= 0.009 && $pendingCount > 0) {

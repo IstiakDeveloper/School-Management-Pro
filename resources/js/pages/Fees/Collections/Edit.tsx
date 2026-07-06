@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatAmount } from '@/lib/formatCurrency';
 import { Head, Link, useForm } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import {
@@ -220,7 +221,7 @@ export default function Edit({
                                                 </td>
                                                 <td className="px-4 py-3 text-right font-semibold tabular-nums">
                                                     <span className={invalid ? 'text-red-600' : 'text-green-600'}>
-                                                        ৳{paid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                        ৳{formatAmount(paid)}
                                                     </span>
                                                 </td>
                                             </tr>
@@ -232,7 +233,7 @@ export default function Edit({
                         <div className="px-4 py-3 bg-indigo-50 border-t border-indigo-100 flex justify-end">
                             <span className="text-sm text-gray-600 mr-3 pt-1">Receipt total</span>
                             <span className="text-lg font-bold text-indigo-800 tabular-nums">
-                                ৳{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                ৳{formatAmount(grandTotal)}
                             </span>
                         </div>
                     </div>
@@ -255,7 +256,7 @@ export default function Edit({
                                 >
                                     {accounts.map((acc) => (
                                         <option key={acc.id} value={acc.id}>
-                                            {acc.account_name} (৳{acc.current_balance.toLocaleString('en-IN')})
+                                            {acc.account_name} (৳{formatAmount(acc.current_balance)})
                                         </option>
                                     ))}
                                 </select>

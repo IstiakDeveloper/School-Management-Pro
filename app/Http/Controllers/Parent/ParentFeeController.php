@@ -30,19 +30,22 @@ class ParentFeeController extends Controller
 
         $children = Student::where('parent_id', $parent->id)->get();
 
-        // Get fee collections
+        // Get fee collections (hide cancelled and duplicate unpaid rows)
         $feeCollections = FeeCollection::where('student_id', $studentId)
+            ->visible()
             ->with(['feeType', 'collector'])
-            ->orderBy('due_date', 'desc')
+            ->orderBy('payment_date', 'desc')
             ->get();
+
+        $outstanding = FeeCollection::where('student_id', $studentId)->outstanding()->get();
 
         // Calculate summary
         $summary = [
             'total_amount' => $feeCollections->sum('total_amount'),
             'total_paid' => $feeCollections->sum('paid_amount'),
-            'total_due' => $feeCollections->sum('remaining'),
-            'overdue_amount' => $feeCollections->where('is_overdue', true)->sum('remaining'),
-            'overdue_count' => $feeCollections->where('is_overdue', true)->count(),
+            'total_due' => $outstanding->sum(fn ($fee) => $fee->remaining),
+            'overdue_amount' => $outstanding->where('status', 'overdue')->sum(fn ($fee) => $fee->remaining),
+            'overdue_count' => $outstanding->where('status', 'overdue')->count(),
         ];
 
         return Inertia::render('Parent/Fees/Index', [

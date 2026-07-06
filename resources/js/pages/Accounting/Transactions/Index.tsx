@@ -4,6 +4,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
 import IndexPagination from '@/Components/IndexPagination';
 import { Plus, Search, Eye, Trash2, TrendingUp, TrendingDown, DollarSign, Calendar, RefreshCw, Pencil } from 'lucide-react';
+import { formatCurrency } from '@/lib/formatCurrency';
 import { Transaction, Account, TransactionFilters, PaginatedData } from '@/types/accounting';
 
 interface IndexProps {
@@ -45,8 +46,6 @@ export default function Index({ transactions, filters, accounts, stats }: IndexP
         }
     };
 
-    const formatCurrency = (amount: number) =>
-        new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
     const formatDate = (date: string) =>
         new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 

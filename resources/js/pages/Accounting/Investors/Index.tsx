@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatAmount } from '@/lib/formatCurrency';
 import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { UserPlus, Users, Briefcase, Search, Filter } from 'lucide-react';
@@ -236,11 +237,11 @@ export default function Index({ investors, filters, stats }: Props) {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm font-semibold text-gray-900">৳{investor.total_investment.toLocaleString('en-IN')}</div>
+                                            <div className="text-sm font-semibold text-gray-900">৳{formatAmount(investor.total_investment)}</div>
                                             <div className="text-xs text-gray-500">{investor.funds_count} funds</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm font-semibold text-green-600">৳{investor.active_investment.toLocaleString('en-IN')}</div>
+                                            <div className="text-sm font-semibold text-green-600">৳{formatAmount(investor.active_investment)}</div>
                                             <div className="text-xs text-gray-500">Active</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">

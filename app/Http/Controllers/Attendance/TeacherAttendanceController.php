@@ -25,7 +25,7 @@ class TeacherAttendanceController extends Controller
             ->when($selectedDate, fn ($q) => $q->where('date', $selectedDate))
             ->when($request->status, fn ($q) => $q->where('status', $request->status))
             ->latest('date')
-            ->paginate(50);
+            ->paginate(50)->withQueryString();
 
         $deviceSetting = DeviceSetting::first();
 
@@ -183,7 +183,7 @@ class TeacherAttendanceController extends Controller
             ->when($request->from_date, fn ($q) => $q->where('date', '>=', $request->from_date))
             ->when($request->to_date, fn ($q) => $q->where('date', '<=', $request->to_date));
 
-        $attendances = $query->latest('date')->paginate(50);
+        $attendances = $query->latest('date')->paginate(50)->withQueryString();
 
         $stats = [
             'total' => $query->count(),

@@ -22,7 +22,7 @@ class ExamSeatPlanController extends Controller
             ->when($request->exam_id, fn($q) => $q->where('exam_id', $request->exam_id))
             ->when($request->hall_id, fn($q) => $q->where('hall_id', $request->hall_id))
             ->orderBy('seat_number')
-            ->paginate(50);
+            ->paginate(50)->withQueryString();
 
         return Inertia::render('Exams/SeatPlans/Index', [
             'seatPlans' => $seatPlans,

@@ -20,7 +20,7 @@ class FeeStructureController extends Controller
             ->when($request->academic_year_id, fn($q) => $q->where('academic_year_id', $request->academic_year_id))
             ->when($request->class_id, fn($q) => $q->where('class_id', $request->class_id))
             ->latest()
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         return Inertia::render('Fees/Structures/Index', [
             'feeStructures' => $feeStructures,

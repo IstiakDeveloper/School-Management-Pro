@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class FixedAsset extends Model
@@ -31,5 +32,10 @@ class FixedAsset extends Model
             'current_value' => 'decimal:2',
             'purchase_date' => 'date',
         ];
+    }
+
+    public function items(): HasMany
+    {
+        return $this->hasMany(FixedAssetItem::class);
     }
 }

@@ -21,7 +21,7 @@ class InvestorController extends Controller
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->withCount('funds')
             ->latest()
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         // Add investment stats for each investor
         $investors->getCollection()->transform(function ($investor) {

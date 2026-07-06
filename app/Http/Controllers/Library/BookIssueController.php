@@ -21,7 +21,7 @@ class BookIssueController extends Controller
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->when($request->borrower_type, fn($q) => $q->where('borrower_type', $request->borrower_type))
             ->latest('issue_date')
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         return Inertia::render('Library/Issues/Index', [
             'issues' => $issues,
@@ -166,7 +166,7 @@ class BookIssueController extends Controller
             ->where('status', 'issued')
             ->where('due_date', '<', now())
             ->latest('due_date')
-            ->paginate(50);
+            ->paginate(50)->withQueryString();
 
         return Inertia::render('Library/Issues/Overdue', [
             'issues' => $issues,

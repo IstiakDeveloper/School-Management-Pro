@@ -19,7 +19,7 @@ class AccountController extends Controller
             ->when($request->type, fn($q) => $q->where('account_type', $request->type))
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->latest()
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         $totalBalance = Account::where('status', 'active')->sum('current_balance');
         $totalAccounts = Account::count();

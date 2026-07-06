@@ -144,32 +144,27 @@ class StudentDashboardController extends Controller
 
     private function getFeeStatus($studentId)
     {
-        // Get all fee collections for this student
-        $feeCollections = FeeCollection::with('feeType')
+        $outstanding = FeeCollection::with('feeType')
             ->where('student_id', $studentId)
-            ->orderBy('payment_date', 'desc')
+            ->outstanding()
             ->get();
 
-        $totalPaid = $feeCollections->where('status', 'paid')->sum('paid_amount');
-        $totalDue = $feeCollections->where('status', 'pending')->sum('total_amount');
-        $totalPartial = $feeCollections->where('status', 'partial')->sum(function($fee) {
-            return $fee->total_amount - $fee->paid_amount;
-        });
-
-        $overdueFees = $feeCollections->filter(function($fee) {
-            return $fee->status !== 'paid' &&
-                   Carbon::parse($fee->payment_date)->isPast();
-        });
-
-        $recentPayments = $feeCollections
+        $totalPaid = FeeCollection::where('student_id', $studentId)
             ->where('status', 'paid')
-            ->take(5);
+            ->sum('paid_amount');
+
+        $recentPayments = FeeCollection::with('feeType')
+            ->where('student_id', $studentId)
+            ->where('status', 'paid')
+            ->orderBy('payment_date', 'desc')
+            ->take(5)
+            ->get();
 
         return [
             'total_paid' => round($totalPaid, 2),
-            'total_due' => round($totalDue + $totalPartial, 2),
-            'overdue_count' => $overdueFees->count(),
-            'recent_payments' => $recentPayments->map(function($fee) {
+            'total_due' => round($outstanding->sum(fn ($fee) => $fee->remaining), 2),
+            'overdue_count' => $outstanding->where('status', 'overdue')->count(),
+            'recent_payments' => $recentPayments->map(function ($fee) {
                 return [
                     'id' => $fee->id,
                     'receipt_number' => $fee->receipt_number,

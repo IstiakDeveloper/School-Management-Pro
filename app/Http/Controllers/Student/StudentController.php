@@ -33,13 +33,14 @@ class StudentController extends Controller
             ->when($request->academic_year_id, fn ($q) => $q->where('academic_year_id', $request->academic_year_id))
             ->when($request->status, fn ($q) => $q->where('status', $request->status))
             ->latest('admission_date')
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         return Inertia::render('Students/Index', [
             'students' => $students,
             'filters' => $request->only(['search', 'class_id', 'section_id', 'academic_year_id', 'status']),
             'classes' => SchoolClass::where('status', 'active')->get(),
             'academicYears' => AcademicYear::all(),
+            'canToggleStatus' => $request->user()->can('edit_students'),
         ]);
     }
 
@@ -761,6 +762,33 @@ class StudentController extends Controller
 
             return back()->withInput()->with('error', 'Failed to update student: '.$e->getMessage());
         }
+    }
+
+    public function toggleStatus(Student $student)
+    {
+        $this->authorize('edit_students');
+
+        if (! in_array($student->status, ['active', 'suspended'], true)) {
+            return back()->with('error', 'Only active or inactive students can be toggled from this page.');
+        }
+
+        $newStatus = $student->status === 'active' ? 'suspended' : 'active';
+
+        $student->update([
+            'status' => $newStatus,
+            'status_changed_at' => now(),
+        ]);
+
+        if ($student->user) {
+            $student->user->update([
+                'status' => $newStatus === 'active' ? 'active' : 'inactive',
+            ]);
+        }
+
+        $label = $newStatus === 'active' ? 'activated' : 'deactivated';
+        logActivity('update', "Student {$student->full_name} {$label}", Student::class, $student->id);
+
+        return back()->with('success', 'Student status updated successfully.');
     }
 
     public function destroy(Student $student)

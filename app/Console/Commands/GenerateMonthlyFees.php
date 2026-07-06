@@ -88,13 +88,12 @@ class GenerateMonthlyFees extends Command
                     }
 
                     // Check if fee already generated for this student, month, year
-                    $existingFee = FeeCollection::where('student_id', $student->id)
-                        ->where('fee_type_id', $feeStructure->fee_type_id)
-                        ->where('month', $month)
-                        ->where('year', $year)
-                        ->first();
-
-                    if ($existingFee) {
+                    if (FeeCollection::activeExistsForPeriod(
+                        $student->id,
+                        $feeStructure->fee_type_id,
+                        $month,
+                        $year
+                    )) {
                         $skippedCount++;
                         continue;
                     }

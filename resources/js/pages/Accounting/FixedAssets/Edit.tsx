@@ -18,7 +18,6 @@ export default function Edit({ asset }: EditProps) {
         asset_name: asset.asset_name,
         asset_code: asset.asset_code,
         category: asset.category,
-        purchase_price: asset.purchase_price.toString(),
         purchase_date: asset.purchase_date,
         depreciation_rate: asset.depreciation_rate?.toString() || '',
         current_value: asset.current_value.toString(),
@@ -51,7 +50,7 @@ export default function Edit({ asset }: EditProps) {
                         <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
                             Edit Fixed Asset
                         </h1>
-                        <p className="text-gray-600 mt-1">Update asset information</p>
+                        <p className="text-gray-600 mt-1">Update asset information. To add quantity, use the Show page.</p>
                     </div>
                     <Button
                         variant="ghost"
@@ -71,7 +70,7 @@ export default function Edit({ asset }: EditProps) {
                                 onChange={(e) => setFormData({ ...formData, asset_name: e.target.value })}
                                 error={errors.asset_name}
                                 required
-                                placeholder="e.g., School Bus"
+                                placeholder="e.g., School Chair"
                             />
 
                             <Input
@@ -90,17 +89,6 @@ export default function Edit({ asset }: EditProps) {
                                 error={errors.category}
                                 required
                                 placeholder="e.g., Vehicle, Furniture, Equipment"
-                            />
-
-                            <Input
-                                label="Purchase Price"
-                                type="number"
-                                step="0.01"
-                                value={formData.purchase_price}
-                                onChange={(e) => setFormData({ ...formData, purchase_price: e.target.value })}
-                                error={errors.purchase_price}
-                                required
-                                placeholder="0.00"
                             />
 
                             <Input

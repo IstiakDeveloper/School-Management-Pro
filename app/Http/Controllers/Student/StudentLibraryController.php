@@ -86,7 +86,7 @@ class StudentLibraryController extends Controller
                     ->orWhere('isbn', 'like', "%{$search}%");
             })
             ->orderBy('title', 'asc')
-            ->paginate(20)
+            ->paginate(20)->withQueryString()
             ->through(function($book) {
                 return [
                     'id' => $book->id,

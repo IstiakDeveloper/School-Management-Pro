@@ -1,3 +1,4 @@
+import { formatAmount } from '@/lib/formatCurrency';
 import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Settings } from 'lucide-react';
@@ -164,7 +165,7 @@ export default function Index({ feeWaivers, students }: Props) {
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-indigo-600">
                                                     {waiver.waiver_type === 'percentage'
                                                         ? `${waiver.waiver_amount}%`
-                                                        : `৳${parseFloat(waiver.waiver_amount.toString()).toLocaleString('en-IN')}`
+                                                        : `৳${formatAmount(parseFloat(waiver.waiver_amount.toString()))}`
                                                     }
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">

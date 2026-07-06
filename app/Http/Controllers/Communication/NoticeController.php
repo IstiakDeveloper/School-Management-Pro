@@ -17,7 +17,7 @@ class NoticeController extends Controller
             ->when($request->type, fn($q) => $q->where('type', $request->type))
             ->when($request->is_published !== null, fn($q) => $q->where('is_published', $request->is_published))
             ->latest()
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         return Inertia::render('Communication/Notices/Index', [
             'notices' => $notices,

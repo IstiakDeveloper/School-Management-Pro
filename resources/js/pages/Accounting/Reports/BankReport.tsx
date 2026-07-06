@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
 import { Printer } from 'lucide-react';
+import { formatCurrency } from '@/lib/formatCurrency';
 
 interface Account {
     id: number;
@@ -66,14 +67,6 @@ export default function BankReport({
         setStartDate('');
         setEndDate('');
         router.get('/accounting/reports/bank-report');
-    };
-
-    const formatCurrency = (amount: number) => {
-        const num = Number(amount) || 0;
-        return new Intl.NumberFormat('en-US', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        }).format(num);
     };
 
     const formatDate = (dateStr: string) => {

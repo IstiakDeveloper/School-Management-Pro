@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatAmount } from '@/lib/formatCurrency';
 import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Printer, Download, ArrowLeft, Pencil } from 'lucide-react';
@@ -135,17 +136,17 @@ export default function Receipt({ collection, relatedCollections, totalAmount }:
                         <tr key={`${copyType}-${index}`}>
                             <td>{item.fee_type.name}</td>
                             <td className="text-center">{getMonthName(item.month)} {item.year}</td>
-                            <td className="text-right">৳{item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                            <td className="text-right">{item.late_fee > 0 ? `৳${item.late_fee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}</td>
-                            <td className="text-right">{item.discount > 0 ? `-৳${item.discount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}</td>
-                            <td className="text-right strong">৳{item.total_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                            <td className="text-right">৳{formatAmount(item.amount)}</td>
+                            <td className="text-right">{item.late_fee > 0 ? `৳${formatAmount(item.late_fee)}` : '-'}</td>
+                            <td className="text-right">{item.discount > 0 ? `-৳${formatAmount(item.discount)}` : '-'}</td>
+                            <td className="text-right strong">৳{formatAmount(item.total_amount)}</td>
                         </tr>
                     ))}
                 </tbody>
                 <tfoot>
                     <tr>
                         <td colSpan={5} className="text-right strong">TOTAL AMOUNT PAID:</td>
-                        <td className="text-right total-amount">৳{totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                        <td className="text-right total-amount">৳{formatAmount(totalAmount)}</td>
                     </tr>
                 </tfoot>
             </table>

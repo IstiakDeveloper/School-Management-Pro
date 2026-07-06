@@ -75,12 +75,13 @@ class AutoGenerateMonthlyFees
                 ->get();
 
             foreach ($feeStructures as $feeStructure) {
-                // Check if fee already exists
-                $exists = FeeCollection::where('student_id', $student->id)
-                    ->where('fee_type_id', $feeStructure->fee_type_id)
-                    ->where('month', $currentMonth)
-                    ->where('year', $currentYear)
-                    ->exists();
+                // Check if fee already exists (ignore cancelled duplicates)
+                $exists = FeeCollection::activeExistsForPeriod(
+                    $student->id,
+                    $feeStructure->fee_type_id,
+                    $currentMonth,
+                    $currentYear
+                );
 
                 if ($exists) {
                     continue;
@@ -133,6 +134,22 @@ class AutoGenerateMonthlyFees
 
         foreach ($pendingFees as $fee) {
             try {
+                if (FeeCollection::paidExistsForPeriod(
+                    (int) $fee->student_id,
+                    (int) $fee->fee_type_id,
+                    (int) $fee->month,
+                    (int) $fee->year
+                )) {
+                    FeeCollection::cancelUnpaidDuplicatesForPeriod(
+                        (int) $fee->student_id,
+                        (int) $fee->fee_type_id,
+                        (int) $fee->month,
+                        (int) $fee->year
+                    );
+
+                    continue;
+                }
+
                 // Get fee structure
                 $feeStructure = FeeStructure::where('fee_type_id', $fee->fee_type_id)
                     ->where('class_id', $fee->student->class_id)

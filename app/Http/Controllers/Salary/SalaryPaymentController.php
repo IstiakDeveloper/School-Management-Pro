@@ -4,13 +4,17 @@ namespace App\Http\Controllers\Salary;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreSalaryPaymentRequest;
+use App\Http\Requests\UpdateSalaryPaymentRequest;
 use App\Models\Account;
 use App\Models\ExpenseCategory;
+use App\Models\IncomeCategory;
 use App\Models\ProvidentFundTransaction;
 use App\Models\SalaryPayment;
 use App\Models\Teacher;
+use App\Models\Transaction;
 use App\Traits\CreatesAccountingTransactions;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
@@ -90,12 +94,12 @@ class SalaryPaymentController extends Controller
 
             $validated = $request->validated();
 
-            // Calculate PF contributions (5% each)
             $baseSalary = (float) $validated['base_salary'];
-            $employeePF = round($baseSalary * 0.05, 2);
-            $employerPF = round($baseSalary * 0.05, 2);
-            $netSalary = $baseSalary - $employeePF;
-            $totalAmount = $baseSalary + $employerPF;
+            $amounts = $this->calculateSalaryAmounts($baseSalary);
+            $employeePF = $amounts['employeePF'];
+            $employerPF = $amounts['employerPF'];
+            $netSalary = $amounts['netSalary'];
+            $totalAmount = $amounts['totalAmount'];
 
             // Create salary payment record
             $payment = SalaryPayment::create([
@@ -127,94 +131,21 @@ class SalaryPaymentController extends Controller
 
             // Get staff details for description
             $staff = Teacher::with('user')->find($validated['staff_id']);
-            $monthName = $payment->month_name;
 
-            // Get or create Salary expense category
-            $salaryCategory = ExpenseCategory::firstOrCreate(
-                ['code' => 'SALARY'],
-                [
-                    'name' => 'Salary & Wages',
-                    'description' => 'Employee salary and wage payments',
-                    'status' => 'active'
-                ]
-            );
+            $categories = $this->getSalaryAccountingCategories();
 
-            // Get or create Provident Fund expense category
-            $pfCategory = ExpenseCategory::firstOrCreate(
-                ['code' => 'PROVIDENT_FUND'],
-                [
-                    'name' => 'Provident Fund',
-                    'description' => 'Employee and employer provident fund contributions',
-                    'status' => 'active'
-                ]
-            );
-
-            // Get or create Provident Fund account
-            $pfAccount = Account::firstOrCreate(
-                ['account_name' => 'Provident Fund'],
-                [
-                    'account_type' => 'bank',
-                    'account_number' => 'PF-' . date('Ymd'),
-                    'bank_name' => 'Internal Fund',
-                    'branch_name' => 'Main',
-                    'current_balance' => 0,
-                    'status' => 'active',
-                ]
-            );
-
-            // Get or create Provident Fund income category
-            $pfIncomeCategory = \App\Models\IncomeCategory::firstOrCreate(
-                ['code' => 'PF_INCOME'],
-                [
-                    'name' => 'Provident Fund Income',
-                    'description' => 'Employee and employer provident fund contributions',
-                    'status' => 'active',
-                ]
-            );
-
-            // Create accounting transactions
-            // Transaction 1: Salary Expense from payment account
-            $this->createExpenseTransaction(
-                accountId: $validated['account_id'],
-                amount: $baseSalary,
-                date: $validated['payment_date'],
+            $this->createSalaryAccountingTransactions(
+                payment: $payment,
+                staff: $staff,
+                accountId: (int) $validated['account_id'],
+                paymentDate: $validated['payment_date'],
                 paymentMethod: $validated['payment_method'],
-                referenceNumber: $validated['reference_number'] ?? '',
-                description: "Salary payment for {$staff->user->name} ({$monthName} {$validated['year']})",
-                expenseCategoryId: $salaryCategory->id
-            );
-
-            // Transaction 2: Employee PF Expense from payment account
-            $this->createExpenseTransaction(
-                accountId: $validated['account_id'],
-                amount: $employeePF,
-                date: $validated['payment_date'],
-                paymentMethod: $validated['payment_method'],
-                referenceNumber: $validated['reference_number'] ?? '',
-                description: "PF Deduction (Employee) for {$staff->user->name} ({$monthName} {$validated['year']})",
-                expenseCategoryId: $pfCategory->id
-            );
-
-            // Transaction 3: Employee PF Income to PF account
-            $this->createIncomeTransaction(
-                accountId: $pfAccount->id,
-                amount: $employeePF,
-                date: $validated['payment_date'],
-                paymentMethod: $validated['payment_method'],
-                referenceNumber: $validated['reference_number'] ?? '',
-                description: "PF Contribution (Employee) from {$staff->user->name} ({$monthName} {$validated['year']})",
-                incomeCategoryId: $pfIncomeCategory->id
-            );
-
-            // Transaction 4: Employer PF Income to PF account (no expense as it's company contribution)
-            $this->createIncomeTransaction(
-                accountId: $pfAccount->id,
-                amount: $employerPF,
-                date: $validated['payment_date'],
-                paymentMethod: 'internal_transfer',
-                referenceNumber: $validated['reference_number'] ?? '',
-                description: "PF Contribution (Employer) for {$staff->user->name} ({$monthName} {$validated['year']})",
-                incomeCategoryId: $pfIncomeCategory->id
+                baseSalary: $baseSalary,
+                employeePF: $employeePF,
+                employerPF: $employerPF,
+                salaryCategory: $categories['salaryCategory'],
+                pfCategory: $categories['pfCategory'],
+                pfAccount: $categories['pfAccount']
             );
 
             DB::commit();
@@ -223,6 +154,121 @@ class SalaryPaymentController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->with('error', 'Failed to process salary payment: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Show the form for editing a posted salary payment.
+     */
+    public function edit(SalaryPayment $payment)
+    {
+        $payment->load(['staff.user', 'account']);
+
+        $accounts = Account::whereIn('account_type', ['bank', 'cash', 'mobile_banking'])
+            ->where('status', 'active')
+            ->orderBy('account_name')
+            ->get();
+
+        return Inertia::render('Salaries/Payments/Edit', [
+            'payment' => $payment,
+            'accounts' => $accounts,
+        ]);
+    }
+
+    /**
+     * Update a posted salary payment and sync accounting / PF records.
+     */
+    public function update(UpdateSalaryPaymentRequest $request, SalaryPayment $payment)
+    {
+        $validated = $request->validated();
+
+        $duplicate = SalaryPayment::where('staff_id', $validated['staff_id'])
+            ->where('month', $validated['month'])
+            ->where('year', $validated['year'])
+            ->where('id', '!=', $payment->id)
+            ->exists();
+
+        if ($duplicate) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Another salary payment already exists for this teacher and period.');
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $baseSalary = (float) $validated['base_salary'];
+            $amounts = $this->calculateSalaryAmounts($baseSalary);
+            $employeePF = $amounts['employeePF'];
+            $employerPF = $amounts['employerPF'];
+            $netSalary = $amounts['netSalary'];
+            $totalAmount = $amounts['totalAmount'];
+
+            $this->reverseSalaryAccountingTransactions($payment);
+
+            $payment->update([
+                'staff_id' => $validated['staff_id'],
+                'month' => $validated['month'],
+                'year' => $validated['year'],
+                'base_salary' => $baseSalary,
+                'provident_fund_deduction' => $employeePF,
+                'employer_pf_contribution' => $employerPF,
+                'net_salary' => $netSalary,
+                'total_amount' => $totalAmount,
+                'payment_date' => $validated['payment_date'],
+                'account_id' => $validated['account_id'],
+                'payment_method' => $validated['payment_method'],
+                'reference_number' => $validated['reference_number'] ?? null,
+                'remarks' => $validated['remarks'] ?? null,
+            ]);
+
+            $payment->refresh();
+            $payment->load('staff.user');
+
+            if ($payment->providentFundTransaction) {
+                $payment->providentFundTransaction->update([
+                    'staff_id' => $validated['staff_id'],
+                    'employee_contribution' => $employeePF,
+                    'employer_contribution' => $employerPF,
+                    'total_contribution' => $employeePF + $employerPF,
+                    'transaction_date' => $validated['payment_date'],
+                ]);
+            } else {
+                ProvidentFundTransaction::create([
+                    'staff_id' => $validated['staff_id'],
+                    'salary_payment_id' => $payment->id,
+                    'employee_contribution' => $employeePF,
+                    'employer_contribution' => $employerPF,
+                    'total_contribution' => $employeePF + $employerPF,
+                    'transaction_date' => $validated['payment_date'],
+                ]);
+            }
+
+            $categories = $this->getSalaryAccountingCategories();
+            $this->createSalaryAccountingTransactions(
+                payment: $payment,
+                staff: $payment->staff,
+                accountId: (int) $validated['account_id'],
+                paymentDate: $validated['payment_date'],
+                paymentMethod: $validated['payment_method'],
+                baseSalary: $baseSalary,
+                employeePF: $employeePF,
+                employerPF: $employerPF,
+                salaryCategory: $categories['salaryCategory'],
+                pfCategory: $categories['pfCategory'],
+                pfAccount: $categories['pfAccount']
+            );
+
+            DB::commit();
+
+            return redirect()->route('salary-payments.index')
+                ->with('success', 'Salary payment updated and recalculated successfully!');
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Failed to update salary payment: ' . $e->getMessage());
         }
     }
 
@@ -311,7 +357,7 @@ class SalaryPaymentController extends Controller
             );
 
             // Get or create Provident Fund income category
-            $pfIncomeCategory = \App\Models\IncomeCategory::firstOrCreate(
+            IncomeCategory::firstOrCreate(
                 ['code' => 'PF_INCOME'],
                 [
                     'name' => 'Provident Fund Contribution',
@@ -398,51 +444,18 @@ class SalaryPaymentController extends Controller
                         ]);
                     }
 
-                    // Create accounting transactions
-                    $monthYear = date('F Y', strtotime("{$request->year}-{$request->month}-01"));
-
-                    // Transaction 1: Salary Expense from payment account
-                    $this->createExpenseTransaction(
-                        accountId: $request->account_id,
-                        amount: $baseSalary,
-                        date: $request->payment_date,
+                    $this->createSalaryAccountingTransactions(
+                        payment: $payment,
+                        staff: $teacher,
+                        accountId: (int) $request->account_id,
+                        paymentDate: $request->payment_date,
                         paymentMethod: $request->payment_method,
-                        referenceNumber: $request->reference_number ?? '',
-                        description: "Salary payment for {$teacher->user->name} - {$monthYear}",
-                        expenseCategoryId: $salaryCategory->id
-                    );
-
-                    // Transaction 2: Employee PF Expense from payment account
-                    $this->createExpenseTransaction(
-                        accountId: $request->account_id,
-                        amount: $employeePF,
-                        date: $request->payment_date,
-                        paymentMethod: $request->payment_method,
-                        referenceNumber: $request->reference_number ?? '',
-                        description: "PF Deduction (Employee) for {$teacher->user->name} - {$monthYear}",
-                        expenseCategoryId: $pfCategory->id
-                    );
-
-                    // Transaction 3: Employee PF Income to PF account
-                    $this->createIncomeTransaction(
-                        accountId: $pfAccount->id,
-                        amount: $employeePF,
-                        date: $request->payment_date,
-                        paymentMethod: $request->payment_method,
-                        referenceNumber: $request->reference_number ?? '',
-                        description: "PF Contribution (Employee) from {$teacher->user->name} - {$monthYear}",
-                        incomeCategoryId: $pfIncomeCategory->id
-                    );
-
-                    // Transaction 4: Employer PF Income to PF account
-                    $this->createIncomeTransaction(
-                        accountId: $pfAccount->id,
-                        amount: $employerPF,
-                        date: $request->payment_date,
-                        paymentMethod: 'internal_transfer',
-                        referenceNumber: $request->reference_number ?? '',
-                        description: "PF Contribution (Employer) for {$teacher->user->name} - {$monthYear}",
-                        incomeCategoryId: $pfIncomeCategory->id
+                        baseSalary: $baseSalary,
+                        employeePF: $employeePF,
+                        employerPF: $employerPF,
+                        salaryCategory: $salaryCategory,
+                        pfCategory: $pfCategory,
+                        pfAccount: $pfAccount
                     );
 
                     $successCount++;
@@ -464,6 +477,174 @@ class SalaryPaymentController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->with('error', 'Failed to process bulk payments: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * @return array{employeePF: float, employerPF: float, netSalary: float, totalAmount: float}
+     */
+    private function calculateSalaryAmounts(float $baseSalary): array
+    {
+        $employeePF = round($baseSalary * 0.05, 2);
+        $employerPF = round($baseSalary * 0.05, 2);
+        $netSalary = round($baseSalary - $employeePF, 2);
+        $totalAmount = round($baseSalary + $employerPF, 2);
+
+        return compact('employeePF', 'employerPF', 'netSalary', 'totalAmount');
+    }
+
+    private function accountingReference(SalaryPayment $payment): string
+    {
+        return 'SAL-PAY-' . $payment->id;
+    }
+
+    /**
+     * @return array{salaryCategory: ExpenseCategory, pfCategory: ExpenseCategory, pfAccount: Account, pfIncomeCategory: IncomeCategory}
+     */
+    private function getSalaryAccountingCategories(): array
+    {
+        $salaryCategory = ExpenseCategory::firstOrCreate(
+            ['code' => 'SALARY'],
+            [
+                'name' => 'Salary & Wages',
+                'description' => 'Employee salary and wage payments',
+                'status' => 'active',
+            ]
+        );
+
+        $pfCategory = ExpenseCategory::firstOrCreate(
+            ['code' => 'PROVIDENT_FUND'],
+            [
+                'name' => 'Provident Fund',
+                'description' => 'Employee and employer provident fund contributions',
+                'status' => 'active',
+            ]
+        );
+
+        $pfAccount = Account::firstOrCreate(
+            ['account_name' => 'Provident Fund'],
+            [
+                'account_type' => 'bank',
+                'account_number' => 'PF-' . date('Ymd'),
+                'bank_name' => 'Internal Fund',
+                'branch_name' => 'Main',
+                'current_balance' => 0,
+                'status' => 'active',
+            ]
+        );
+
+        $pfIncomeCategory = IncomeCategory::firstOrCreate(
+            ['code' => 'PF_INCOME'],
+            [
+                'name' => 'Provident Fund Income',
+                'description' => 'Employee and employer provident fund contributions',
+                'status' => 'active',
+            ]
+        );
+
+        return compact('salaryCategory', 'pfCategory', 'pfAccount', 'pfIncomeCategory');
+    }
+
+    private function createSalaryAccountingTransactions(
+        SalaryPayment $payment,
+        Teacher $staff,
+        int $accountId,
+        string $paymentDate,
+        string $paymentMethod,
+        float $baseSalary,
+        float $employeePF,
+        float $employerPF,
+        ExpenseCategory $salaryCategory,
+        ExpenseCategory $pfCategory,
+        Account $pfAccount
+    ): void {
+        $categories = $this->getSalaryAccountingCategories();
+        $pfIncomeCategory = $categories['pfIncomeCategory'];
+        $reference = $this->accountingReference($payment);
+        $monthName = $payment->month_name;
+        $periodLabel = "{$monthName} {$payment->year}";
+        $staffName = $staff->user->name;
+
+        $this->createExpenseTransaction(
+            accountId: $accountId,
+            amount: $baseSalary,
+            date: $paymentDate,
+            paymentMethod: $paymentMethod,
+            referenceNumber: $reference,
+            description: "Salary payment for {$staffName} ({$periodLabel})",
+            expenseCategoryId: $salaryCategory->id
+        );
+
+        $this->createExpenseTransaction(
+            accountId: $accountId,
+            amount: $employeePF,
+            date: $paymentDate,
+            paymentMethod: $paymentMethod,
+            referenceNumber: $reference,
+            description: "PF Deduction (Employee) for {$staffName} ({$periodLabel})",
+            expenseCategoryId: $pfCategory->id
+        );
+
+        $this->createIncomeTransaction(
+            accountId: $pfAccount->id,
+            amount: $employeePF,
+            date: $paymentDate,
+            paymentMethod: $paymentMethod,
+            referenceNumber: $reference,
+            description: "PF Contribution (Employee) from {$staffName} ({$periodLabel})",
+            incomeCategoryId: $pfIncomeCategory->id
+        );
+
+        $this->createIncomeTransaction(
+            accountId: $pfAccount->id,
+            amount: $employerPF,
+            date: $paymentDate,
+            paymentMethod: 'internal_transfer',
+            referenceNumber: $reference,
+            description: "PF Contribution (Employer) for {$staffName} ({$periodLabel})",
+            incomeCategoryId: $pfIncomeCategory->id
+        );
+    }
+
+    private function findSalaryPaymentTransactions(SalaryPayment $payment): Collection
+    {
+        $reference = $this->accountingReference($payment);
+        $byReference = Transaction::where('reference_number', $reference)->get();
+        if ($byReference->isNotEmpty()) {
+            return $byReference;
+        }
+
+        if ($payment->reference_number) {
+            $byUserReference = Transaction::where('reference_number', $payment->reference_number)
+                ->whereDate('transaction_date', $payment->payment_date)
+                ->get();
+            if ($byUserReference->count() >= 4) {
+                return $byUserReference;
+            }
+        }
+
+        $payment->loadMissing('staff.user');
+        $staffName = $payment->staff?->user?->name ?? '';
+        if ($staffName === '') {
+            return collect();
+        }
+
+        $monthYear = date('F Y', strtotime("{$payment->year}-{$payment->month}-01"));
+        $monthName = $payment->month_name;
+
+        return Transaction::where('description', 'like', "%{$staffName}%")
+            ->where(function ($query) use ($monthYear, $monthName, $payment) {
+                $query->where('description', 'like', "%{$monthYear}%")
+                    ->orWhere('description', 'like', "%({$monthName} {$payment->year})%");
+            })
+            ->whereDate('transaction_date', $payment->payment_date)
+            ->get();
+    }
+
+    private function reverseSalaryAccountingTransactions(SalaryPayment $payment): void
+    {
+        foreach ($this->findSalaryPaymentTransactions($payment) as $transaction) {
+            $this->reverseAccountingTransaction($transaction->id);
         }
     }
 }

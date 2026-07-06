@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatAmount } from '@/lib/formatCurrency';
 
 interface Payment {
     id: number;
@@ -103,9 +104,9 @@ const PrintSalaryPayments = React.forwardRef<HTMLDivElement, PrintSalaryPayments
                         <tbody>
                             <tr>
                                 <td style={{ width: '25%' }}><strong>Total Records:</strong> {payments.length}</td>
-                                <td style={{ width: '25%' }}><strong>Base Salary:</strong> ৳{totalBaseSalary.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                                <td style={{ width: '25%' }}><strong>PF Deduction:</strong> ৳{totalPF.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                                <td style={{ width: '25%' }}><strong>Total Paid:</strong> ৳{totalPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                <td style={{ width: '25%' }}><strong>Base Salary:</strong> ৳{formatAmount(totalBaseSalary)}</td>
+                                <td style={{ width: '25%' }}><strong>PF Deduction:</strong> ৳{formatAmount(totalPF)}</td>
+                                <td style={{ width: '25%' }}><strong>Total Paid:</strong> ৳{formatAmount(totalPaid)}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -138,19 +139,19 @@ const PrintSalaryPayments = React.forwardRef<HTMLDivElement, PrintSalaryPayments
                                     {getMonthName(payment.month).substring(0, 3)} {payment.year}
                                 </td>
                                 <td className="text-right">
-                                    ৳{parseFloat(payment.base_salary.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    ৳{formatAmount(parseFloat(payment.base_salary.toString()))}
                                 </td>
                                 <td className="text-right">
-                                    ৳{parseFloat(payment.provident_fund_deduction.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    ৳{formatAmount(parseFloat(payment.provident_fund_deduction.toString()))}
                                 </td>
                                 <td className="text-right" style={{ fontWeight: '500' }}>
-                                    ৳{parseFloat(payment.net_salary.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    ৳{formatAmount(parseFloat(payment.net_salary.toString()))}
                                 </td>
                                 <td className="text-right">
-                                    ৳{parseFloat(payment.employer_pf_contribution.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    ৳{formatAmount(parseFloat(payment.employer_pf_contribution.toString()))}
                                 </td>
                                 <td className="text-right" style={{ fontWeight: 'bold' }}>
-                                    ৳{parseFloat(payment.total_amount.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    ৳{formatAmount(parseFloat(payment.total_amount.toString()))}
                                 </td>
                                 <td className="text-center" style={{ fontSize: '8pt' }}>
                                     {new Date(payment.payment_date).toLocaleDateString('en-GB')}
@@ -166,19 +167,19 @@ const PrintSalaryPayments = React.forwardRef<HTMLDivElement, PrintSalaryPayments
                         <tr style={{ fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>
                             <td colSpan={3} className="text-right">TOTAL:</td>
                             <td className="text-right">
-                                ৳{totalBaseSalary.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                ৳{formatAmount(totalBaseSalary)}
                             </td>
                             <td className="text-right">
-                                ৳{totalPF.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                ৳{formatAmount(totalPF)}
                             </td>
                             <td className="text-right">
-                                ৳{totalNetSalary.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                ৳{formatAmount(totalNetSalary)}
                             </td>
                             <td className="text-right">
-                                ৳{totalEmployerPF.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                ৳{formatAmount(totalEmployerPF)}
                             </td>
                             <td className="text-right">
-                                ৳{totalPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                ৳{formatAmount(totalPaid)}
                             </td>
                             <td colSpan={2}></td>
                         </tr>

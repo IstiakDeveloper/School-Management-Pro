@@ -27,7 +27,7 @@ class StudentAttendanceController extends Controller
             ->when($request->section_id, fn($q) => $q->where('section_id', $request->section_id))
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->latest('date')
-            ->paginate(50);
+            ->paginate(50)->withQueryString();
 
         // Calculate stats for the selected date
         $statsQuery = StudentAttendance::where('date', $selectedDate);
@@ -154,7 +154,7 @@ class StudentAttendanceController extends Controller
             ->when($request->from_date, fn($q) => $q->where('date', '>=', $request->from_date))
             ->when($request->to_date, fn($q) => $q->where('date', '<=', $request->to_date));
 
-        $attendances = $query->latest('date')->paginate(50);
+        $attendances = $query->latest('date')->paginate(50)->withQueryString();
 
         $stats = [
             'total' => $query->count(),

@@ -4,6 +4,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
 import Badge from '@/Components/Badge';
 import { ArrowLeft, Edit, TrendingUp, TrendingDown, ArrowRightLeft, Calendar } from 'lucide-react';
+import { formatCurrency } from '@/lib/formatCurrency';
 import { Account, Transaction, AccountingStats } from '@/types/accounting';
 
 interface ShowProps {
@@ -17,12 +18,6 @@ interface ShowProps {
 }
 
 export default function Show({ account, stats }: ShowProps) {
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('en-US', {
-            minimumFractionDigits: 2,
-        }).format(amount);
-    };
-
     const formatDate = (date: string) => {
         return new Date(date).toLocaleDateString('en-US', {
             year: 'numeric',

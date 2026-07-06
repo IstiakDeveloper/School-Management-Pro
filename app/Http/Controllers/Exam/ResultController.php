@@ -23,7 +23,7 @@ class ResultController extends Controller
             ->when($request->class_id, fn($q) => $q->where('class_id', $request->class_id))
             ->when($request->student_id, fn($q) => $q->where('student_id', $request->student_id))
             ->latest()
-            ->paginate(50);
+            ->paginate(50)->withQueryString();
 
         return Inertia::render('Exams/Results/Index', [
             'results' => $results,

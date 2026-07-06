@@ -17,7 +17,7 @@ class FeeWaiverController extends Controller
         $waivers = FeeWaiver::with(['student.user', 'student.schoolClass'])
             ->when($request->waiver_type, fn($q) => $q->where('waiver_type', $request->waiver_type))
             ->latest()
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         return Inertia::render('Fees/Waivers/Index', [
             'feeWaivers' => $waivers,

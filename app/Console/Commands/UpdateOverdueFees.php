@@ -30,6 +30,8 @@ class UpdateOverdueFees extends Command
     {
         $this->info('Updating overdue fees...');
 
+        FeeCollection::cancelAllOrphanUnpaidDuplicates();
+
         $today = Carbon::today();
 
         // Get all pending fees (only for non-soft-deleted students)
@@ -49,6 +51,22 @@ class UpdateOverdueFees extends Command
 
         foreach ($pendingFees as $fee) {
             try {
+                if (FeeCollection::paidExistsForPeriod(
+                    (int) $fee->student_id,
+                    (int) $fee->fee_type_id,
+                    (int) $fee->month,
+                    (int) $fee->year
+                )) {
+                    FeeCollection::cancelUnpaidDuplicatesForPeriod(
+                        (int) $fee->student_id,
+                        (int) $fee->fee_type_id,
+                        (int) $fee->month,
+                        (int) $fee->year
+                    );
+
+                    continue;
+                }
+
                 // Skip fees without month/year (e.g., one-time admission fees)
                 if (! $fee->month || ! $fee->year) {
                     continue;

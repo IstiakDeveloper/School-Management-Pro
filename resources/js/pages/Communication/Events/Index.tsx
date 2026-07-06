@@ -2,6 +2,7 @@ import { Head, router, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Card from '@/Components/Card';
 import Button from '@/Components/Button';
+import IndexPagination from '@/Components/IndexPagination';
 import { Plus, Calendar, Filter, Eye, Edit, Trash2, MapPin, User } from 'lucide-react';
 
 interface Event {
@@ -27,6 +28,9 @@ interface Props {
         last_page: number;
         per_page: number;
         total: number;
+        from?: number;
+        to?: number;
+        links?: any[];
     };
     filters: {
         event_type?: string;
@@ -227,31 +231,13 @@ export default function Index({ events, filters }: Props) {
                         </table>
                     </div>
 
-                    {events.last_page > 1 && (
-                        <div className="mt-4 flex justify-between items-center">
-                            <div className="text-sm text-gray-700">
-                                Showing {(events.current_page - 1) * events.per_page + 1} to{' '}
-                                {Math.min(events.current_page * events.per_page, events.total)} of {events.total} results
-                            </div>
-                            <div className="flex gap-2">
-                                {events.current_page > 1 && (
-                                    <Button
-                                        variant="secondary"
-                                        onClick={() => router.get(`/events?page=${events.current_page - 1}`)}
-                                    >
-                                        Previous
-                                    </Button>
-                                )}
-                                {events.current_page < events.last_page && (
-                                    <Button
-                                        onClick={() => router.get(`/events?page=${events.current_page + 1}`)}
-                                    >
-                                        Next
-                                    </Button>
-                                )}
-                            </div>
-                        </div>
-                    )}
+                    <IndexPagination
+                        links={events.links ?? []}
+                        from={events.from}
+                        to={events.to}
+                        total={events.total}
+                        lastPage={events.last_page}
+                    />
                 </Card>
             </div>
         </AuthenticatedLayout>

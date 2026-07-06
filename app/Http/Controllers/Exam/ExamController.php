@@ -24,7 +24,7 @@ class ExamController extends Controller
             ->when($request->academic_year_id, fn($q) => $q->where('academic_year_id', $request->academic_year_id))
             ->when($request->exam_type, fn($q) => $q->where('exam_type', $request->exam_type))
             ->latest()
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         return Inertia::render('Exams/Index', [
             'exams' => $exams,

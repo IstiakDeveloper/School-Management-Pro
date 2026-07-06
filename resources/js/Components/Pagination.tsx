@@ -39,29 +39,29 @@ export default function Pagination({
     if (lastPage <= 1) return null;
 
     return (
-        <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200">
-            <div className="text-sm text-gray-700">
-                Showing <span className="font-medium">{from}</span> to{' '}
-                <span className="font-medium">{to}</span> of{' '}
-                <span className="font-medium">{total}</span> results
+        <div className="bg-white/90 backdrop-blur-sm border-t border-emerald-50 px-6 py-4 flex items-center justify-between rounded-b-xl">
+            <div className="text-xs font-medium text-emerald-800/80">
+                Showing <span className="font-semibold text-emerald-950">{from}</span> to{' '}
+                <span className="font-semibold text-emerald-950">{to}</span> of{' '}
+                <span className="font-semibold text-emerald-950">{total}</span> results
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
                 <button
                     onClick={() => onPageChange(currentPage - 1)}
                     disabled={currentPage === 1}
-                    className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="flex items-center justify-center w-8 h-8 rounded-lg border border-emerald-100 bg-emerald-50/40 text-emerald-800 hover:bg-emerald-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-95"
                 >
-                    <ChevronLeft className="w-5 h-5" />
+                    <ChevronLeft className="w-4 h-4" />
                 </button>
 
                 {getPageNumbers().map((page) => (
                     <button
                         key={page}
                         onClick={() => onPageChange(page)}
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                        className={`flex items-center justify-center min-w-[32px] h-8 px-2 text-xs font-semibold rounded-lg transition-all duration-200 active:scale-95 ${
                             page === currentPage
-                                ? 'bg-blue-600 text-white'
-                                : 'border border-gray-300 hover:bg-gray-50'
+                                ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/20 hover:bg-emerald-700'
+                                : 'bg-emerald-50/40 text-emerald-800 border border-emerald-100 hover:bg-emerald-50 hover:border-emerald-200 hover:-translate-y-0.5'
                         }`}
                     >
                         {page}
@@ -71,11 +71,12 @@ export default function Pagination({
                 <button
                     onClick={() => onPageChange(currentPage + 1)}
                     disabled={currentPage === lastPage}
-                    className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="flex items-center justify-center w-8 h-8 rounded-lg border border-emerald-100 bg-emerald-50/40 text-emerald-800 hover:bg-emerald-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-95"
                 >
-                    <ChevronRight className="w-5 h-5" />
+                    <ChevronRight className="w-4 h-4" />
                 </button>
             </div>
         </div>
     );
 }
+

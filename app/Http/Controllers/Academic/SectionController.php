@@ -19,7 +19,7 @@ class SectionController extends Controller
             ->withCount('students')
             ->when($request->class_id, fn ($q) => $q->where('class_id', $request->class_id))
             ->orderBy('name')
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         return Inertia::render('Academic/Sections/Index', [
             'sections' => $sections,

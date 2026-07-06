@@ -21,7 +21,7 @@ class MessageController extends Controller
             })
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->latest()
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         return Inertia::render('Communication/Messages/Index', [
             'messages' => $messages,
@@ -127,7 +127,7 @@ class MessageController extends Controller
         $messages = Message::with('sender')
             ->where('receiver_id', auth()->id())
             ->latest()
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         return Inertia::render('Communication/Messages/Inbox', [
             'messages' => $messages,
@@ -139,7 +139,7 @@ class MessageController extends Controller
         $messages = Message::with('receiver')
             ->where('sender_id', auth()->id())
             ->latest()
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         return Inertia::render('Communication/Messages/Sent', [
             'messages' => $messages,

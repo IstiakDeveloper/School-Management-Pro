@@ -68,11 +68,11 @@ class ParentStudentController extends Controller
             ->get();
 
         // Get fee summary
-        $feeSummary = \App\Models\FeeCollection::where('student_id', $student->id)->get();
+        $outstanding = \App\Models\FeeCollection::where('student_id', $student->id)->outstanding()->get();
         $feeStats = [
-            'total_paid' => $feeSummary->sum('paid_amount'),
-            'total_due' => $feeSummary->sum('remaining'),
-            'overdue_count' => $feeSummary->where('is_overdue', true)->count(),
+            'total_paid' => \App\Models\FeeCollection::where('student_id', $student->id)->where('status', 'paid')->sum('paid_amount'),
+            'total_due' => $outstanding->sum(fn ($fee) => $fee->remaining),
+            'overdue_count' => $outstanding->where('status', 'overdue')->count(),
         ];
 
         return Inertia::render('Parent/Children/Show', [

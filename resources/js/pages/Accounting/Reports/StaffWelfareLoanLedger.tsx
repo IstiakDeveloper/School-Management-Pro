@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
 import { HandCoins, Printer } from 'lucide-react';
+import { formatCurrency } from '@/lib/formatCurrency';
 
 interface TeacherOption {
     id: number;
@@ -39,14 +40,6 @@ interface Props {
     teachers: TeacherOption[];
     schoolName?: string;
     schoolAddress?: string;
-}
-
-function formatCurrency(amount: number): string {
-    const num = Number(amount) || 0;
-    return new Intl.NumberFormat('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-    }).format(num);
 }
 
 function formatPeriodLabel(start: string, end: string): string {

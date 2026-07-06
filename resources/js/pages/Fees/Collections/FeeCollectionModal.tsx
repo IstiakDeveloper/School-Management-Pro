@@ -1,16 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useForm, router } from '@inertiajs/react';
+import { formatAmount } from '@/lib/formatCurrency';
 import {
-    X,
     Search,
     User,
     AlertCircle,
     Plus,
     CheckCircle,
     Calendar,
-    DollarSign,
     Clock,
     XCircle,
+    ShoppingCart,
+    Trash2,
+    CreditCard,
+    ChevronRight,
 } from 'lucide-react';
 
 interface Student {
@@ -46,24 +49,75 @@ interface Account {
     current_balance: number;
 }
 
+interface NewFeeItem {
+    localId: string;
+    fee_structure_id: number;
+    fee_type_name: string;
+    amount: number;
+    month: number;
+    year: number;
+    months_count: number;
+    discounts: number[];
+}
+
+interface CartLine {
+    key: string;
+    type: 'pending' | 'advance';
+    title: string;
+    period: string;
+    grossAmount: number;
+    discount: number;
+    pendingFeeId?: number;
+    advanceLocalId?: string;
+    monthIndex?: number;
+}
+
 interface Props {
     isOpen: boolean;
     onClose: () => void;
     students: Student[];
     accounts: Account[];
+    defaultAccountId?: number | null;
 }
 
-export default function FeeCollectionModal({ isOpen, onClose, students, accounts }: Props) {
+const formatMoney = formatAmount;
+
+const getMonthName = (month: number) =>
+    new Date(2000, month - 1).toLocaleString('default', { month: 'short' });
+
+const generateMonthsList = (startMonth: number, startYear: number, count: number) => {
+    const months: string[] = [];
+    let m = startMonth;
+    let y = startYear;
+    for (let i = 0; i < count; i++) {
+        months.push(`${getMonthName(m)} ${y}`);
+        m++;
+        if (m > 12) {
+            m = 1;
+            y++;
+        }
+    }
+    return months;
+};
+
+export default function FeeCollectionModal({ isOpen, onClose, students, accounts, defaultAccountId }: Props) {
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth() + 1;
     const currentYear = currentDate.getFullYear();
+    const resolvedDefaultAccountId =
+        defaultAccountId?.toString()
+        ?? accounts.find((a) => a.account_name.toLowerCase().includes('prime'))?.id?.toString()
+        ?? accounts[1]?.id?.toString()
+        ?? accounts[0]?.id?.toString()
+        ?? '';
 
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
     const [pendingFees, setPendingFees] = useState<PendingFee[]>([]);
     const [availableFees, setAvailableFees] = useState<FeeStructure[]>([]);
     const [selectedPendingFees, setSelectedPendingFees] = useState<number[]>([]);
-    const [newFeeItems, setNewFeeItems] = useState<any[]>([]);
+    const [pendingDiscounts, setPendingDiscounts] = useState<Record<number, number>>({});
+    const [newFeeItems, setNewFeeItems] = useState<NewFeeItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<'pending' | 'advance'>('pending');
     const [nextUnpaidMonth, setNextUnpaidMonth] = useState(currentMonth);
@@ -71,16 +125,12 @@ export default function FeeCollectionModal({ isOpen, onClose, students, accounts
 
     const form = useForm({
         student_id: '',
-        fee_collection_ids: [] as number[],
-        fee_structures: [] as { fee_structure_id: number; month: number; year: number }[],
-        account_id: '4',
+        account_id: resolvedDefaultAccountId,
         payment_method: 'cash',
         payment_date: new Date().toISOString().split('T')[0],
-        discount: 0,
         remarks: '',
     });
 
-    // Filter students based on search
     const filteredStudents = students.filter((student) => {
         const search = searchTerm.toLowerCase();
         return (
@@ -91,31 +141,37 @@ export default function FeeCollectionModal({ isOpen, onClose, students, accounts
         );
     });
 
-    // Load student data
+    const resetSelection = () => {
+        setSelectedStudent(null);
+        setPendingFees([]);
+        setSelectedPendingFees([]);
+        setPendingDiscounts({});
+        setNewFeeItems([]);
+        setSearchTerm('');
+        form.reset();
+        form.setData('account_id', resolvedDefaultAccountId);
+    };
+
     const handleStudentSelect = async (student: Student) => {
         setSelectedStudent(student);
         form.setData('student_id', student.id.toString());
         setSearchTerm('');
         setSelectedPendingFees([]);
+        setPendingDiscounts({});
         setNewFeeItems([]);
 
         setLoading(true);
         try {
-            // Fetch pending fees and next unpaid month
             const duesResponse = await fetch(`/api/fee-collections/student-dues?student_id=${student.id}`);
             const duesData = await duesResponse.json();
-
-            // Extract dues and next month info
             const dues = duesData.dues || duesData;
             setPendingFees(Array.isArray(dues) ? dues : []);
 
-            // Set next unpaid month if provided
             if (duesData.next_month && duesData.next_year) {
                 setNextUnpaidMonth(duesData.next_month);
                 setNextUnpaidYear(duesData.next_year);
             }
 
-            // Fetch available fee structures
             if (student.school_class?.id) {
                 const feesResponse = await fetch(`/api/fee-structures?class_id=${student.school_class.id}`);
                 const feesData = await feesResponse.json();
@@ -132,128 +188,169 @@ export default function FeeCollectionModal({ isOpen, onClose, students, accounts
         }
     };
 
-    // Toggle pending fee
     const togglePendingFee = (feeId: number) => {
-        setSelectedPendingFees((prev) =>
-            prev.includes(feeId) ? prev.filter((id) => id !== feeId) : [...prev, feeId]
-        );
-    };
-
-    // Select all pending
-    const selectAllPending = () => {
-        if (selectedPendingFees.length === pendingFees.length) {
-            setSelectedPendingFees([]);
+        if (selectedPendingFees.includes(feeId)) {
+            setSelectedPendingFees((prev) => prev.filter((id) => id !== feeId));
+            setPendingDiscounts((prev) => {
+                const next = { ...prev };
+                delete next[feeId];
+                return next;
+            });
         } else {
-            setSelectedPendingFees(pendingFees.map((fee) => fee.id));
+            setSelectedPendingFees((prev) => [...prev, feeId]);
+            setPendingDiscounts((prev) => ({ ...prev, [feeId]: 0 }));
         }
     };
 
-    // Add new fee
+    const selectAllPending = () => {
+        if (selectedPendingFees.length === pendingFees.length) {
+            setSelectedPendingFees([]);
+            setPendingDiscounts({});
+        } else {
+            const ids = pendingFees.map((fee) => fee.id);
+            setSelectedPendingFees(ids);
+            setPendingDiscounts(Object.fromEntries(ids.map((id) => [id, 0])));
+        }
+    };
+
     const addNewFeeItem = (feeStructure: FeeStructure) => {
-        setNewFeeItems([
-            ...newFeeItems,
+        setNewFeeItems((prev) => [
+            ...prev,
             {
+                localId: `${feeStructure.id}-${Date.now()}`,
                 fee_structure_id: feeStructure.id,
                 fee_type_name: feeStructure.fee_type.name,
                 amount: feeStructure.amount,
-                month: nextUnpaidMonth, // Use next unpaid month instead of current month
-                year: nextUnpaidYear,   // Use next unpaid year
-                months_count: 1, // Default to 1 month
+                month: nextUnpaidMonth,
+                year: nextUnpaidYear,
+                months_count: 1,
+                discounts: [0],
             },
         ]);
     };
 
-    // Remove fee
-    const removeNewFeeItem = (index: number) => {
-        setNewFeeItems(newFeeItems.filter((_, i) => i !== index));
+    const removeNewFeeItem = (localId: string) => {
+        setNewFeeItems((prev) => prev.filter((item) => item.localId !== localId));
     };
 
-    // Update fee month/year/months_count
-    const updateNewFeeItem = (index: number, field: 'month' | 'year' | 'months_count', value: number) => {
-        const updated = [...newFeeItems];
-        updated[index][field] = value;
-        setNewFeeItems(updated);
+    const updateNewFeeItem = (localId: string, field: 'month' | 'year' | 'months_count', value: number) => {
+        setNewFeeItems((prev) =>
+            prev.map((item) => {
+                if (item.localId !== localId) return item;
+                if (field === 'months_count') {
+                    const discounts = Array.from({ length: value }, (_, i) => item.discounts[i] ?? 0);
+                    return { ...item, months_count: value, discounts };
+                }
+                return { ...item, [field]: value };
+            })
+        );
     };
 
-    // Generate month list for multiple months
-    const generateMonthsList = (startMonth: number, startYear: number, count: number) => {
-        const months = [];
-        let currentM = startMonth;
-        let currentY = startYear;
+    const updatePendingDiscount = (feeId: number, discount: number) => {
+        const fee = pendingFees.find((f) => f.id === feeId);
+        const maxDiscount = fee ? parseFloat(fee.total_amount.toString()) || 0 : 0;
+        setPendingDiscounts((prev) => ({
+            ...prev,
+            [feeId]: Math.min(Math.max(0, discount), maxDiscount),
+        }));
+    };
 
-        for (let i = 0; i < count; i++) {
-            months.push(`${getMonthName(currentM)} ${currentY}`);
-            currentM++;
-            if (currentM > 12) {
-                currentM = 1;
-                currentY++;
+    const updateAdvanceDiscount = (localId: string, monthIndex: number, discount: number) => {
+        setNewFeeItems((prev) =>
+            prev.map((item) => {
+                if (item.localId !== localId) return item;
+                const discounts = [...item.discounts];
+                discounts[monthIndex] = Math.min(Math.max(0, discount), item.amount);
+                return { ...item, discounts };
+            })
+        );
+    };
+
+    const buildCartLines = (): CartLine[] => {
+        const lines: CartLine[] = [];
+
+        selectedPendingFees.forEach((feeId) => {
+            const fee = pendingFees.find((f) => f.id === feeId);
+            if (!fee) return;
+            const gross = parseFloat(fee.total_amount.toString()) || 0;
+            const discount = pendingDiscounts[feeId] ?? 0;
+            lines.push({
+                key: `pending-${feeId}`,
+                type: 'pending',
+                title: fee.fee_type,
+                period: fee.month_name,
+                grossAmount: gross,
+                discount,
+                pendingFeeId: feeId,
+            });
+        });
+
+        newFeeItems.forEach((item) => {
+            const months = generateMonthsList(item.month, item.year, item.months_count);
+            let m = item.month;
+            let y = item.year;
+            for (let i = 0; i < item.months_count; i++) {
+                lines.push({
+                    key: `advance-${item.localId}-${i}`,
+                    type: 'advance',
+                    title: item.fee_type_name,
+                    period: months[i],
+                    grossAmount: item.amount,
+                    discount: item.discounts[i] ?? 0,
+                    advanceLocalId: item.localId,
+                    monthIndex: i,
+                });
+                m++;
+                if (m > 12) {
+                    m = 1;
+                    y++;
+                }
             }
-        }
-        return months.join(', ');
+        });
+
+        return lines;
     };
 
-    // Calculate totals
-    const calculatePendingTotal = () => {
-        const selected = pendingFees.filter((fee) => selectedPendingFees.includes(fee.id));
-        const total = selected.reduce((sum, fee) => sum + (parseFloat(fee.total_amount.toString()) || 0), 0);
-        return isNaN(total) ? 0 : total;
-    };
+    const cartLines = buildCartLines();
+    const subtotal = cartLines.reduce((sum, line) => sum + line.grossAmount, 0);
+    const totalDiscount = cartLines.reduce((sum, line) => sum + line.discount, 0);
+    const grandTotal = subtotal - totalDiscount;
+    const hasSelection = cartLines.length > 0;
 
-    const calculateAdvanceTotal = () => {
-        const total = newFeeItems.reduce((sum, item) => {
-            const monthsCount = item.months_count || 1;
-            return sum + (parseFloat(item.amount.toString()) || 0) * monthsCount;
-        }, 0);
-        return isNaN(total) ? 0 : total;
-    };
-
-    const calculateGrandTotal = () => {
-        const pending = calculatePendingTotal();
-        const advance = calculateAdvanceTotal();
-        const discount = parseFloat(form.data.discount.toString()) || 0;
-        const total = pending + advance - discount;
-        return isNaN(total) ? 0 : total;
-    };
-
-    // Get month name
-    const getMonthName = (month: number) => {
-        return new Date(2000, month - 1).toLocaleString('default', { month: 'long' });
-    };
-
-    // Submit form
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        const submitData: any = {
+        const submitData: Record<string, unknown> = {
             student_id: form.data.student_id,
             account_id: form.data.account_id,
             payment_method: form.data.payment_method,
             payment_date: form.data.payment_date,
-            discount: form.data.discount,
             remarks: form.data.remarks,
         };
 
         if (selectedPendingFees.length > 0) {
-            submitData.fee_collection_ids = selectedPendingFees;
+            submitData.pending_fees = selectedPendingFees.map((id) => ({
+                id,
+                discount: pendingDiscounts[id] ?? 0,
+            }));
         }
 
         if (newFeeItems.length > 0) {
             submitData.fee_structures = newFeeItems.flatMap((item) => {
-                const monthsCount = item.months_count || 1;
                 const fees = [];
-                let currentM = item.month;
-                let currentY = item.year;
-
-                for (let i = 0; i < monthsCount; i++) {
+                let m = item.month;
+                let y = item.year;
+                for (let i = 0; i < item.months_count; i++) {
                     fees.push({
                         fee_structure_id: item.fee_structure_id,
-                        month: currentM,
-                        year: currentY,
+                        month: m,
+                        year: y,
+                        discount: item.discounts[i] ?? 0,
                     });
-                    currentM++;
-                    if (currentM > 12) {
-                        currentM = 1;
-                        currentY++;
+                    m++;
+                    if (m > 12) {
+                        m = 1;
+                        y++;
                     }
                 }
                 return fees;
@@ -263,604 +360,618 @@ export default function FeeCollectionModal({ isOpen, onClose, students, accounts
         router.post('/fee-collections', submitData, {
             onSuccess: () => {
                 onClose();
-                setSelectedStudent(null);
-                setSelectedPendingFees([]);
-                setNewFeeItems([]);
-                form.reset();
+                resetSelection();
             },
         });
     };
 
     if (!isOpen) return null;
 
+    const inputClass =
+        'w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/30';
+    const labelClass = 'mb-0.5 block text-[11px] font-medium text-slate-500';
+
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full my-8">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/55 p-0 backdrop-blur-[2px] sm:items-center sm:p-3">
+            <div className="flex max-h-[96vh] w-full max-w-5xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[92vh] sm:rounded-2xl">
                 {/* Header */}
-                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 rounded-t-xl">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h2 className="text-2xl font-bold text-white">Fee Collection</h2>
-                            <p className="text-indigo-100 text-sm mt-1">Collect student fees easily</p>
-                        </div>
-                        <button
-                            onClick={onClose}
-                            className="text-white hover:bg-white/20 p-2 rounded-lg transition"
-                        >
-                            <X className="w-6 h-6" />
-                        </button>
+                <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-slate-50 px-3 py-2.5 sm:px-4">
+                    <div className="min-w-0 pr-2">
+                        <h2 className="truncate text-sm font-semibold text-slate-900 sm:text-base">Collect Fee</h2>
+                        <p className="hidden truncate text-[11px] text-slate-500 sm:block">
+                            Select fees, apply per-item discount, and record payment
+                        </p>
                     </div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="shrink-0 rounded-md p-1.5 text-slate-400 transition hover:bg-slate-200 hover:text-slate-600"
+                    >
+                        <X className="h-4 w-4" />
+                    </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6">
-                    {/* Student Search */}
+                <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
                     {!selectedStudent ? (
-                        <div className="mb-6">
-                            <label className="block text-sm font-medium text-gray-700 mb-3">
-                                <User className="w-4 h-4 inline mr-2" />
-                                Select Student
+                        <div className="overflow-y-auto p-3 sm:p-4">
+                            <label className={`${labelClass} mb-2 flex items-center gap-1.5`}>
+                                <User className="h-3.5 w-3.5" />
+                                Find Student
                             </label>
 
-                            {/* Select Dropdown */}
-                            <div className="mb-4">
-                                <select
-                                    onChange={(e) => {
-                                        const student = students.find((s) => s.id === parseInt(e.target.value));
-                                        if (student) handleStudentSelect(student);
-                                    }}
-                                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white text-base"
-                                    defaultValue=""
-                                >
-                                    <option value="" disabled className="text-gray-500">
-                                        Select student by name or roll number
+                            <select
+                                onChange={(e) => {
+                                    const student = students.find((s) => s.id === parseInt(e.target.value));
+                                    if (student) handleStudentSelect(student);
+                                }}
+                                className={`${inputClass} mb-3`}
+                                defaultValue=""
+                            >
+                                <option value="" disabled>
+                                    Choose from list...
+                                </option>
+                                {students.map((student) => (
+                                    <option key={student.id} value={student.id}>
+                                        {student.user?.name} · Roll {student.roll_number} · {student.school_class?.name}
                                     </option>
-                                    {students.map((student) => (
-                                        <option key={student.id} value={student.id} className="py-2">
-                                            {student.user?.name || 'N/A'} | Roll: {student.roll_number || 'N/A'} | Class: {student.school_class?.name || 'N/A'}
-                                        </option>
-                                    ))}
-                                </select>
+                                ))}
+                            </select>
+
+                            <div className="mb-3 flex items-center gap-2">
+                                <div className="h-px flex-1 bg-slate-200" />
+                                <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">or search</span>
+                                <div className="h-px flex-1 bg-slate-200" />
                             </div>
 
-                            <div className="flex items-center gap-3 mb-3">
-                                <div className="flex-1 border-t border-gray-300"></div>
-                                <span className="text-sm text-gray-500 font-medium">OR SEARCH</span>
-                                <div className="flex-1 border-t border-gray-300"></div>
-                            </div>
-
-                            {/* Search Input */}
                             <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                                 <input
                                     type="text"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    placeholder="Search by student name or roll number..."
-                                    className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    placeholder="Name, roll, admission no..."
+                                    className={`${inputClass} pl-8`}
                                 />
                             </div>
 
-                            {/* Search Results */}
                             {searchTerm && (
-                                <div className="mt-2 max-h-80 overflow-y-auto border-2 border-gray-200 rounded-lg shadow-lg">
+                                <div className="mt-2 max-h-56 overflow-y-auto rounded-lg border border-slate-200 sm:max-h-64">
                                     {filteredStudents.length > 0 ? (
                                         filteredStudents.map((student) => (
                                             <button
                                                 key={student.id}
                                                 type="button"
                                                 onClick={() => handleStudentSelect(student)}
-                                                className="w-full p-4 hover:bg-indigo-50 text-left border-b border-gray-100 last:border-0 transition flex items-center gap-4"
+                                                className="flex w-full items-center gap-2.5 border-b border-slate-100 p-2.5 text-left transition last:border-0 hover:bg-indigo-50/80"
                                             >
-                                                <div className="flex items-center gap-4">
-                                                    <User className="w-10 h-10 text-indigo-600" />
+                                                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-100">
+                                                    <User className="h-3.5 w-3.5 text-indigo-600" />
                                                 </div>
-                                                <div className="flex-1">
-                                                    <p className="font-bold text-lg text-gray-900">{student.user?.name || 'N/A'}</p>
-                                                    <p className="text-sm text-gray-600 mt-1">
-                                                        <span className="font-semibold">Roll:</span> {student.roll_number || 'N/A'}
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate text-xs font-semibold text-slate-900">
+                                                        {student.user?.name}
                                                     </p>
-                                                    <p className="text-sm text-gray-600">
-                                                        <span className="font-semibold">Class:</span> {student.school_class?.name || 'N/A'}
+                                                    <p className="truncate text-[11px] text-slate-500">
+                                                        Roll {student.roll_number} · {student.school_class?.name}
                                                     </p>
                                                 </div>
-                                                <Plus className="w-5 h-5 text-indigo-600" />
+                                                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-400" />
                                             </button>
                                         ))
                                     ) : (
-                                        <div className="p-8 text-center text-gray-500">
-                                            <AlertCircle className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                                            <p>No students found</p>
+                                        <div className="p-6 text-center text-xs text-slate-500">
+                                            <AlertCircle className="mx-auto mb-1.5 h-6 w-6 text-slate-300" />
+                                            No students found
                                         </div>
                                     )}
                                 </div>
                             )}
-
-                            {!searchTerm && (
-                                <p className="text-sm text-gray-500 mt-2 text-center">
-                                    Type to search for a student
-                                </p>
-                            )}
                         </div>
                     ) : (
-                        <>
-                            {/* Selected Student Info */}
-                            <div className="mb-6 bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-lg p-4">
-                                <div className="flex justify-between items-start">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-12 h-12 bg-indigo-600 rounded-full flex items-center justify-center">
-                                            <User className="w-6 h-6 text-white" />
+                        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+                            {/* Left: Fee Selection */}
+                            <div className="flex min-h-0 flex-1 flex-col border-b border-slate-200 lg:max-w-[58%] lg:border-b-0 lg:border-r">
+                                <div className="flex shrink-0 items-center justify-between border-b border-slate-100 bg-white px-3 py-2">
+                                    <div className="flex min-w-0 items-center gap-2">
+                                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-[11px] font-bold text-white">
+                                            {(selectedStudent.user?.name ?? '?')[0]}
                                         </div>
-                                        <div>
-                                            <h3 className="text-lg font-bold text-gray-900">
-                                                {selectedStudent.user?.name || 'N/A'}
-                                            </h3>
-                                            <p className="text-sm text-gray-600">
-                                                {selectedStudent.admission_number || 'N/A'} • {selectedStudent.school_class?.name || 'N/A'}
+                                        <div className="min-w-0">
+                                            <p className="truncate text-xs font-semibold text-slate-900">
+                                                {selectedStudent.user?.name}
                                             </p>
-                                            <p className="text-sm font-semibold text-red-600 mt-1">
-                                                Pending: ৳{pendingFees.reduce((sum, fee) => sum + (parseFloat(fee.total_amount.toString()) || 0), 0).toLocaleString('en-IN')}
+                                            <p className="truncate text-[10px] text-slate-500">
+                                                {selectedStudent.school_class?.name} · Roll {selectedStudent.roll_number}
                                             </p>
                                         </div>
                                     </div>
                                     <button
                                         type="button"
-                                        onClick={() => {
-                                            setSelectedStudent(null);
-                                            setPendingFees([]);
-                                            setSelectedPendingFees([]);
-                                            setNewFeeItems([]);
-                                        }}
-                                        className="text-gray-400 hover:text-gray-600"
+                                        onClick={resetSelection}
+                                        className="shrink-0 text-[10px] font-medium text-slate-500 hover:text-slate-700"
                                     >
-                                        <X className="w-5 h-5" />
+                                        Change
                                     </button>
                                 </div>
-                            </div>
 
-                            {loading ? (
-                                <div className="text-center py-12">
-                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-                                    <p className="text-gray-600 mt-4">Loading fees...</p>
-                                </div>
-                            ) : (
-                                <>
-                                    {/* Tabs */}
-                                    <div className="mb-6 border-b border-gray-200">
-                                        <div className="flex gap-2">
+                                {loading ? (
+                                    <div className="flex flex-1 items-center justify-center py-10">
+                                        <div className="text-center">
+                                            <div className="mx-auto h-7 w-7 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+                                            <p className="mt-2 text-[11px] text-slate-500">Loading fees...</p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="flex shrink-0 border-b border-slate-200 px-3">
                                             <button
                                                 type="button"
                                                 onClick={() => setActiveTab('pending')}
-                                                className={`px-6 py-3 font-medium border-b-2 transition ${
+                                                className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-[11px] font-medium transition sm:text-xs ${
                                                     activeTab === 'pending'
                                                         ? 'border-indigo-600 text-indigo-600'
-                                                        : 'border-transparent text-gray-600 hover:text-gray-800'
+                                                        : 'border-transparent text-slate-500 hover:text-slate-700'
                                                 }`}
                                             >
-                                                <AlertCircle className="w-4 h-4 inline mr-2" />
-                                                Pending ({pendingFees.length})
+                                                <AlertCircle className="h-3.5 w-3.5" />
+                                                Pending
+                                                {pendingFees.length > 0 && (
+                                                    <span className="rounded-full bg-red-100 px-1.5 py-px text-[10px] font-semibold text-red-700">
+                                                        {pendingFees.length}
+                                                    </span>
+                                                )}
                                             </button>
                                             <button
                                                 type="button"
                                                 onClick={() => setActiveTab('advance')}
-                                                className={`px-6 py-3 font-medium border-b-2 transition ${
+                                                className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-[11px] font-medium transition sm:text-xs ${
                                                     activeTab === 'advance'
                                                         ? 'border-indigo-600 text-indigo-600'
-                                                        : 'border-transparent text-gray-600 hover:text-gray-800'
+                                                        : 'border-transparent text-slate-500 hover:text-slate-700'
                                                 }`}
                                             >
-                                                <Plus className="w-4 h-4 inline mr-2" />
-                                                Advance Payment
+                                                <Plus className="h-3.5 w-3.5" />
+                                                Advance
                                             </button>
                                         </div>
-                                    </div>
 
-                                    {/* Tab Content */}
-                                    <div className="mb-6 max-h-96 overflow-y-auto">
-                                        {/* Pending Tab */}
-                                        {activeTab === 'pending' && (
-                                            <div className="space-y-3">
-                                                {pendingFees.length > 0 ? (
-                                                    <>
-                                                        <div className="flex justify-between items-center mb-3 px-1">
-                                                            <p className="text-sm text-gray-600">Select fees to pay:</p>
-                                                            <button
-                                                                type="button"
-                                                                onClick={selectAllPending}
-                                                                className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
-                                                            >
-                                                                {selectedPendingFees.length === pendingFees.length
-                                                                    ? 'Deselect All'
-                                                                    : 'Select All'}
-                                                            </button>
-                                                        </div>
-                                                        {pendingFees.map((fee) => (
-                                                            <div
-                                                                key={fee.id}
-                                                                onClick={() => togglePendingFee(fee.id)}
-                                                                className={`border-2 rounded-lg p-4 cursor-pointer transition ${
-                                                                    selectedPendingFees.includes(fee.id)
-                                                                        ? 'border-indigo-500 bg-indigo-50'
-                                                                        : 'border-gray-200 hover:border-gray-300'
-                                                                }`}
-                                                            >
-                                                                <div className="flex items-center justify-between">
-                                                                    <div className="flex items-center gap-3 flex-1">
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            checked={selectedPendingFees.includes(fee.id)}
-                                                                            onChange={() => togglePendingFee(fee.id)}
-                                                                            className="h-5 w-5 text-indigo-600 rounded"
-                                                                        />
-                                                                        <div className="flex-1">
-                                                                            <div className="flex items-center gap-2 mb-1">
-                                                                                <p className="font-semibold text-gray-900">
-                                                                                    {fee.fee_type}
-                                                                                </p>
-                                                                                <span
-                                                                                    className={`px-2 py-0.5 text-xs font-medium rounded ${
-                                                                                        fee.status === 'overdue'
-                                                                                            ? 'bg-red-100 text-red-800'
-                                                                                            : 'bg-yellow-100 text-yellow-800'
-                                                                                    }`}
-                                                                                >
-                                                                                    {fee.status === 'overdue' ? (
-                                                                                        <>
-                                                                                            <XCircle className="w-3 h-3 inline mr-1" />
-                                                                                            Overdue
-                                                                                        </>
-                                                                                    ) : (
-                                                                                        <>
-                                                                                            <Clock className="w-3 h-3 inline mr-1" />
-                                                                                            Pending
-                                                                                        </>
-                                                                                    )}
-                                                                                </span>
-                                                                            </div>
-                                                                            <p className="text-sm text-gray-600">
-                                                                                <Calendar className="w-3 h-3 inline mr-1" />
-                                                                                {fee.month_name}
-                                                                            </p>
-                                                                            {fee.late_fee > 0 && (
-                                                                                <p className="text-xs text-red-600 mt-1">
-                                                                                    + Late Fee: ৳{fee.late_fee.toLocaleString('en-IN')}
-                                                                                </p>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                    <p className="text-xl font-bold text-indigo-600">
-                                                                        ৳{fee.total_amount.toLocaleString('en-IN')}
-                                                                    </p>
-                                                                </div>
+                                        <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:max-h-none sm:p-3.5">
+                                            {activeTab === 'pending' && (
+                                                <div className="space-y-1.5">
+                                                    {pendingFees.length > 0 ? (
+                                                        <>
+                                                            <div className="mb-2 flex items-center justify-between">
+                                                                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                                                                    Outstanding
+                                                                </p>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={selectAllPending}
+                                                                    className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800"
+                                                                >
+                                                                    {selectedPendingFees.length === pendingFees.length
+                                                                        ? 'Deselect all'
+                                                                        : 'Select all'}
+                                                                </button>
                                                             </div>
-                                                        ))}
-                                                    </>
-                                                ) : (
-                                                    <div className="text-center py-12">
-                                                        <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-3" />
-                                                        <p className="text-gray-600">No pending fees</p>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-
-                                        {/* Advance Tab */}
-                                        {activeTab === 'advance' && (
-                                            <div className="space-y-4">
-                                                {availableFees.length > 0 ? (
-                                                    <>
-                                                        {/* Available Fee Types */}
-                                                        <div>
-                                                            <p className="text-sm font-medium text-gray-700 mb-3">Select Fee Type:</p>
-                                                            <div className="grid grid-cols-2 gap-3">
-                                                                {availableFees.map((fee) => (
+                                                            {pendingFees.map((fee) => {
+                                                                const isSelected = selectedPendingFees.includes(fee.id);
+                                                                return (
                                                                     <button
                                                                         key={fee.id}
                                                                         type="button"
-                                                                        onClick={() => addNewFeeItem(fee)}
-                                                                        className="p-3 border-2 border-gray-300 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition text-left"
+                                                                        onClick={() => togglePendingFee(fee.id)}
+                                                                        className={`w-full rounded-lg border p-2.5 text-left transition ${
+                                                                            isSelected
+                                                                                ? 'border-indigo-400 bg-indigo-50/50 ring-1 ring-indigo-200'
+                                                                                : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/80'
+                                                                        }`}
                                                                     >
-                                                                        <p className="font-semibold text-gray-900">{fee.fee_type.name}</p>
-                                                                        <p className="text-sm text-gray-600 mt-1">
-                                                                            ৳{fee.amount.toLocaleString('en-IN')} / {fee.fee_type.frequency}
-                                                                        </p>
-                                                                    </button>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Selected Fees */}
-                                                        {newFeeItems.length > 0 && (
-                                                            <div>
-                                                                <p className="text-sm font-medium text-gray-700 mb-3">Selected Fees:</p>
-                                                                <div className="space-y-3">
-                                                                    {newFeeItems.map((item, index) => (
-                                                                        <div
-                                                                            key={index}
-                                                                            className="border-2 border-indigo-200 rounded-lg p-4 bg-indigo-50"
-                                                                        >
-                                                                            <div className="flex items-start gap-3">
-                                                                                <div className="flex-1">
-                                                                                    <p className="font-bold text-gray-900 mb-3">
-                                                                                        {item.fee_type_name}
-                                                                                    </p>
-
-                                                                                    <div className="grid grid-cols-3 gap-3 mb-3">
-                                                                                        <div>
-                                                                                            <label className="text-xs text-gray-600 block mb-1">Start Month</label>
-                                                                                            <select
-                                                                                                value={item.month}
-                                                                                                onChange={(e) =>
-                                                                                                    updateNewFeeItem(
-                                                                                                        index,
-                                                                                                        'month',
-                                                                                                        parseInt(e.target.value)
-                                                                                                    )
-                                                                                                }
-                                                                                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
-                                                                                            >
-                                                                                                {Array.from({ length: 12 }, (_, i) => i + 1).map(
-                                                                                                    (m) => (
-                                                                                                        <option key={m} value={m}>
-                                                                                                            {getMonthName(m)}
-                                                                                                        </option>
-                                                                                                    )
-                                                                                                )}
-                                                                                            </select>
-                                                                                        </div>
-                                                                                        <div>
-                                                                                            <label className="text-xs text-gray-600 block mb-1">Year</label>
-                                                                                            <select
-                                                                                                value={item.year}
-                                                                                                onChange={(e) =>
-                                                                                                    updateNewFeeItem(
-                                                                                                        index,
-                                                                                                        'year',
-                                                                                                        parseInt(e.target.value)
-                                                                                                    )
-                                                                                                }
-                                                                                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
-                                                                                            >
-                                                                                                {Array.from(
-                                                                                                    { length: 5 },
-                                                                                                    (_, i) => currentYear - 2 + i
-                                                                                                ).map((y) => (
-                                                                                                    <option key={y} value={y}>
-                                                                                                        {y}
-                                                                                                    </option>
-                                                                                                ))}
-                                                                                            </select>
-                                                                                        </div>
-                                                                                        <div>
-                                                                                            <label className="text-xs text-gray-600 block mb-1">Months Count</label>
-                                                                                            <select
-                                                                                                value={item.months_count || 1}
-                                                                                                onChange={(e) =>
-                                                                                                    updateNewFeeItem(
-                                                                                                        index,
-                                                                                                        'months_count',
-                                                                                                        parseInt(e.target.value)
-                                                                                                    )
-                                                                                                }
-                                                                                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm font-semibold"
-                                                                                            >
-                                                                                                {Array.from({ length: 12 }, (_, i) => i + 1).map(
-                                                                                                    (count) => (
-                                                                                                        <option key={count} value={count}>
-                                                                                                            {count} {count === 1 ? 'Month' : 'Months'}
-                                                                                                        </option>
-                                                                                                    )
-                                                                                                )}
-                                                                                            </select>
-                                                                                        </div>
-                                                                                    </div>
-
-                                                                                    <div className="bg-white rounded p-2 border border-indigo-200">
-                                                                                        <p className="text-xs text-gray-600 mb-1">Payment for:</p>
-                                                                                        <p className="text-sm font-semibold text-indigo-700">
-                                                                                            {generateMonthsList(item.month, item.year, item.months_count || 1)}
-                                                                                        </p>
-                                                                                    </div>
-                                                                                </div>
-                                                                                <div className="text-right">
-                                                                                    <p className="text-xs text-gray-600 mb-1">Total Amount</p>
-                                                                                    <p className="text-xl font-bold text-indigo-600">
-                                                                                        ৳{((item.amount || 0) * (item.months_count || 1)).toLocaleString('en-IN')}
-                                                                                    </p>
-                                                                                    <p className="text-xs text-gray-500 mt-1">
-                                                                                        ৳{item.amount.toLocaleString('en-IN')} × {item.months_count || 1}
-                                                                                    </p>
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={() => removeNewFeeItem(index)}
-                                                                                        className="text-red-600 hover:text-red-800 text-sm mt-2 font-medium"
+                                                                        <div className="flex items-start gap-2">
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                readOnly
+                                                                                checked={isSelected}
+                                                                                className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-indigo-600"
+                                                                            />
+                                                                            <div className="min-w-0 flex-1">
+                                                                                <div className="flex flex-wrap items-center gap-1.5">
+                                                                                    <span className="text-xs font-medium text-slate-900">
+                                                                                        {fee.fee_type}
+                                                                                    </span>
+                                                                                    <span
+                                                                                        className={`inline-flex items-center gap-0.5 rounded px-1.5 py-px text-[10px] font-medium ${
+                                                                                            fee.status === 'overdue'
+                                                                                                ? 'bg-red-100 text-red-700'
+                                                                                                : 'bg-amber-100 text-amber-700'
+                                                                                        }`}
                                                                                     >
-                                                                                        Remove
-                                                                                    </button>
+                                                                                        {fee.status === 'overdue' ? (
+                                                                                            <XCircle className="h-2.5 w-2.5" />
+                                                                                        ) : (
+                                                                                            <Clock className="h-2.5 w-2.5" />
+                                                                                        )}
+                                                                                        {fee.status}
+                                                                                    </span>
                                                                                 </div>
+                                                                                <p className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-slate-500">
+                                                                                    <Calendar className="h-2.5 w-2.5" />
+                                                                                    {fee.month_name}
+                                                                                    {fee.late_fee > 0 && (
+                                                                                        <span className="text-red-600">
+                                                                                            Late ৳{formatMoney(fee.late_fee)}
+                                                                                        </span>
+                                                                                    )}
+                                                                                </p>
                                                                             </div>
+                                                                            <span className="shrink-0 text-xs font-semibold text-slate-900">
+                                                                                ৳{formatMoney(fee.total_amount)}
+                                                                            </span>
                                                                         </div>
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </>
+                                                    ) : (
+                                                        <div className="py-8 text-center">
+                                                            <CheckCircle className="mx-auto mb-2 h-8 w-8 text-emerald-400" />
+                                                            <p className="text-xs font-medium text-slate-700">All clear</p>
+                                                            <p className="text-[11px] text-slate-500">No pending fees</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {activeTab === 'advance' && (
+                                                <div className="space-y-3">
+                                                    {availableFees.length > 0 ? (
+                                                        <>
+                                                            <div>
+                                                                <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                                                                    Add fee type
+                                                                </p>
+                                                                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                                                                    {availableFees.map((fee) => (
+                                                                        <button
+                                                                            key={fee.id}
+                                                                            type="button"
+                                                                            onClick={() => addNewFeeItem(fee)}
+                                                                            className="flex items-center justify-between rounded-lg border border-dashed border-slate-300 p-2 text-left transition hover:border-indigo-400 hover:bg-indigo-50/40"
+                                                                        >
+                                                                            <div className="min-w-0 pr-1">
+                                                                                <p className="truncate text-xs font-medium text-slate-800">
+                                                                                    {fee.fee_type.name}
+                                                                                </p>
+                                                                                <p className="text-[10px] text-slate-500">
+                                                                                    ৳{formatMoney(fee.amount)} / {fee.fee_type.frequency}
+                                                                                </p>
+                                                                            </div>
+                                                                            <Plus className="h-3.5 w-3.5 shrink-0 text-indigo-500" />
+                                                                        </button>
                                                                     ))}
                                                                 </div>
                                                             </div>
-                                                        )}
-                                                    </>
-                                                ) : (
-                                                    <div className="text-center py-12">
-                                                        <AlertCircle className="w-16 h-16 text-gray-400 mx-auto mb-3" />
-                                                        <p className="text-gray-600">No fee structures available</p>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
 
-                                    {/* Payment Form */}
-                                    {(selectedPendingFees.length > 0 || newFeeItems.length > 0) && (
-                                        <div className="border-t pt-6 space-y-4">
-                                            <h4 className="font-semibold text-gray-800 flex items-center gap-2">
-                                                <DollarSign className="w-5 h-5" />
-                                                Payment Information
-                                            </h4>
-
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        Account <span className="text-red-500">*</span>
-                                                    </label>
-                                                    <select
-                                                        value={form.data.account_id}
-                                                        onChange={(e) => form.setData('account_id', e.target.value)}
-                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                                                        required
-                                                        disabled
-                                                    >
-                                                        {accounts.map((account) => (
-                                                            <option key={account.id} value={account.id}>
-                                                                {account.account_name} (৳
-                                                                {account.current_balance.toLocaleString('en-IN')})
-                                                            </option>
-                                                        ))}
-                                                    </select>
+                                                            {newFeeItems.length > 0 && (
+                                                                <div className="space-y-2">
+                                                                    <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                                                                        Configured
+                                                                    </p>
+                                                                    {newFeeItems.map((item) => (
+                                                                        <div
+                                                                            key={item.localId}
+                                                                            className="rounded-lg border border-slate-200 bg-slate-50 p-2.5"
+                                                                        >
+                                                                            <div className="mb-2 flex items-start justify-between gap-2">
+                                                                                <p className="text-xs font-medium text-slate-900">
+                                                                                    {item.fee_type_name}
+                                                                                </p>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => removeNewFeeItem(item.localId)}
+                                                                                    className="rounded p-0.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                                                                                >
+                                                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                                                </button>
+                                                                            </div>
+                                                                            <div className="grid grid-cols-3 gap-1.5">
+                                                                                <div>
+                                                                                    <label className={labelClass}>Month</label>
+                                                                                    <select
+                                                                                        value={item.month}
+                                                                                        onChange={(e) =>
+                                                                                            updateNewFeeItem(
+                                                                                                item.localId,
+                                                                                                'month',
+                                                                                                parseInt(e.target.value)
+                                                                                            )
+                                                                                        }
+                                                                                        className={inputClass}
+                                                                                    >
+                                                                                        {Array.from({ length: 12 }, (_, i) => i + 1).map(
+                                                                                            (m) => (
+                                                                                                <option key={m} value={m}>
+                                                                                                    {getMonthName(m)}
+                                                                                                </option>
+                                                                                            )
+                                                                                        )}
+                                                                                    </select>
+                                                                                </div>
+                                                                                <div>
+                                                                                    <label className={labelClass}>Year</label>
+                                                                                    <select
+                                                                                        value={item.year}
+                                                                                        onChange={(e) =>
+                                                                                            updateNewFeeItem(
+                                                                                                item.localId,
+                                                                                                'year',
+                                                                                                parseInt(e.target.value)
+                                                                                            )
+                                                                                        }
+                                                                                        className={inputClass}
+                                                                                    >
+                                                                                        {Array.from(
+                                                                                            { length: 5 },
+                                                                                            (_, i) => currentYear - 2 + i
+                                                                                        ).map((y) => (
+                                                                                            <option key={y} value={y}>
+                                                                                                {y}
+                                                                                            </option>
+                                                                                        ))}
+                                                                                    </select>
+                                                                                </div>
+                                                                                <div>
+                                                                                    <label className={labelClass}>Count</label>
+                                                                                    <select
+                                                                                        value={item.months_count}
+                                                                                        onChange={(e) =>
+                                                                                            updateNewFeeItem(
+                                                                                                item.localId,
+                                                                                                'months_count',
+                                                                                                parseInt(e.target.value)
+                                                                                            )
+                                                                                        }
+                                                                                        className={inputClass}
+                                                                                    >
+                                                                                        {Array.from({ length: 12 }, (_, i) => i + 1).map(
+                                                                                            (n) => (
+                                                                                                <option key={n} value={n}>
+                                                                                                    {n}
+                                                                                                </option>
+                                                                                            )
+                                                                                        )}
+                                                                                    </select>
+                                                                                </div>
+                                                                            </div>
+                                                                            <p className="mt-1.5 text-[10px] leading-snug text-indigo-700">
+                                                                                {generateMonthsList(
+                                                                                    item.month,
+                                                                                    item.year,
+                                                                                    item.months_count
+                                                                                ).join(' · ')}
+                                                                            </p>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <div className="py-8 text-center text-xs text-slate-500">
+                                                            <AlertCircle className="mx-auto mb-2 h-8 w-8 text-slate-300" />
+                                                            No fee structures for this class
+                                                        </div>
+                                                    )}
                                                 </div>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
 
+                            {/* Right: Cart & Payment */}
+                            <div className="flex min-h-0 w-full flex-col bg-slate-50 lg:w-[42%] lg:shrink-0">
+                                <div className="flex shrink-0 items-center gap-1.5 border-b border-slate-200 px-3 py-2">
+                                    <ShoppingCart className="h-3.5 w-3.5 text-slate-600" />
+                                    <span className="text-xs font-semibold text-slate-800">Summary</span>
+                                    {cartLines.length > 0 && (
+                                        <span className="ml-auto rounded-full bg-indigo-600 px-1.5 py-px text-[10px] font-bold text-white">
+                                            {cartLines.length}
+                                        </span>
+                                    )}
+                                </div>
+
+                                <div className="min-h-0 flex-1 overflow-y-auto p-2.5 sm:p-3">
+                                    {!hasSelection ? (
+                                        <div className="flex min-h-[120px] flex-col items-center justify-center py-6 text-center sm:min-h-[160px]">
+                                            <ShoppingCart className="mb-2 h-7 w-7 text-slate-300" />
+                                            <p className="text-xs font-medium text-slate-600">No fees selected</p>
+                                            <p className="mt-0.5 text-[10px] text-slate-400">
+                                                Select pending or advance fees
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-1.5">
+                                            {cartLines.map((line) => (
+                                                <div
+                                                    key={line.key}
+                                                    className="rounded-lg border border-slate-200 bg-white p-2"
+                                                >
+                                                    <div className="mb-1.5 flex items-start justify-between gap-2">
+                                                        <div className="min-w-0">
+                                                            <p className="truncate text-[11px] font-medium text-slate-900 sm:text-xs">
+                                                                {line.title}
+                                                            </p>
+                                                            <p className="text-[10px] text-slate-500">{line.period}</p>
+                                                        </div>
+                                                        <div className="shrink-0 text-right">
+                                                            <p className="text-[10px] text-slate-400">Amt</p>
+                                                            <p className="text-[11px] font-semibold text-slate-800 sm:text-xs">
+                                                                ৳{formatMoney(line.grossAmount)}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <label className="shrink-0 text-[10px] font-medium text-slate-500">
+                                                            Disc.
+                                                        </label>
+                                                        <div className="relative min-w-0 flex-1">
+                                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">
+                                                                ৳
+                                                            </span>
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0"
+                                                                max={line.grossAmount}
+                                                                value={line.discount || ''}
+                                                                onChange={(e) => {
+                                                                    const val =
+                                                                        e.target.value === ''
+                                                                            ? 0
+                                                                            : parseFloat(e.target.value);
+                                                                    if (line.type === 'pending' && line.pendingFeeId) {
+                                                                        updatePendingDiscount(line.pendingFeeId, val);
+                                                                    } else if (
+                                                                        line.type === 'advance' &&
+                                                                        line.advanceLocalId !== undefined &&
+                                                                        line.monthIndex !== undefined
+                                                                    ) {
+                                                                        updateAdvanceDiscount(
+                                                                            line.advanceLocalId,
+                                                                            line.monthIndex,
+                                                                            val
+                                                                        );
+                                                                    }
+                                                                }}
+                                                                className="w-full rounded-md border border-slate-200 py-1 pl-5 pr-1.5 text-[11px] focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                                                                placeholder="0"
+                                                            />
+                                                        </div>
+                                                        <div className="w-16 shrink-0 text-right sm:w-[4.5rem]">
+                                                            <p className="text-[10px] text-slate-400">Net</p>
+                                                            <p className="text-[11px] font-semibold text-emerald-700 sm:text-xs">
+                                                                ৳{formatMoney(line.grossAmount - line.discount)}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {hasSelection && (
+                                    <div className="shrink-0 border-t border-slate-200 p-2.5 sm:p-3">
+                                        <div className="mb-2.5 space-y-1 rounded-lg bg-white p-2.5 text-[11px] sm:text-xs">
+                                            <div className="flex justify-between text-slate-600">
+                                                <span>Subtotal</span>
+                                                <span>৳{formatMoney(subtotal)}</span>
+                                            </div>
+                                            {totalDiscount > 0 && (
+                                                <div className="flex justify-between text-emerald-600">
+                                                    <span>Discount</span>
+                                                    <span>-৳{formatMoney(totalDiscount)}</span>
+                                                </div>
+                                            )}
+                                            <div className="flex justify-between border-t border-slate-100 pt-1.5 text-xs font-bold text-slate-900 sm:text-sm">
+                                                <span>Total</span>
+                                                <span className="text-indigo-700">৳{formatMoney(grandTotal)}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <div>
+                                                <label className={labelClass}>Account</label>
+                                                <select
+                                                    value={form.data.account_id}
+                                                    onChange={(e) => form.setData('account_id', e.target.value)}
+                                                    className={inputClass}
+                                                    required
+                                                >
+                                                    {accounts.map((account) => (
+                                                        <option key={account.id} value={account.id}>
+                                                            {account.account_name} (৳{formatMoney(account.current_balance)})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-2">
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        Payment Method <span className="text-red-500">*</span>
-                                                    </label>
+                                                    <label className={labelClass}>Method</label>
                                                     <select
                                                         value={form.data.payment_method}
-                                                        onChange={(e) => form.setData('payment_method', e.target.value)}
-                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                                        onChange={(e) =>
+                                                            form.setData('payment_method', e.target.value)
+                                                        }
+                                                        className={inputClass}
                                                         required
                                                     >
                                                         <option value="cash">Cash</option>
                                                         <option value="bank_transfer">Bank Transfer</option>
                                                         <option value="cheque">Cheque</option>
                                                         <option value="mobile_banking">Mobile Banking</option>
-                                                        <option value="online">Online Payment</option>
+                                                        <option value="online">Online</option>
                                                     </select>
                                                 </div>
-
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        Payment Date <span className="text-red-500">*</span>
-                                                    </label>
+                                                    <label className={labelClass}>Date</label>
                                                     <input
                                                         type="date"
                                                         value={form.data.payment_date}
-                                                        onChange={(e) => form.setData('payment_date', e.target.value)}
-                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                                        onChange={(e) =>
+                                                            form.setData('payment_date', e.target.value)
+                                                        }
+                                                        className={inputClass}
                                                         required
                                                     />
-                                                </div>
-
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        Discount (Optional)
-                                                    </label>
-                                                    <div className="relative">
-                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">
-                                                            ৳
-                                                        </span>
-                                                        <input
-                                                            type="number"
-                                                            step="0.01"
-                                                            min="0"
-                                                            value={form.data.discount || ''}
-                                                            onChange={(e) => {
-                                                                const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
-                                                                form.setData('discount', isNaN(value) ? 0 : value);
-                                                            }}
-                                                            className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                                                            placeholder="0.00"
-                                                        />
-                                                    </div>
                                                 </div>
                                             </div>
 
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    Remarks (Optional)
-                                                </label>
+                                                <label className={labelClass}>Remarks</label>
                                                 <textarea
                                                     value={form.data.remarks}
                                                     onChange={(e) => form.setData('remarks', e.target.value)}
                                                     rows={2}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                                                    placeholder="Add any notes..."
+                                                    className={`${inputClass} resize-none`}
+                                                    placeholder="Optional notes..."
                                                 />
                                             </div>
-
-                                            {/* Total Summary */}
-                                            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg p-5 text-white">
-                                                <div className="space-y-2">
-                                                    {selectedPendingFees.length > 0 && (
-                                                        <div className="flex justify-between items-center">
-                                                            <span>Pending Fees ({selectedPendingFees.length})</span>
-                                                            <span className="font-bold text-lg">
-                                                                ৳{calculatePendingTotal().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                    {newFeeItems.length > 0 && (
-                                                        <div className="flex justify-between items-center">
-                                                            <span>Advance Fees ({newFeeItems.length})</span>
-                                                            <span className="font-bold text-lg">
-                                                                ৳{calculateAdvanceTotal().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                    {(parseFloat(form.data.discount.toString()) || 0) > 0 && (
-                                                        <div className="flex justify-between items-center text-green-200">
-                                                            <span>Discount</span>
-                                                            <span className="font-bold text-lg">
-                                                                -৳{(parseFloat(form.data.discount.toString()) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                    <div className="border-t border-white/30 pt-2 mt-2">
-                                                        <div className="flex justify-between items-center">
-                                                            <span className="text-xl font-semibold">Grand Total</span>
-                                                            <span className="text-3xl font-bold">
-                                                                ৳{calculateGrandTotal().toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Buttons */}
-                                            <div className="flex justify-end gap-3 pt-4">
-                                                <button
-                                                    type="button"
-                                                    onClick={onClose}
-                                                    className="px-6 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium transition"
-                                                >
-                                                    Cancel
-                                                </button>
-                                                <button
-                                                    type="submit"
-                                                    disabled={form.processing}
-                                                    className="px-8 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                                                >
-                                                    {form.processing ? (
-                                                        <>
-                                                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                                                            Processing...
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <DollarSign className="w-5 h-5" />
-                                                            Collect Payment
-                                                        </>
-                                                    )}
-                                                </button>
-                                            </div>
                                         </div>
-                                    )}
-                                </>
-                            )}
-                        </>
+
+                                        <div className="mt-2.5 flex gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={onClose}
+                                                className="flex-1 rounded-lg border border-slate-300 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-100"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                disabled={form.processing}
+                                                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+                                            >
+                                                {form.processing ? (
+                                                    <>
+                                                        <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                                        <span className="hidden sm:inline">Processing...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <CreditCard className="h-3.5 w-3.5" />
+                                                        <span className="truncate">
+                                                            Collect ৳{formatMoney(grandTotal)}
+                                                        </span>
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     )}
                 </form>
             </div>

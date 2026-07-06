@@ -26,7 +26,7 @@ class TeacherController extends Controller
                 ->orWhere('employee_id', 'like', "%{$request->search}%"))
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->latest('joining_date')
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         // Transform data to include needed fields
         $teachers->getCollection()->transform(function ($teacher) {
@@ -55,6 +55,7 @@ class TeacherController extends Controller
         return Inertia::render('Teachers/Index', [
             'teachers' => $teachers,
             'filters' => $request->only(['search', 'status']),
+            'canToggleStatus' => $request->user()->can('edit_teachers'),
         ]);
     }
 
@@ -350,6 +351,32 @@ class TeacherController extends Controller
             DB::rollBack();
             return back()->withInput()->with('error', 'Failed to update teacher: ' . $e->getMessage());
         }
+    }
+
+    public function toggleStatus(Teacher $teacher)
+    {
+        $this->authorize('edit_teachers');
+
+        $toggleableStatuses = ['active', 'inactive'];
+
+        if (! in_array($teacher->status, $toggleableStatuses, true)) {
+            return back()->with('error', 'Only active or inactive teachers can be toggled from this page.');
+        }
+
+        $newStatus = $teacher->status === 'active' ? 'inactive' : 'active';
+
+        $teacher->update(['status' => $newStatus]);
+
+        if ($teacher->user) {
+            $teacher->user->update([
+                'status' => $newStatus === 'active' ? 'active' : 'inactive',
+            ]);
+        }
+
+        $label = $newStatus === 'active' ? 'activated' : 'deactivated';
+        logActivity('update', "Teacher {$teacher->full_name} {$label}", Teacher::class, $teacher->id);
+
+        return back()->with('success', 'Teacher status updated successfully.');
     }
 
     public function destroy(Teacher $teacher)

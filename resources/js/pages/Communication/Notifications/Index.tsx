@@ -2,6 +2,7 @@ import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Card from '@/Components/Card';
 import Button from '@/Components/Button';
+import IndexPagination from '@/Components/IndexPagination';
 import { Bell, Trash2, CheckCircle, AlertCircle, Info } from 'lucide-react';
 
 interface Notification {
@@ -22,6 +23,9 @@ interface Props {
         last_page: number;
         per_page: number;
         total: number;
+        from?: number;
+        to?: number;
+        links?: any[];
     };
 }
 
@@ -149,31 +153,13 @@ export default function Index({ notifications }: Props) {
                         )}
                     </div>
 
-                    {notifications.last_page > 1 && (
-                        <div className="mt-6 flex justify-between items-center">
-                            <div className="text-sm text-gray-700">
-                                Showing {(notifications.current_page - 1) * notifications.per_page + 1} to{' '}
-                                {Math.min(notifications.current_page * notifications.per_page, notifications.total)} of {notifications.total} results
-                            </div>
-                            <div className="flex gap-2">
-                                {notifications.current_page > 1 && (
-                                    <Button
-                                        variant="secondary"
-                                        onClick={() => router.get(`/notifications?page=${notifications.current_page - 1}`)}
-                                    >
-                                        Previous
-                                    </Button>
-                                )}
-                                {notifications.current_page < notifications.last_page && (
-                                    <Button
-                                        onClick={() => router.get(`/notifications?page=${notifications.current_page + 1}`)}
-                                    >
-                                        Next
-                                    </Button>
-                                )}
-                            </div>
-                        </div>
-                    )}
+                    <IndexPagination
+                        links={notifications.links ?? []}
+                        from={notifications.from}
+                        to={notifications.to}
+                        total={notifications.total}
+                        lastPage={notifications.last_page}
+                    />
                 </Card>
             </div>
         </AuthenticatedLayout>

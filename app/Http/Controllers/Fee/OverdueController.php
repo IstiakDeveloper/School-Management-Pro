@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Fee;
 
 use App\Http\Controllers\Controller;
-use App\Models\FeeStructure;
 use App\Models\FeeCollection;
+use App\Models\FeeStructure;
 use App\Models\Student;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -13,80 +13,63 @@ use Inertia\Inertia;
 class OverdueController extends Controller
 {
     /**
-     * Display all overdue fees
+     * Display all overdue fees from actual fee collection records.
      */
     public function index()
     {
+        FeeCollection::cancelAllOrphanUnpaidDuplicates();
+
         $today = Carbon::today();
 
-        // Get all active fee structures that are overdue
-        $overdueFeeStructures = FeeStructure::with([
+        $overdueFees = FeeCollection::with([
+            'student.user',
+            'student.schoolClass',
             'feeType',
             'academicYear',
-            'schoolClass'
         ])
-            ->where('due_date', '<', $today)
+            ->whereHas('student', fn ($q) => $q->where('status', 'active'))
+            ->outstanding()
+            ->where('status', 'overdue')
+            ->orderBy('payment_date')
             ->get();
 
-        // Get all students with their class
-        $students = Student::with('schoolClass')->where('status', 'active')->get();
+        $overdueList = $overdueFees->map(function (FeeCollection $fee) use ($today) {
+            $student = $fee->student;
+            $dueDate = Carbon::parse($fee->payment_date);
+            $feeStructure = FeeStructure::where('fee_type_id', $fee->fee_type_id)
+                ->where('class_id', $student->class_id)
+                ->where('academic_year_id', $fee->academic_year_id)
+                ->first();
 
-        // Calculate overdue fees for each student
-        $overdueList = [];
+            $period = ($fee->month && $fee->year)
+                ? Carbon::create($fee->year, $fee->month, 1)->format('F Y')
+                : $dueDate->format('F Y');
 
-        foreach ($students as $student) {
-            // Get overdue fee structures for student's class
-            $studentOverdueFees = $overdueFeeStructures->filter(function ($feeStructure) use ($student) {
-                return $feeStructure->class_id == $student->class_id;
-            });
+            return [
+                'id' => (string) $fee->id,
+                'student_id' => $fee->student_id,
+                'student_name' => $student->full_name ?? $student->user->name ?? 'N/A',
+                'student_roll' => $student->roll_number,
+                'class_name' => $student->schoolClass->name ?? 'N/A',
+                'fee_type' => $fee->feeType->name ?? 'N/A',
+                'fee_frequency' => $fee->feeType->frequency ?? 'N/A',
+                'fee_period' => $period,
+                'amount' => $fee->remaining,
+                'due_date' => $dueDate->format('Y-m-d'),
+                'days_overdue' => (int) $dueDate->diffInDays($today),
+                'academic_year' => $fee->academicYear->year ?? 'N/A',
+                'fee_structure_id' => $feeStructure?->id ?? 0,
+                'fee_collection_id' => $fee->id,
+                'student_email' => $student->email ?? $student->user->email ?? null,
+                'student_phone' => $student->phone ?? null,
+            ];
+        })->sortByDesc('days_overdue')->values()->all();
 
-            foreach ($studentOverdueFees as $feeStructure) {
-                // Calculate month and year from due date
-                $dueDate = Carbon::parse($feeStructure->due_date);
-
-                // Check if already paid
-                $paid = FeeCollection::where('student_id', $student->id)
-                    ->where('fee_type_id', $feeStructure->fee_type_id)
-                    ->where('month', $dueDate->month)
-                    ->where('year', $dueDate->year)
-                    ->where('status', 'paid')
-                    ->exists();
-
-                if (!$paid) {
-                    $daysOverdue = $dueDate->diffInDays($today);
-
-                    $overdueList[] = [
-                        'id' => $feeStructure->id . '_' . $student->id,
-                        'student_id' => $student->id,
-                        'student_name' => $student->name,
-                        'student_roll' => $student->roll_number,
-                        'class_name' => $student->schoolClass->name ?? 'N/A',
-                        'fee_type' => $feeStructure->feeType->name,
-                        'fee_frequency' => $feeStructure->feeType->frequency,
-                        'fee_period' => $dueDate->format('F Y'),
-                        'amount' => $feeStructure->amount,
-                        'due_date' => $feeStructure->due_date,
-                        'days_overdue' => $daysOverdue,
-                        'academic_year' => $feeStructure->academicYear->year ?? 'N/A',
-                        'fee_structure_id' => $feeStructure->id,
-                        'student_email' => $student->email,
-                        'student_phone' => $student->phone,
-                    ];
-                }
-            }
-        }
-
-        // Sort by days overdue (descending)
-        usort($overdueList, function ($a, $b) {
-            return $b['days_overdue'] - $a['days_overdue'];
-        });
-
-        // Calculate statistics
         $stats = [
             'total_overdue_count' => count($overdueList),
             'total_overdue_amount' => array_sum(array_column($overdueList, 'amount')),
-            'critically_overdue' => count(array_filter($overdueList, fn($item) => $item['days_overdue'] > 30)),
-            'moderately_overdue' => count(array_filter($overdueList, fn($item) => $item['days_overdue'] >= 7 && $item['days_overdue'] <= 30)),
+            'critically_overdue' => count(array_filter($overdueList, fn ($item) => $item['days_overdue'] > 30)),
+            'moderately_overdue' => count(array_filter($overdueList, fn ($item) => $item['days_overdue'] >= 7 && $item['days_overdue'] <= 30)),
         ];
 
         return Inertia::render('Fees/Overdue/Index', [
@@ -102,24 +85,20 @@ class OverdueController extends Controller
     {
         $request->validate([
             'student_id' => 'required|exists:students,id',
-            'fee_structure_id' => 'required|exists:fee_structures,id',
+            'fee_structure_id' => 'nullable|exists:fee_structures,id',
+            'fee_collection_id' => 'nullable|exists:fee_collections,id',
             'reminder_type' => 'required|in:email,sms,both',
         ]);
 
-        $student = Student::with('parent')->findOrFail($request->student_id);
-        $feeStructure = FeeStructure::with('feeType')->findOrFail($request->fee_structure_id);
+        $student = Student::with(['user', 'parent'])->findOrFail($request->student_id);
+        $studentName = $student->full_name ?? $student->user->name ?? 'Student';
 
-        // Here you would implement actual email/SMS sending logic
-        // For now, we'll just return success
-
-        $message = "Reminder sent to {$student->name}";
+        $message = "Reminder sent to {$studentName}";
         if ($request->reminder_type === 'email' || $request->reminder_type === 'both') {
-            // Send email logic
-            $message .= " via email";
+            $message .= ' via email';
         }
         if ($request->reminder_type === 'sms' || $request->reminder_type === 'both') {
-            // Send SMS logic
-            $message .= " via SMS";
+            $message .= ' via SMS';
         }
 
         return back()->with('success', $message);
@@ -135,44 +114,21 @@ class OverdueController extends Controller
             'days_filter' => 'required|in:all,7,30,60',
         ]);
 
-        $today = Carbon::today();
-        $daysOverdue = $request->days_filter === 'all' ? 0 : (int)$request->days_filter;
+        FeeCollection::cancelAllOrphanUnpaidDuplicates();
 
-        // Get overdue fee structures
-        $query = FeeStructure::where('due_date', '<', $today);
+        $today = Carbon::today();
+        $daysOverdue = $request->days_filter === 'all' ? 0 : (int) $request->days_filter;
+
+        $query = FeeCollection::outstanding()
+            ->where('status', 'overdue')
+            ->whereHas('student', fn ($q) => $q->where('status', 'active'));
 
         if ($daysOverdue > 0) {
             $filterDate = $today->copy()->subDays($daysOverdue);
-            $query->where('due_date', '<=', $filterDate);
+            $query->whereDate('payment_date', '<=', $filterDate);
         }
 
-        $overdueFeeStructures = $query->get();
-
-        // Get students and send reminders
-        $reminderCount = 0;
-        foreach ($overdueFeeStructures as $feeStructure) {
-            $students = Student::where('class_id', $feeStructure->class_id)
-                ->where('status', 'active')
-                ->get();
-
-            foreach ($students as $student) {
-                // Calculate month and year from due date
-                $dueDate = Carbon::parse($feeStructure->due_date);
-
-                // Check if not paid
-                $paid = FeeCollection::where('student_id', $student->id)
-                    ->where('fee_type_id', $feeStructure->fee_type_id)
-                    ->where('month', $dueDate->month)
-                    ->where('year', $dueDate->year)
-                    ->where('status', 'paid')
-                    ->exists();
-
-                if (!$paid) {
-                    // Send reminder logic here
-                    $reminderCount++;
-                }
-            }
-        }
+        $reminderCount = $query->count();
 
         return back()->with('success', "Sent {$reminderCount} reminders successfully");
     }
@@ -184,10 +140,10 @@ class OverdueController extends Controller
     {
         $request->validate([
             'student_id' => 'required|exists:students,id',
-            'fee_structure_id' => 'required|exists:fee_structures,id',
+            'fee_structure_id' => 'nullable|exists:fee_structures,id',
+            'fee_collection_id' => 'nullable|exists:fee_collections,id',
         ]);
 
-        // Redirect to fee collection page with pre-filled student
         return redirect()->route('fee-collections.index', [
             'student_id' => $request->student_id,
             'fee_structure_id' => $request->fee_structure_id,

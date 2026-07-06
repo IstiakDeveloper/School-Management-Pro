@@ -21,7 +21,7 @@ class SalaryController extends Controller
             ->when($request->year, fn($q) => $q->where('year', $request->year))
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->latest('payment_date')
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         return Inertia::render('Salaries/Index', [
             'salaries' => $salaries,

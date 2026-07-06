@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatAmount } from '@/lib/formatCurrency';
 
 interface Collection {
     id: number;
@@ -204,10 +205,10 @@ export default function PrintReport({ collections, onClose }: PrintReportProps) 
                                         {getMonthName(collection.month)} {collection.year}
                                     </td>
                                     <td className="border border-black px-3 py-2 text-xs text-right">
-                                        ৳{parseFloat(collection.amount.toString()).toLocaleString('en-IN')}
+                                        ৳{formatAmount(parseFloat(collection.amount.toString()))}
                                     </td>
                                     <td className="border border-black px-3 py-2 text-xs text-right font-semibold">
-                                        ৳{parseFloat(collection.paid_amount.toString()).toLocaleString('en-IN')}
+                                        ৳{formatAmount(parseFloat(collection.paid_amount.toString()))}
                                     </td>
                                     <td className="border border-black px-3 py-2 text-xs">
                                         {formatDate(collection.payment_date)}
@@ -224,10 +225,10 @@ export default function PrintReport({ collections, onClose }: PrintReportProps) 
                                     Total:
                                 </td>
                                 <td className="border border-black px-3 py-3 text-xs font-bold text-right">
-                                    ৳{totalAmount.toLocaleString('en-IN')}
+                                    ৳{formatAmount(totalAmount)}
                                 </td>
                                 <td className="border border-black px-3 py-3 text-xs font-bold text-right">
-                                    ৳{totalPaid.toLocaleString('en-IN')}
+                                    ৳{formatAmount(totalPaid)}
                                 </td>
                                 <td colSpan={2} className="border border-black"></td>
                             </tr>

@@ -1,4 +1,5 @@
 import React, { FormEvent, useState, useEffect } from 'react';
+import { formatAmount } from '@/lib/formatCurrency';
 import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
@@ -411,7 +412,7 @@ export default function Create({ academicYears, classes }: CreateProps) {
                                                     <div className="flex items-baseline justify-between">
                                                         <span className="text-xs text-gray-500">Amount:</span>
                                                         <span className="text-2xl font-bold text-indigo-600">
-                                                            ৳{fee.amount.toLocaleString('en-IN')}
+                                                            ৳{formatAmount(fee.amount)}
                                                         </span>
                                                     </div>
                                                 </div>

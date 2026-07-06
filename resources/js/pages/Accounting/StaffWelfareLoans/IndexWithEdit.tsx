@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatAmount } from '@/lib/formatCurrency';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { DollarSign, Users, TrendingUp, TrendingDown, Plus, X, Eye, CheckCircle, XCircle, Calendar, CreditCard, Wallet, Edit, Trash2, Gift } from 'lucide-react';
@@ -180,7 +181,7 @@ export default function Index({ loans, donations, teachers, welfareFundAccount, 
 
         if (Number.isNaN(newAmount) || newAmount < totalPaid) {
             alert(
-                `Loan amount must be at least the total already paid (৳${totalPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}).`
+                `Loan amount must be at least the total already paid (৳${formatAmount(totalPaid)}).`
             );
             return;
         }
@@ -303,7 +304,7 @@ export default function Index({ loans, donations, teachers, welfareFundAccount, 
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-sm text-purple-100 mb-1">Fund Balance</p>
-                                    <p className="text-2xl font-bold">৳{stats.fund_balance.toLocaleString('en-IN', {minimumFractionDigits: 2})}</p>
+                                    <p className="text-2xl font-bold">৳{formatAmount(stats.fund_balance)}</p>
                                     <p className="text-xs text-purple-100 mt-1">Available</p>
                                 </div>
                                 <Wallet className="w-10 h-10 text-purple-200" />
@@ -324,7 +325,7 @@ export default function Index({ loans, donations, teachers, welfareFundAccount, 
                                 <div>
                                     <p className="text-sm text-gray-600 mb-1">Total Donations</p>
                                     <p className="text-xl font-bold text-purple-600">
-                                        ৳{stats.total_donations.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                        ৳{formatAmount(stats.total_donations)}
                                     </p>
                                 </div>
                                 <TrendingUp className="w-10 h-10 text-purple-500" />
@@ -346,7 +347,7 @@ export default function Index({ loans, donations, teachers, welfareFundAccount, 
                                 <div>
                                     <p className="text-sm text-gray-600 mb-1">Total Given</p>
                                     <p className="text-xl font-bold text-red-600">
-                                        ৳{stats.total_amount_given.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                        ৳{formatAmount(stats.total_amount_given)}
                                     </p>
                                 </div>
                                 <TrendingDown className="w-10 h-10 text-red-500" />
@@ -358,7 +359,7 @@ export default function Index({ loans, donations, teachers, welfareFundAccount, 
                                 <div>
                                     <p className="text-sm text-gray-600 mb-1">Total Recovered</p>
                                     <p className="text-xl font-bold text-green-600">
-                                        ৳{stats.total_recovered.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                        ৳{formatAmount(stats.total_recovered)}
                                     </p>
                                 </div>
                                 <TrendingUp className="w-10 h-10 text-green-500" />
@@ -370,7 +371,7 @@ export default function Index({ loans, donations, teachers, welfareFundAccount, 
                                 <div>
                                     <p className="text-sm text-gray-600 mb-1">Outstanding</p>
                                     <p className="text-xl font-bold text-orange-600">
-                                        ৳{stats.total_outstanding.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                        ৳{formatAmount(stats.total_outstanding)}
                                     </p>
                                 </div>
                                 <DollarSign className="w-10 h-10 text-orange-500" />
@@ -457,13 +458,13 @@ export default function Index({ loans, donations, teachers, welfareFundAccount, 
                                                 <td className="px-6 py-4 text-right">
                                                     <div>
                                                         <p className="font-semibold text-gray-900">
-                                                            ৳{loan.loan_amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                                            ৳{formatAmount(loan.loan_amount)}
                                                         </p>
                                                         <p className="text-sm text-green-600">
-                                                            Paid: ৳{loan.total_paid.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                                            Paid: ৳{formatAmount(loan.total_paid)}
                                                         </p>
                                                         <p className="text-sm text-red-600">
-                                                            Due: ৳{loan.remaining_amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                                            Due: ৳{formatAmount(loan.remaining_amount)}
                                                         </p>
                                                     </div>
                                                 </td>
@@ -579,7 +580,7 @@ export default function Index({ loans, donations, teachers, welfareFundAccount, 
                                                     </td>
                                                     <td className="px-4 py-3 text-right">
                                                         <p className="font-semibold text-purple-600">
-                                                            ৳{donation.amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                                            ৳{formatAmount(donation.amount)}
                                                         </p>
                                                     </td>
                                                     <td className="px-4 py-3 text-center">
@@ -627,7 +628,7 @@ export default function Index({ loans, donations, teachers, welfareFundAccount, 
                                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-900">
                                     <p className="font-medium">Payments already recorded</p>
                                     <p className="mt-1">
-                                        Paid: ৳{Number(editingLoan.total_paid).toLocaleString('en-IN', { minimumFractionDigits: 2 })}{' '}
+                                        Paid: ৳{formatAmount(editingLoan.total_paid)}{' '}
                                         ({editingLoan.paid_installments} installment{editingLoan.paid_installments !== 1 ? 's' : ''}). Loan
                                         amount cannot be below this; unpaid installments will be rebuilt.
                                     </p>
@@ -668,7 +669,7 @@ export default function Index({ loans, donations, teachers, welfareFundAccount, 
                             {editForm.data.loan_amount && editForm.data.installment_count && (
                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                                     <p className="text-sm font-medium text-blue-800">
-                                        Monthly Installment: ৳{(parseFloat(editForm.data.loan_amount) / parseInt(editForm.data.installment_count)).toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                        Monthly Installment: ৳{(parseFloat(editForm.data.loan_amount) / formatAmount(parseInt(editForm.data.installment_count)))}
                                     </p>
                                 </div>
                             )}

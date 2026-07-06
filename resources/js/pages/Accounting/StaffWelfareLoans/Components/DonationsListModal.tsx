@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatAmount } from '@/lib/formatCurrency';
 import { router } from '@inertiajs/react';
 import { X, Trash2 } from 'lucide-react';
 
@@ -95,7 +96,7 @@ export default function DonationsListModal({ show, onClose, donations }: Donatio
                                             </td>
                                             <td className="px-4 py-3 text-right">
                                                 <p className="font-semibold text-purple-600">
-                                                    ৳{donation.amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                                    ৳{formatAmount(donation.amount)}
                                                 </p>
                                             </td>
                                             <td className="px-4 py-3 text-center">

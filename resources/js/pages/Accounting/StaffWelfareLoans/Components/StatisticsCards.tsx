@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatAmount } from '@/lib/formatCurrency';
 import { DollarSign, Users, TrendingUp, TrendingDown, CreditCard, Wallet } from 'lucide-react';
 
 interface StatisticsCardsProps {
@@ -20,7 +21,7 @@ export default function StatisticsCards({ stats }: StatisticsCardsProps) {
                 <div className="flex items-center justify-between">
                     <div>
                         <p className="text-sm text-purple-100 mb-1">Fund Balance</p>
-                        <p className="text-2xl font-bold">৳{stats.fund_balance.toLocaleString('en-IN', {minimumFractionDigits: 2})}</p>
+                        <p className="text-2xl font-bold">৳{formatAmount(stats.fund_balance)}</p>
                         <p className="text-xs text-purple-100 mt-1">Available</p>
                     </div>
                     <Wallet className="w-10 h-10 text-purple-200" />
@@ -42,7 +43,7 @@ export default function StatisticsCards({ stats }: StatisticsCardsProps) {
                     <div>
                         <p className="text-sm text-gray-600 mb-1">Total Donations</p>
                         <p className="text-xl font-bold text-purple-600">
-                            ৳{stats.total_donations.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                            ৳{formatAmount(stats.total_donations)}
                         </p>
                     </div>
                     <TrendingUp className="w-10 h-10 text-purple-500" />
@@ -64,7 +65,7 @@ export default function StatisticsCards({ stats }: StatisticsCardsProps) {
                     <div>
                         <p className="text-sm text-gray-600 mb-1">Total Given</p>
                         <p className="text-xl font-bold text-red-600">
-                            ৳{stats.total_amount_given.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                            ৳{formatAmount(stats.total_amount_given)}
                         </p>
                     </div>
                     <TrendingDown className="w-10 h-10 text-red-500" />
@@ -76,7 +77,7 @@ export default function StatisticsCards({ stats }: StatisticsCardsProps) {
                     <div>
                         <p className="text-sm text-gray-600 mb-1">Total Recovered</p>
                         <p className="text-xl font-bold text-green-600">
-                            ৳{stats.total_recovered.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                            ৳{formatAmount(stats.total_recovered)}
                         </p>
                     </div>
                     <TrendingUp className="w-10 h-10 text-green-500" />
@@ -88,7 +89,7 @@ export default function StatisticsCards({ stats }: StatisticsCardsProps) {
                     <div>
                         <p className="text-sm text-gray-600 mb-1">Outstanding</p>
                         <p className="text-xl font-bold text-orange-600">
-                            ৳{stats.total_outstanding.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                            ৳{formatAmount(stats.total_outstanding)}
                         </p>
                     </div>
                     <DollarSign className="w-10 h-10 text-orange-500" />

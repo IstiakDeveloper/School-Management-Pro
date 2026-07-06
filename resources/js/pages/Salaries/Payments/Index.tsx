@@ -1,17 +1,22 @@
 import React, { useState, useRef } from 'react';
+import { formatAmount } from '@/lib/formatCurrency';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useReactToPrint } from 'react-to-print';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
 import Input from '@/Components/Input';
 import Badge from '@/Components/Badge';
+import IndexPagination from '@/Components/IndexPagination';
 import PrintSalaryPayments from './PrintSalaryPayments';
-import { Plus, Search, DollarSign, User as UserIcon, Calendar, Wallet, Printer, Filter, X } from 'lucide-react';
+import { Plus, Search, DollarSign, User as UserIcon, Calendar, Wallet, Printer, Filter, X, Pencil } from 'lucide-react';
+import { useCanEditOrDelete } from '@/hooks/useCanEditOrDelete';
 
 function route(name: string, params?: any): string {
     if (name === 'salary-payments.store') return '/salary-payments';
     if (name === 'salary-payments.index') return '/salary-payments';
     if (name === 'salary-payments.show' && params) return `/salary-payments/${params}`;
+    if (name === 'salary-payments.edit' && params) return `/salary-payments/${params}/edit`;
+    if (name === 'salary-payments.update' && params) return `/salary-payments/${params}`;
     if (name === 'salary-payments.destroy' && params) return `/salary-payments/${params}`;
     return '/salary-payments';
 }
@@ -55,6 +60,9 @@ interface SalaryPaymentsIndexProps {
         last_page: number;
         total: number;
         per_page: number;
+        from?: number;
+        to?: number;
+        links?: any[];
     };
     teachers: Teacher[];
     accounts: Account[];
@@ -66,6 +74,7 @@ interface SalaryPaymentsIndexProps {
 }
 
 export default function Index({ payments, teachers, accounts, filters }: SalaryPaymentsIndexProps) {
+    const canMutate = useCanEditOrDelete();
     const [showModal, setShowModal] = useState(false);
     const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
     const [search, setSearch] = useState(filters.search || '');
@@ -296,19 +305,19 @@ export default function Index({ payments, teachers, accounts, filters }: SalaryP
                     </div>
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
                         <p className="text-xs text-gray-600 mb-1">Base Salary</p>
-                        <p className="text-2xl font-semibold text-gray-900">৳{totalBaseSalary.toLocaleString('en-IN')}</p>
+                        <p className="text-2xl font-semibold text-gray-900">৳{formatAmount(totalBaseSalary)}</p>
                     </div>
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
                         <p className="text-xs text-gray-600 mb-1">Employee PF (5%)</p>
-                        <p className="text-2xl font-semibold text-gray-900">৳{totalPF.toLocaleString('en-IN')}</p>
+                        <p className="text-2xl font-semibold text-gray-900">৳{formatAmount(totalPF)}</p>
                     </div>
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
                         <p className="text-xs text-gray-600 mb-1">Employer PF (5%)</p>
-                        <p className="text-2xl font-semibold text-gray-900">৳{totalEmployerPF.toLocaleString('en-IN')}</p>
+                        <p className="text-2xl font-semibold text-gray-900">৳{formatAmount(totalEmployerPF)}</p>
                     </div>
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
                         <p className="text-xs text-gray-600 mb-1">Total Paid</p>
-                        <p className="text-2xl font-semibold text-gray-900">৳{totalPaid.toLocaleString('en-IN')}</p>
+                        <p className="text-2xl font-semibold text-gray-900">৳{formatAmount(totalPaid)}</p>
                     </div>
                 </div>
 
@@ -385,6 +394,9 @@ export default function Index({ payments, teachers, accounts, filters }: SalaryP
                                     <th className="px-4 py-3 text-right font-medium text-gray-900">Employer PF</th>
                                     <th className="px-4 py-3 text-right font-medium text-gray-900">Total Paid</th>
                                     <th className="px-4 py-3 text-left font-medium text-gray-900">Date</th>
+                                    {canMutate && (
+                                        <th className="px-4 py-3 text-center font-medium text-gray-900 w-16">Edit</th>
+                                    )}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
@@ -400,27 +412,45 @@ export default function Index({ payments, teachers, accounts, filters }: SalaryP
                                             {getMonthName(payment.month)} {payment.year}
                                         </td>
                                         <td className="px-4 py-3 text-right font-medium text-gray-900">
-                                            ৳{parseFloat(payment.base_salary.toString()).toLocaleString('en-IN')}
+                                            ৳{formatAmount(parseFloat(payment.base_salary.toString()))}
                                         </td>
                                         <td className="px-4 py-3 text-right text-red-600 font-medium">
-                                            ৳{parseFloat(payment.provident_fund_deduction.toString()).toLocaleString('en-IN')}
+                                            ৳{formatAmount(parseFloat(payment.provident_fund_deduction.toString()))}
                                         </td>
                                         <td className="px-4 py-3 text-right font-semibold text-gray-900">
-                                            ৳{parseFloat(payment.net_salary.toString()).toLocaleString('en-IN')}
+                                            ৳{formatAmount(parseFloat(payment.net_salary.toString()))}
                                         </td>
                                         <td className="px-4 py-3 text-right text-blue-600 font-medium">
-                                            ৳{parseFloat(payment.employer_pf_contribution.toString()).toLocaleString('en-IN')}
+                                            ৳{formatAmount(parseFloat(payment.employer_pf_contribution.toString()))}
                                         </td>
                                         <td className="px-4 py-3 text-right font-bold text-blue-600">
-                                            ৳{parseFloat(payment.total_amount.toString()).toLocaleString('en-IN')}
+                                            ৳{formatAmount(parseFloat(payment.total_amount.toString()))}
                                         </td>
                                         <td className="px-4 py-3 text-gray-700">
                                             {formatDate(payment.payment_date)}
                                         </td>
+                                        {canMutate && (
+                                            <td className="px-4 py-3 text-center">
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        router.visit(
+                                                            typeof route !== 'undefined'
+                                                                ? route('salary-payments.edit', payment.id)
+                                                                : `/salary-payments/${payment.id}/edit`
+                                                        )
+                                                    }
+                                                    className="text-amber-700 hover:text-amber-900 p-1.5 hover:bg-amber-50 rounded transition"
+                                                    title="Edit salary payment"
+                                                >
+                                                    <Pencil className="w-4 h-4" />
+                                                </button>
+                                            </td>
+                                        )}
                                     </tr>
                                 )) : (
                                     <tr>
-                                        <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                                        <td colSpan={canMutate ? 9 : 8} className="px-4 py-8 text-center text-gray-500">
                                             No salary payments found
                                         </td>
                                     </tr>
@@ -429,31 +459,13 @@ export default function Index({ payments, teachers, accounts, filters }: SalaryP
                         </table>
                     </div>
 
-                    {/* Pagination */}
-                    {payments.last_page > 1 && (
-                        <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
-                            <div className="flex items-center justify-between">
-                                <p className="text-xs text-gray-600">
-                                    Showing {payments.data.length} of {payments.total} records
-                                </p>
-                                <div className="flex gap-1">
-                                    {Array.from({ length: payments.last_page }, (_, i) => i + 1).map((page) => (
-                                        <Link
-                                            key={page}
-                                            href={`/salary-payments?page=${page}`}
-                                            className={`px-3 py-1 text-xs font-medium rounded ${
-                                                page === payments.current_page
-                                                    ? 'bg-blue-600 text-white'
-                                                    : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-                                            }`}
-                                        >
-                                            {page}
-                                        </Link>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                    <IndexPagination
+                        links={payments.links ?? []}
+                        from={payments.from}
+                        to={payments.to}
+                        total={payments.total}
+                        lastPage={payments.last_page}
+                    />
                 </div>
 
                 {/* Pay Salary Modal */}
@@ -544,7 +556,7 @@ export default function Index({ payments, teachers, accounts, filters }: SalaryP
                                                             <div className="flex-1">
                                                                 <p className="text-sm font-medium text-gray-900">{teacher.name}</p>
                                                                 <p className="text-xs text-gray-600">
-                                                                    {teacher.employee_id} • {teacher.designation} • Salary: ৳{teacher.salary.toLocaleString('en-IN')}
+                                                                    {teacher.employee_id} • {teacher.designation} • Salary: ৳{formatAmount(teacher.salary)}
                                                                 </p>
                                                             </div>
                                                         </label>
@@ -561,7 +573,7 @@ export default function Index({ payments, teachers, accounts, filters }: SalaryP
                                                 <option value="">Select Teacher</option>
                                                 {filteredTeachers.map((teacher) => (
                                                     <option key={teacher.id} value={teacher.id}>
-                                                        {teacher.name} ({teacher.employee_id}) - {teacher.designation} - Salary: ৳{teacher.salary.toLocaleString('en-IN')}
+                                                        {teacher.name} ({teacher.employee_id}) - {teacher.designation} - Salary: ৳{formatAmount(teacher.salary)}
                                                     </option>
                                                 ))}
                                             </select>
@@ -610,7 +622,7 @@ export default function Index({ payments, teachers, accounts, filters }: SalaryP
                                             </label>
                                             <input
                                                 type="text"
-                                                value={`৳${parseFloat(formData.base_salary).toLocaleString('en-IN')}`}
+                                                value={`৳${formatAmount(parseFloat(formData.base_salary))}`}
                                                 disabled
                                                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50 text-gray-700 cursor-not-allowed"
                                             />
@@ -640,32 +652,32 @@ export default function Index({ payments, teachers, accounts, filters }: SalaryP
                                                         <div className="flex justify-between py-1">
                                                             <span className="text-gray-700">Total Base Salary:</span>
                                                             <span className="font-semibold text-gray-900">
-                                                                ৳{totalBaseSalary.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                                ৳{formatAmount(totalBaseSalary)}
                                                             </span>
                                                         </div>
                                                         <div className="flex justify-between py-1">
                                                             <span className="text-gray-700">Total Employee PF (5%):</span>
                                                             <span className="font-semibold text-red-600">
-                                                                -৳{totalEmployeePF.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                                -৳{formatAmount(totalEmployeePF)}
                                                             </span>
                                                         </div>
                                                         <div className="flex justify-between py-1">
                                                             <span className="text-gray-700">Total Employer PF (5%):</span>
                                                             <span className="font-semibold text-blue-600">
-                                                                +৳{totalEmployerPF.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                                +৳{formatAmount(totalEmployerPF)}
                                                             </span>
                                                         </div>
                                                         <div className="border-t border-blue-300 pt-2 mt-2 space-y-1">
                                                             <div className="flex justify-between">
                                                                 <span className="font-semibold text-gray-900">Total Net Salary (Teachers Receive):</span>
                                                                 <span className="font-bold text-green-600">
-                                                                    ৳{totalNetSalary.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                                    ৳{formatAmount(totalNetSalary)}
                                                                 </span>
                                                             </div>
                                                             <div className="flex justify-between">
                                                                 <span className="font-semibold text-gray-900">Total Amount (From Account):</span>
                                                                 <span className="font-bold text-gray-900">
-                                                                    ৳{totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                                    ৳{formatAmount(totalAmount)}
                                                                 </span>
                                                             </div>
                                                         </div>
@@ -681,24 +693,24 @@ export default function Index({ payments, teachers, accounts, filters }: SalaryP
                                             <div className="space-y-2 text-sm">
                                                 <div className="flex justify-between">
                                                     <span className="text-gray-700">Base Salary:</span>
-                                                    <span className="font-medium">৳{parseFloat(formData.base_salary).toLocaleString('en-IN')}</span>
+                                                    <span className="font-medium">৳{formatAmount(parseFloat(formData.base_salary))}</span>
                                                 </div>
                                                 <div className="flex justify-between">
                                                     <span className="text-gray-700">Employee PF (5%):</span>
-                                                    <span className="font-medium text-red-600">-৳{parseFloat(employeePF).toLocaleString('en-IN')}</span>
+                                                    <span className="font-medium text-red-600">-৳{formatAmount(parseFloat(employeePF))}</span>
                                                 </div>
                                                 <div className="flex justify-between">
                                                     <span className="text-gray-700">Employer PF (5%):</span>
-                                                    <span className="font-medium text-blue-600">+৳{parseFloat(employerPF).toLocaleString('en-IN')}</span>
+                                                    <span className="font-medium text-blue-600">+৳{formatAmount(parseFloat(employerPF))}</span>
                                                 </div>
                                                 <div className="border-t border-blue-300 pt-2 mt-2">
                                                     <div className="flex justify-between">
                                                         <span className="font-semibold text-gray-900">Net Salary (Teacher Receives):</span>
-                                                        <span className="font-bold text-green-600">৳{parseFloat(netSalary).toLocaleString('en-IN')}</span>
+                                                        <span className="font-bold text-green-600">৳{formatAmount(parseFloat(netSalary))}</span>
                                                     </div>
                                                     <div className="flex justify-between mt-1">
                                                         <span className="font-semibold text-gray-900">Total Amount (From Account):</span>
-                                                        <span className="font-bold text-gray-900">৳{parseFloat(totalAmount).toLocaleString('en-IN')}</span>
+                                                        <span className="font-bold text-gray-900">৳{formatAmount(parseFloat(totalAmount))}</span>
                                                     </div>
                                                 </div>
                                             </div>

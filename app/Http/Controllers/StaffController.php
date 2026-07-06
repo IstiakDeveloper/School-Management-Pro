@@ -24,7 +24,7 @@ class StaffController extends Controller
             ->when($request->role, fn($q) => $q->where('role', $request->role))
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->latest('joining_date')
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         return Inertia::render('Staff/Index', [
             'staff' => $staff,

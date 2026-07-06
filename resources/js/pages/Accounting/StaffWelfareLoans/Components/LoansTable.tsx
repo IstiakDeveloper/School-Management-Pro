@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatAmount } from '@/lib/formatCurrency';
 import { Link } from '@inertiajs/react';
 import { Eye, Edit, Trash2, MoreVertical } from 'lucide-react';
 
@@ -107,13 +108,13 @@ export default function LoansTable({ loans, onEdit, onDelete }: LoansTableProps)
                                     <td className="px-6 py-4 text-right">
                                         <div>
                                             <p className="font-semibold text-gray-900">
-                                                ৳{loan.loan_amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                                ৳{formatAmount(loan.loan_amount)}
                                             </p>
                                             <p className="text-sm text-green-600">
-                                                Paid: ৳{loan.total_paid.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                                Paid: ৳{formatAmount(loan.total_paid)}
                                             </p>
                                             <p className="text-sm text-red-600">
-                                                Due: ৳{loan.remaining_amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                                Due: ৳{formatAmount(loan.remaining_amount)}
                                             </p>
                                         </div>
                                     </td>

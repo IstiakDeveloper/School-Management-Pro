@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatAmount } from '@/lib/formatCurrency';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { ArrowLeft, Calendar, CreditCard, DollarSign, User, FileText, CheckCircle, Clock, AlertCircle, Ban } from 'lucide-react';
@@ -181,7 +182,7 @@ export default function Show({ loan, welfareFundAccount }: Props) {
                                 <div>
                                     <p className="text-sm text-gray-600">Loan Amount</p>
                                     <p className="text-2xl font-bold text-gray-900">
-                                        ৳{loan.loan_amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                        ৳{formatAmount(loan.loan_amount)}
                                     </p>
                                     <p className="text-sm text-gray-500">{loan.installment_count} installments</p>
                                 </div>
@@ -209,25 +210,25 @@ export default function Show({ loan, welfareFundAccount }: Props) {
                             <div>
                                 <p className="text-sm text-gray-600 mb-1">Total Loan</p>
                                 <p className="text-2xl font-bold text-gray-900">
-                                    ৳{loan.loan_amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                    ৳{formatAmount(loan.loan_amount)}
                                 </p>
                             </div>
                             <div>
                                 <p className="text-sm text-gray-600 mb-1">Total Paid</p>
                                 <p className="text-2xl font-bold text-green-600">
-                                    ৳{loan.total_paid.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                    ৳{formatAmount(loan.total_paid)}
                                 </p>
                             </div>
                             <div>
                                 <p className="text-sm text-gray-600 mb-1">Remaining</p>
                                 <p className="text-2xl font-bold text-red-600">
-                                    ৳{loan.remaining_amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                    ৳{formatAmount(loan.remaining_amount)}
                                 </p>
                             </div>
                             <div>
                                 <p className="text-sm text-gray-600 mb-1">Installment Amount</p>
                                 <p className="text-2xl font-bold text-blue-600">
-                                    ৳{loan.installment_amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                    ৳{formatAmount(loan.installment_amount)}
                                 </p>
                             </div>
                         </div>
@@ -321,7 +322,7 @@ export default function Show({ loan, welfareFundAccount }: Props) {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right">
                                                 <span className="font-semibold text-gray-900">
-                                                    ৳{inst.amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                                    ৳{formatAmount(inst.amount)}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
@@ -409,7 +410,7 @@ export default function Show({ loan, welfareFundAccount }: Props) {
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                                 <p className="text-sm font-medium text-blue-800">
                                     Installment #{selectedInstallment.installment_number} -
-                                    ৳{selectedInstallment.amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                    ৳{formatAmount(selectedInstallment.amount)}
                                 </p>
                                 <p className="text-xs text-blue-600 mt-1">
                                     Due Date: {formatDate(selectedInstallment.due_date)}
@@ -423,7 +424,7 @@ export default function Show({ loan, welfareFundAccount }: Props) {
                                 {welfareFundAccount ? (
                                     <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50">
                                         <p className="font-semibold text-gray-900">{welfareFundAccount.account_name}</p>
-                                        <p className="text-sm text-gray-600">Balance: ৳{welfareFundAccount.current_balance.toLocaleString('en-IN')}</p>
+                                        <p className="text-sm text-gray-600">Balance: ৳{formatAmount(welfareFundAccount.current_balance)}</p>
                                     </div>
                                 ) : (
                                     <div className="w-full px-4 py-2 border border-red-300 rounded-lg bg-red-50">
@@ -491,7 +492,7 @@ export default function Show({ loan, welfareFundAccount }: Props) {
 
                             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                                 <p className="text-sm font-medium text-green-800">
-                                    ✅ This will add ৳{selectedInstallment.amount.toLocaleString('en-IN', {minimumFractionDigits: 2})} to the selected account
+                                    ✅ This will add ৳{formatAmount(selectedInstallment.amount)} to the selected account
                                 </p>
                             </div>
 

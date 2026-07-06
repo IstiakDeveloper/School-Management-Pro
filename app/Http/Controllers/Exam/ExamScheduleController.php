@@ -21,7 +21,7 @@ class ExamScheduleController extends Controller
             ->when($request->class_id, fn($q) => $q->where('class_id', $request->class_id))
             ->orderBy('exam_date')
             ->orderBy('start_time')
-            ->paginate(50);
+            ->paginate(50)->withQueryString();
 
         return Inertia::render('Exams/Schedules/Index', [
             'schedules' => $schedules,

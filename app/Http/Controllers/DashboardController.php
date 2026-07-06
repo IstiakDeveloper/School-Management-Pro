@@ -122,7 +122,7 @@ class DashboardController extends Controller
                 'total_teachers' => Teacher::where('status', 'active')->count(),
                 'total_staff' => Staff::where('status', 'active')->count(),
                 'total_classes' => SchoolClass::where('status', 'active')->count(),
-                'pending_fees' => FeeCollection::where('status', 'pending')->sum('amount'),
+                'pending_fees' => FeeCollection::outstanding()->where('status', 'pending')->sum('total_amount'),
                 'today_attendance' => StudentAttendance::where('date', today())->where('status', 'present')->count(),
             ];
         } elseif ($user->isTeacher()) {
@@ -141,16 +141,18 @@ class DashboardController extends Controller
                 'section' => $student?->section?->name,
                 'attendance_percentage' => $this->calculateAttendancePercentage($student),
                 'pending_fees' => \App\Models\FeeCollection::where('student_id', $student?->id)
-                    ->where('status', 'pending')->sum('amount'),
+                    ->outstanding()->where('status', 'pending')->sum('total_amount'),
             ];
         } elseif ($user->isAccountant()) {
             $stats = [
                 'today_collections' => \App\Models\FeeCollection::where('payment_date', today())
                     ->where('status', 'paid')->sum('amount'),
-                'pending_collections' => \App\Models\FeeCollection::where('status', 'pending')
-                    ->sum('amount'),
-                'overdue_collections' => \App\Models\FeeCollection::where('status', 'pending')
-                    ->where('due_date', '<', today())->sum('amount'),
+                'pending_collections' => \App\Models\FeeCollection::outstanding()
+                    ->where('status', 'pending')
+                    ->sum('total_amount'),
+                'overdue_collections' => \App\Models\FeeCollection::outstanding()
+                    ->where('status', 'overdue')
+                    ->sum('total_amount'),
             ];
         } elseif ($user->isLibrarian()) {
             $stats = [

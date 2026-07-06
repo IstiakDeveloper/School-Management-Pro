@@ -21,7 +21,7 @@ class UserController extends Controller
             ->when($request->role, fn ($q) => $q->byRole($request->role))
             ->when($request->status, fn ($q) => $q->where('status', $request->status))
             ->latest()
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         return Inertia::render('Users/Index', [
             'users' => $users,

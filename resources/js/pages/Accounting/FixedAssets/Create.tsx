@@ -4,7 +4,8 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
 import Input from '@/Components/Input';
 import Card from '@/Components/Card';
-import { Save, ArrowLeft } from 'lucide-react';
+import { Save, ArrowLeft, Package } from 'lucide-react';
+import { formatCurrency } from '@/lib/formatCurrency';
 import { Account } from '@/types/accounting';
 
 interface CreateProps {
@@ -20,14 +21,14 @@ export default function Create({ accounts, nextAssetCode }: CreateProps) {
         asset_code: nextAssetCode,
         category: '',
         account_id: '4',
-        purchase_price: '',
         purchase_date: new Date().toISOString().split('T')[0],
         depreciation_rate: '0',
         description: '',
         status: 'active',
+        quantity: '1',
+        amount: '',
     });
 
-    // Auto-select first account
     useEffect(() => {
         if (accounts.length > 0 && !formData.account_id) {
             setFormData(prev => ({ ...prev, account_id: accounts[0].id.toString() }));
@@ -59,7 +60,7 @@ export default function Create({ accounts, nextAssetCode }: CreateProps) {
                         <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
                             Add Fixed Asset
                         </h1>
-                        <p className="text-gray-600 mt-1">Register a new fixed asset</p>
+                        <p className="text-gray-600 mt-1">Register a new fixed asset with quantity and amount</p>
                     </div>
                     <Button
                         variant="ghost"
@@ -79,7 +80,7 @@ export default function Create({ accounts, nextAssetCode }: CreateProps) {
                                 onChange={(e) => setFormData({ ...formData, asset_name: e.target.value })}
                                 error={errors.asset_name}
                                 required
-                                placeholder="e.g., School Bus"
+                                placeholder="e.g., School Chair"
                             />
 
                             <Input
@@ -124,17 +125,6 @@ export default function Create({ accounts, nextAssetCode }: CreateProps) {
                                     <p className="mt-1 text-sm text-red-600">{errors.account_id}</p>
                                 )}
                             </div>
-
-                            <Input
-                                label="Purchase Price"
-                                type="number"
-                                step="0.01"
-                                value={formData.purchase_price}
-                                onChange={(e) => setFormData({ ...formData, purchase_price: e.target.value })}
-                                error={errors.purchase_price}
-                                required
-                                placeholder="0.00"
-                            />
 
                             <Input
                                 label="Purchase Date"
@@ -188,6 +178,42 @@ export default function Create({ accounts, nextAssetCode }: CreateProps) {
                             />
                             {errors.description && (
                                 <p className="mt-1 text-sm text-red-600">{errors.description}</p>
+                            )}
+                        </div>
+
+                        <div className="border-t pt-6">
+                            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                                <Package className="w-5 h-5 text-purple-600" />
+                                Quantity & Amount
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <Input
+                                    label="Quantity"
+                                    type="number"
+                                    step="0.01"
+                                    min="0.01"
+                                    value={formData.quantity}
+                                    onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                                    error={errors.quantity}
+                                    required
+                                    placeholder="e.g., 10"
+                                />
+                                <Input
+                                    label="Total Amount (৳)"
+                                    type="number"
+                                    step="0.01"
+                                    min="0.01"
+                                    value={formData.amount}
+                                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                                    error={errors.amount}
+                                    required
+                                    placeholder="0.00"
+                                />
+                            </div>
+                            {formData.quantity && formData.amount && parseFloat(formData.quantity) > 0 && (
+                                <p className="mt-3 text-sm text-gray-600">
+                                    Avg. unit price: ৳{formatCurrency(parseFloat(formData.amount) / parseFloat(formData.quantity))}
+                                </p>
                             )}
                         </div>
 

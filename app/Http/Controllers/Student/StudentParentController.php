@@ -22,7 +22,7 @@ class StudentParentController extends Controller
                 $q->whereHas('user', fn($q) => $q->where('name', 'like', "%{$request->search}%")
                     ->orWhere('email', 'like', "%{$request->search}%")))
             ->latest()
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         return Inertia::render('Students/Parents/Index', [
             'parents' => $parents,

@@ -1,3 +1,4 @@
+import { formatAmount } from '@/lib/formatCurrency';
  import React, { useState } from 'react';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
@@ -245,7 +246,7 @@ export default function Index({ investors, accounts, stats }: Props) {
                                 <div>
                                     <p className="text-sm text-gray-600">Current Balance</p>
                                     <p className="text-2xl font-bold text-indigo-600 mt-1">
-                                        ৳{stats.total_balance.toLocaleString('en-IN')}
+                                        ৳{formatAmount(stats.total_balance)}
                                     </p>
                                 </div>
                                 <DollarSign className="w-10 h-10 text-indigo-500" />
@@ -257,7 +258,7 @@ export default function Index({ investors, accounts, stats }: Props) {
                                 <div>
                                     <p className="text-sm text-gray-600">Total Fund IN</p>
                                     <p className="text-2xl font-bold text-green-600 mt-1">
-                                        ৳{stats.total_in.toLocaleString('en-IN')}
+                                        ৳{formatAmount(stats.total_in)}
                                     </p>
                                 </div>
                                 <ArrowDownCircle className="w-10 h-10 text-green-500" />
@@ -269,7 +270,7 @@ export default function Index({ investors, accounts, stats }: Props) {
                                 <div>
                                     <p className="text-sm text-gray-600">Total Fund OUT</p>
                                     <p className="text-2xl font-bold text-red-600 mt-1">
-                                        ৳{stats.total_out.toLocaleString('en-IN')}
+                                        ৳{formatAmount(stats.total_out)}
                                     </p>
                                 </div>
                                 <ArrowUpCircle className="w-10 h-10 text-red-500" />
@@ -333,7 +334,7 @@ export default function Index({ investors, accounts, stats }: Props) {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className="text-lg font-bold text-green-600">
-                                                    ৳{investor.current_balance.toLocaleString('en-IN')}
+                                                    ৳{formatAmount(investor.current_balance)}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
@@ -409,7 +410,7 @@ export default function Index({ investors, accounts, stats }: Props) {
                                     <option value="">Choose Investor...</option>
                                     {investors.filter(i => i.status === 'active').map((investor) => (
                                         <option key={investor.id} value={investor.id}>
-                                            {investor.investor_code} - {investor.name} (Balance: ৳{investor.current_balance.toLocaleString('en-IN')})
+                                            {investor.investor_code} - {investor.name} (Balance: ৳{formatAmount(investor.current_balance)})
                                         </option>
                                     ))}
                                 </select>
@@ -427,7 +428,7 @@ export default function Index({ investors, accounts, stats }: Props) {
                                 >
                                     {accounts.map((account) => (
                                         <option key={account.id} value={account.id}>
-                                            {account.account_name} (৳{account.current_balance.toLocaleString('en-IN')})
+                                            {account.account_name} (৳{formatAmount(account.current_balance)})
                                         </option>
                                     ))}
                                 </select>
@@ -532,7 +533,7 @@ export default function Index({ investors, accounts, stats }: Props) {
                                     <option value="">Choose Investor...</option>
                                     {investors.filter(i => i.status === 'active' && i.current_balance > 0).map((investor) => (
                                         <option key={investor.id} value={investor.id}>
-                                            {investor.investor_code} - {investor.name} (Balance: ৳{investor.current_balance.toLocaleString('en-IN')})
+                                            {investor.investor_code} - {investor.name} (Balance: ৳{formatAmount(investor.current_balance)})
                                         </option>
                                     ))}
                                 </select>
@@ -550,7 +551,7 @@ export default function Index({ investors, accounts, stats }: Props) {
                                 >
                                     {accounts.map((account) => (
                                         <option key={account.id} value={account.id}>
-                                            {account.account_name} (৳{account.current_balance.toLocaleString('en-IN')})
+                                            {account.account_name} (৳{formatAmount(account.current_balance)})
                                         </option>
                                     ))}
                                 </select>
@@ -712,7 +713,7 @@ export default function Index({ investors, accounts, stats }: Props) {
                                             Fund Ledger - {selectedInvestor.name}
                                         </h3>
                                         <p className="text-sm text-gray-600 mt-1">
-                                            {selectedInvestor.investor_code} | Current Balance: ৳{parseFloat(selectedInvestor.current_balance.toString()).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                            {selectedInvestor.investor_code} | Current Balance: ৳{formatAmount(selectedInvestor.current_balance)}
                                         </p>
                                     </div>
                                     <div className="flex gap-2">
@@ -842,7 +843,7 @@ export default function Index({ investors, accounts, stats }: Props) {
                                                             <td className="px-4 py-3 whitespace-nowrap text-right border-r border-gray-200">
                                                                 {transaction.transaction_type === 'in' ? (
                                                                     <span className="text-green-600 font-semibold">
-                                                                        ৳{parseFloat(transaction.amount.toString()).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                                                        ৳{formatAmount(transaction.amount)}
                                                                     </span>
                                                                 ) : (
                                                                     <span className="text-gray-400">-</span>
@@ -851,7 +852,7 @@ export default function Index({ investors, accounts, stats }: Props) {
                                                             <td className="px-4 py-3 whitespace-nowrap text-right border-r border-gray-200">
                                                                 {transaction.transaction_type === 'out' ? (
                                                                     <span className="text-red-600 font-semibold">
-                                                                        ৳{parseFloat(transaction.amount.toString()).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                                                        ৳{formatAmount(transaction.amount)}
                                                                     </span>
                                                                 ) : (
                                                                     <span className="text-gray-400">-</span>
@@ -859,7 +860,7 @@ export default function Index({ investors, accounts, stats }: Props) {
                                                             </td>
                                                             <td className="px-4 py-3 whitespace-nowrap text-right">
                                                                 <span className="text-gray-900 font-bold">
-                                                                    ৳{runningBalance.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                                                    ৳{formatAmount(runningBalance)}
                                                                 </span>
                                                             </td>
                                                             <td className="px-4 py-3 whitespace-nowrap text-center no-print">
@@ -900,31 +901,28 @@ export default function Index({ investors, accounts, stats }: Props) {
                                         <div className="text-center">
                                             <p className="text-sm text-gray-700 font-medium">Total Fund IN</p>
                                             <p className="text-xl font-bold text-green-600 mt-1">
-                                                ৳{ledgerTransactions
+                                                ৳{formatAmount(ledgerTransactions
                                                     .filter(t => t.transaction_type === 'in')
-                                                    .reduce((sum, t) => sum + parseFloat(t.amount.toString()), 0)
-                                                    .toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                                    .reduce((sum, t) => sum + parseFloat(t.amount.toString()), 0))}
                                             </p>
                                         </div>
                                         <div className="text-center">
                                             <p className="text-sm text-gray-700 font-medium">Total Fund OUT</p>
                                             <p className="text-xl font-bold text-red-600 mt-1">
-                                                ৳{filteredTransactions
+                                                ৳{formatAmount(filteredTransactions
                                                     .filter(t => t.transaction_type === 'out')
-                                                    .reduce((sum, t) => sum + parseFloat(t.amount.toString()), 0)
-                                                    .toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                                    .reduce((sum, t) => sum + parseFloat(t.amount.toString()), 0))}
                                             </p>
                                         </div>
                                         <div className="text-center">
                                             <p className="text-sm text-gray-700 font-medium">Net Balance</p>
                                             <p className="text-xl font-bold text-gray-900 mt-1">
-                                                ৳{(filteredTransactions
+                                                ৳{formatAmount(filteredTransactions
                                                     .filter(t => t.transaction_type === 'in')
                                                     .reduce((sum, t) => sum + parseFloat(t.amount.toString()), 0) -
                                                 filteredTransactions
                                                     .filter(t => t.transaction_type === 'out')
-                                                    .reduce((sum, t) => sum + parseFloat(t.amount.toString()), 0))
-                                                    .toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                                    .reduce((sum, t) => sum + parseFloat(t.amount.toString()), 0))}
                                             </p>
                                         </div>
                                     </div>

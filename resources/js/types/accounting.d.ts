@@ -45,17 +45,35 @@ export interface Transaction {
     };
 }
 
+export interface FixedAssetItem {
+    id?: number;
+    fixed_asset_id?: number;
+    item_name: string;
+    quantity: number;
+    unit_price: number;
+    amount: number;
+    description?: string;
+}
+
 export interface FixedAsset {
     id: number;
     asset_name: string;
     asset_code: string;
     category: string;
+    account_id?: number;
     purchase_price: number;
     purchase_date: string;
     depreciation_rate: number;
     current_value: number;
     description?: string;
     status: 'active' | 'disposed' | 'damaged';
+    items?: FixedAssetItem[];
+    total_quantity?: number;
+    quantity_summary?: {
+        quantity: number;
+        amount: number;
+        unit_price: number;
+    };
     created_at: string;
     updated_at: string;
 }

@@ -2,6 +2,7 @@ import { Head, router, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Card from '@/Components/Card';
 import Button from '@/Components/Button';
+import IndexPagination from '@/Components/IndexPagination';
 import { Plus, Filter, Eye, Edit, Trash2, Pin, AlertCircle } from 'lucide-react';
 
 interface Notice {
@@ -28,6 +29,9 @@ interface Props {
         last_page: number;
         per_page: number;
         total: number;
+        from?: number;
+        to?: number;
+        links?: any[];
     };
     filters: {
         type?: string;
@@ -203,31 +207,13 @@ export default function Index({ notices, filters }: Props) {
                         </table>
                     </div>
 
-                    {notices.last_page > 1 && (
-                        <div className="mt-4 flex justify-between items-center">
-                            <div className="text-sm text-gray-700">
-                                Showing {(notices.current_page - 1) * notices.per_page + 1} to{' '}
-                                {Math.min(notices.current_page * notices.per_page, notices.total)} of {notices.total} results
-                            </div>
-                            <div className="flex gap-2">
-                                {notices.current_page > 1 && (
-                                    <Button
-                                        variant="secondary"
-                                        onClick={() => router.get(`/notices?page=${notices.current_page - 1}`)}
-                                    >
-                                        Previous
-                                    </Button>
-                                )}
-                                {notices.current_page < notices.last_page && (
-                                    <Button
-                                        onClick={() => router.get(`/notices?page=${notices.current_page + 1}`)}
-                                    >
-                                        Next
-                                    </Button>
-                                )}
-                            </div>
-                        </div>
-                    )}
+                    <IndexPagination
+                        links={notices.links ?? []}
+                        from={notices.from}
+                        to={notices.to}
+                        total={notices.total}
+                        lastPage={notices.last_page}
+                    />
                 </Card>
             </div>
         </AuthenticatedLayout>

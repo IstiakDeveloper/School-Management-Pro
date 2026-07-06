@@ -4,6 +4,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
 import IndexPagination from '@/Components/IndexPagination';
 import { Plus, Search, Eye, Edit, Trash2, Wallet, Building2, TrendingUp, RefreshCw } from 'lucide-react';
+import { formatCurrency } from '@/lib/formatCurrency';
 import { Account, AccountFilters, AccountingStats, PaginatedData } from '@/types/accounting';
 
 interface IndexProps {
@@ -32,10 +33,6 @@ export default function Index({ accounts, filters, stats }: IndexProps) {
         if (confirm(`Delete account "${name}"?`)) {
             router.delete(`/accounting/accounts/${id}`);
         }
-    };
-
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
     };
 
     return (

@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatAmount } from '@/lib/formatCurrency';
 import { useForm } from '@inertiajs/react';
 import { X } from 'lucide-react';
 
@@ -55,7 +56,7 @@ export default function EditLoanModal({ show, loan, onClose }: EditLoanModalProp
 
         if (Number.isNaN(newAmount) || newAmount < totalPaid) {
             window.alert(
-                `Loan amount must be at least the total already paid (৳${totalPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}).`
+                `Loan amount must be at least the total already paid (৳${formatAmount(totalPaid)}).`
             );
             return;
         }
@@ -106,7 +107,7 @@ export default function EditLoanModal({ show, loan, onClose }: EditLoanModalProp
                         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-900">
                             <p className="font-medium">Payments already recorded</p>
                             <p className="mt-1">
-                                Paid: ৳{Number(loan.total_paid).toLocaleString('en-IN', { minimumFractionDigits: 2 })} (
+                                Paid: ৳{formatAmount(loan.total_paid)} (
                                 {loan.paid_installments} installment{loan.paid_installments !== 1 ? 's' : ''}). Loan amount
                                 cannot be below this; unpaid installments will be rebuilt; paid rows are unchanged.
                             </p>
@@ -147,7 +148,7 @@ export default function EditLoanModal({ show, loan, onClose }: EditLoanModalProp
                     {form.data.loan_amount && form.data.installment_count && (
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                             <p className="text-sm font-medium text-blue-800">
-                                Monthly Installment: ৳{(parseFloat(form.data.loan_amount) / parseInt(form.data.installment_count)).toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                Monthly Installment: ৳{(parseFloat(form.data.loan_amount) / formatAmount(parseInt(form.data.installment_count)))}
                             </p>
                         </div>
                     )}

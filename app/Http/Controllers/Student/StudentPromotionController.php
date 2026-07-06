@@ -29,7 +29,7 @@ class StudentPromotionController extends Controller
         ])
             ->when($request->academic_year_id, fn($q) => $q->where('to_academic_year_id', $request->academic_year_id))
             ->latest()
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         return Inertia::render('Students/Promotions/Index', [
             'promotions' => $promotions,

@@ -1,21 +1,31 @@
-import React from 'react';
-import { Head, Link } from '@inertiajs/react';
+import React, { FormEvent, useState } from 'react';
+import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
 import Badge from '@/Components/Badge';
-import { ArrowLeft, Edit, Calendar, TrendingDown } from 'lucide-react';
-import { FixedAsset } from '@/types/accounting';
+import Modal from '@/Components/Modal';
+import Input from '@/Components/Input';
+import { ArrowLeft, Edit, Calendar, TrendingDown, Plus, Package } from 'lucide-react';
+import { formatCurrency } from '@/lib/formatCurrency';
+import { Account, FixedAsset } from '@/types/accounting';
 
 interface ShowProps {
     asset: FixedAsset;
+    accounts: Account[];
 }
 
-export default function Show({ asset }: ShowProps) {
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('en-US', {
-            minimumFractionDigits: 2,
-        }).format(amount);
-    };
+export default function Show({ asset, accounts }: ShowProps) {
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    const [addForm, setAddForm] = useState({
+        account_id: asset.account_id?.toString() || accounts[0]?.id?.toString() || '',
+        purchase_date: new Date().toISOString().split('T')[0],
+        quantity: '',
+        amount: '',
+    });
+
+    const summary = asset.quantity_summary ?? { quantity: 0, amount: 0, unit_price: 0 };
 
     const formatDate = (date: string) => {
         return new Date(date).toLocaleDateString('en-US', {
@@ -35,6 +45,34 @@ export default function Show({ asset }: ShowProps) {
         return ((calculateDepreciation() / asset.purchase_price) * 100).toFixed(2);
     };
 
+    const openAddModal = () => {
+        setErrors({});
+        setAddForm({
+            account_id: asset.account_id?.toString() || accounts[0]?.id?.toString() || '',
+            purchase_date: new Date().toISOString().split('T')[0],
+            quantity: '',
+            amount: '',
+        });
+        setShowAddModal(true);
+    };
+
+    const handleAddQuantity = (e: FormEvent) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+
+        router.post(`/accounting/fixed-assets/${asset.id}/items`, addForm, {
+            onError: (errs) => {
+                setErrors(errs as Record<string, string>);
+                setIsSubmitting(false);
+            },
+            onSuccess: () => {
+                setIsSubmitting(false);
+                setShowAddModal(false);
+            },
+            preserveScroll: true,
+        });
+    };
+
     return (
         <AuthenticatedLayout>
             <Head title={`Asset: ${asset.asset_name}`} />
@@ -48,6 +86,13 @@ export default function Show({ asset }: ShowProps) {
                         <p className="text-gray-600 mt-1">Fixed Asset Details</p>
                     </div>
                     <div className="flex items-center gap-3">
+                        <Button
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                            icon={<Plus className="w-5 h-5" />}
+                            onClick={openAddModal}
+                        >
+                            Add Quantity
+                        </Button>
                         <Link href={`/accounting/fixed-assets/${asset.id}/edit`}>
                             <Button
                                 className="bg-gradient-to-r from-purple-600 to-blue-600 text-white"
@@ -65,7 +110,6 @@ export default function Show({ asset }: ShowProps) {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Main Info */}
                     <div className="lg:col-span-2 space-y-6">
                         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                             <h2 className="text-lg font-semibold text-gray-900 mb-4">Asset Information</h2>
@@ -99,7 +143,38 @@ export default function Show({ asset }: ShowProps) {
                             </div>
                         </div>
 
-                        {/* Financial Details */}
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                                    <Package className="w-5 h-5 text-purple-600" />
+                                    Quantity & Amount
+                                </h2>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    icon={<Plus className="w-4 h-4" />}
+                                    onClick={openAddModal}
+                                >
+                                    Add Quantity
+                                </Button>
+                            </div>
+                            <div className="grid grid-cols-3 gap-6">
+                                <div>
+                                    <p className="text-sm text-gray-600 mb-1">Total Quantity</p>
+                                    <p className="text-2xl font-bold text-gray-900">{summary.quantity}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-600 mb-1">Avg. Unit Price</p>
+                                    <p className="text-2xl font-bold text-gray-900">৳{formatCurrency(summary.unit_price)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-600 mb-1">Total Amount</p>
+                                    <p className="text-2xl font-bold text-purple-700">৳{formatCurrency(summary.amount)}</p>
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                             <h2 className="text-lg font-semibold text-gray-900 mb-4">Financial Details</h2>
                             <div className="grid grid-cols-2 gap-6">
@@ -111,7 +186,7 @@ export default function Show({ asset }: ShowProps) {
                                     <p className="text-sm text-gray-600 mb-1">Current Value</p>
                                     <p className="text-2xl font-bold text-blue-600">৳{formatCurrency(asset.current_value)}</p>
                                 </div>
-                                {asset.depreciation_rate && (
+                                {asset.depreciation_rate ? (
                                     <>
                                         <div>
                                             <p className="text-sm text-gray-600 mb-1">Depreciation Rate</p>
@@ -127,11 +202,10 @@ export default function Show({ asset }: ShowProps) {
                                             </div>
                                         </div>
                                     </>
-                                )}
+                                ) : null}
                             </div>
                         </div>
 
-                        {/* Description */}
                         {asset.description && (
                             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Description</h2>
@@ -140,9 +214,7 @@ export default function Show({ asset }: ShowProps) {
                         )}
                     </div>
 
-                    {/* Sidebar */}
                     <div className="space-y-6">
-                        {/* Summary Card */}
                         <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl border border-purple-200 p-6">
                             <h2 className="text-lg font-semibold text-gray-900 mb-4">Summary</h2>
                             <div className="space-y-3">
@@ -156,6 +228,10 @@ export default function Show({ asset }: ShowProps) {
                                     >
                                         {asset.status}
                                     </Badge>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-gray-600">Quantity</span>
+                                    <span className="font-semibold text-gray-900">{summary.quantity}</span>
                                 </div>
                                 <div className="flex items-center justify-between">
                                     <span className="text-gray-600">Category</span>
@@ -180,7 +256,6 @@ export default function Show({ asset }: ShowProps) {
                             </div>
                         </div>
 
-                        {/* Timeline */}
                         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                             <h2 className="text-lg font-semibold text-gray-900 mb-4">Timeline</h2>
                             <div className="space-y-4">
@@ -203,6 +278,100 @@ export default function Show({ asset }: ShowProps) {
                     </div>
                 </div>
             </div>
+
+            <Modal
+                show={showAddModal}
+                onClose={() => !isSubmitting && setShowAddModal(false)}
+                title="Add Quantity"
+                maxWidth="md"
+            >
+                <form onSubmit={handleAddQuantity} className="space-y-4">
+                    <p className="text-sm text-gray-600">
+                        Add more quantity and amount to <strong>{asset.asset_name}</strong>.
+                        Current: <strong>{summary.quantity}</strong> pcs, ৳<strong>{formatCurrency(summary.amount)}</strong>
+                    </p>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Payment Account <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                            value={addForm.account_id}
+                            onChange={(e) => setAddForm({ ...addForm, account_id: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                            required
+                        >
+                            <option value="">Select Account</option>
+                            {accounts.map((account) => (
+                                <option key={account.id} value={account.id}>
+                                    {account.account_name} (৳{formatCurrency(account.current_balance)})
+                                </option>
+                            ))}
+                        </select>
+                        {errors.account_id && (
+                            <p className="mt-1 text-xs text-red-600">{errors.account_id}</p>
+                        )}
+                    </div>
+
+                    <Input
+                        label="Purchase Date"
+                        type="date"
+                        value={addForm.purchase_date}
+                        onChange={(e) => setAddForm({ ...addForm, purchase_date: e.target.value })}
+                        error={errors.purchase_date}
+                    />
+
+                    <Input
+                        label="Quantity to Add"
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        value={addForm.quantity}
+                        onChange={(e) => setAddForm({ ...addForm, quantity: e.target.value })}
+                        error={errors.quantity}
+                        required
+                        placeholder="e.g., 5"
+                    />
+
+                    <Input
+                        label="Amount to Add (৳)"
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        value={addForm.amount}
+                        onChange={(e) => setAddForm({ ...addForm, amount: e.target.value })}
+                        error={errors.amount}
+                        required
+                        placeholder="0.00"
+                    />
+
+                    {addForm.quantity && addForm.amount && parseFloat(addForm.quantity) > 0 && (
+                        <p className="text-sm text-gray-600">
+                            After addition: <strong>{summary.quantity + parseFloat(addForm.quantity)}</strong> pcs,
+                            ৳<strong>{formatCurrency(summary.amount + parseFloat(addForm.amount || '0'))}</strong>
+                        </p>
+                    )}
+
+                    <div className="flex justify-end gap-3 pt-2">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => setShowAddModal(false)}
+                            disabled={isSubmitting}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                            loading={isSubmitting}
+                            icon={<Plus className="w-4 h-4" />}
+                        >
+                            Add
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
         </AuthenticatedLayout>
     );
 }

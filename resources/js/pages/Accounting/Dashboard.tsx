@@ -12,6 +12,7 @@ import {
     LayoutDashboard,
     ChevronRight,
 } from 'lucide-react';
+import { formatCurrency } from '@/lib/formatCurrency';
 import { AccountingStats, Transaction, CategoryBreakdown, AccountSummary } from '@/types/accounting';
 
 interface DashboardProps {
@@ -29,13 +30,6 @@ export default function Dashboard({
     incomeByCategory,
     accounts,
 }: DashboardProps) {
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('en-US', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        }).format(amount);
-    };
-
     const monthlyNet = (stats.monthly_income ?? 0) - (stats.monthly_expense ?? 0);
 
     return (

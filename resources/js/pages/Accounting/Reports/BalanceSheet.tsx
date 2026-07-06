@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
 import { Printer } from 'lucide-react';
+import { formatCurrency } from '@/lib/formatCurrency';
 
 interface FixedAssetItem {
     asset_name: string;
@@ -53,14 +54,6 @@ export default function BalanceSheet({
     const handleReset = () => {
         setEndDate('');
         router.get('/accounting/reports/balance-sheet');
-    };
-
-    const formatCurrency = (amount: number) => {
-        const num = Number(amount) || 0;
-        return new Intl.NumberFormat('en-US', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        }).format(num);
     };
 
     const handlePrint = () => {

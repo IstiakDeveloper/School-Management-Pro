@@ -55,17 +55,11 @@ class ParentDashboardController extends Controller
         // Get fee status for all children
         $feeStatus = [];
         foreach ($children as $child) {
-            $totalDue = FeeCollection::where('student_id', $child->id)
-                ->where('status', '!=', 'paid')
-                ->sum('remaining');
-
-            $overdueCount = FeeCollection::where('student_id', $child->id)
-                ->where('is_overdue', true)
-                ->count();
+            $outstanding = FeeCollection::where('student_id', $child->id)->outstanding()->get();
 
             $feeStatus[$child->id] = [
-                'total_due' => $totalDue,
-                'overdue_count' => $overdueCount,
+                'total_due' => $outstanding->sum(fn ($fee) => $fee->remaining),
+                'overdue_count' => $outstanding->where('status', 'overdue')->count(),
             ];
         }
 

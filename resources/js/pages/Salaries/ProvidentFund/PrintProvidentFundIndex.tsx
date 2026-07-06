@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatAmount } from '@/lib/formatCurrency';
 
 interface Teacher {
     id: number;
@@ -90,9 +91,9 @@ const PrintProvidentFundIndex = React.forwardRef<HTMLDivElement, PrintProvidentF
                             <tr>
                                 <td style={{ width: '14%' }}><strong>Teachers:</strong> {summary.total_teachers}</td>
                                 <td style={{ width: '14%' }}><strong>Transactions:</strong> {summary.total_transactions}</td>
-                                <td style={{ width: '24%' }}><strong>Employee PF:</strong> ৳{summary.total_employee_contribution.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                                <td style={{ width: '24%' }}><strong>Employer PF:</strong> ৳{summary.total_employer_contribution.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                                <td style={{ width: '24%' }}><strong>Current Balance:</strong> ৳{summary.total_pf_balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                <td style={{ width: '24%' }}><strong>Employee PF:</strong> ৳{formatAmount(summary.total_employee_contribution)}</td>
+                                <td style={{ width: '24%' }}><strong>Employer PF:</strong> ৳{formatAmount(summary.total_employer_contribution)}</td>
+                                <td style={{ width: '24%' }}><strong>Current Balance:</strong> ৳{formatAmount(summary.total_pf_balance)}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -121,16 +122,16 @@ const PrintProvidentFundIndex = React.forwardRef<HTMLDivElement, PrintProvidentF
                                     <div style={{ fontSize: '8pt', color: '#666' }}>{teacher.employee_id}</div>
                                 </td>
                                 <td className="text-right">
-                                    ৳{parseFloat(teacher.total_employee_pf.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    ৳{formatAmount(parseFloat(teacher.total_employee_pf.toString()))}
                                 </td>
                                 <td className="text-right">
-                                    ৳{parseFloat(teacher.total_employer_pf.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    ৳{formatAmount(parseFloat(teacher.total_employer_pf.toString()))}
                                 </td>
                                 <td className="text-right">
-                                    ৳{parseFloat((teacher.total_withdrawn || 0).toString()).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    ৳{parseFloat((teacher.total_withdrawn || formatAmount(0).toString()))}
                                 </td>
                                 <td className="text-right" style={{ fontWeight: 'bold' }}>
-                                    ৳{parseFloat(teacher.total_pf.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    ৳{formatAmount(parseFloat(teacher.total_pf.toString()))}
                                 </td>
                                 <td className="text-center">{teacher.contribution_count || 0}</td>
                                 <td className="text-center" style={{ fontSize: '8pt' }}>
@@ -143,16 +144,16 @@ const PrintProvidentFundIndex = React.forwardRef<HTMLDivElement, PrintProvidentF
                         <tr style={{ fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>
                             <td colSpan={2} className="text-right">TOTAL:</td>
                             <td className="text-right">
-                                ৳{summary.total_employee_contribution.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                ৳{formatAmount(summary.total_employee_contribution)}
                             </td>
                             <td className="text-right">
-                                ৳{summary.total_employer_contribution.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                ৳{formatAmount(summary.total_employer_contribution)}
                             </td>
                             <td className="text-right">
-                                ৳{summary.total_withdrawn.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                ৳{formatAmount(summary.total_withdrawn)}
                             </td>
                             <td className="text-right">
-                                ৳{summary.total_pf_balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                ৳{formatAmount(summary.total_pf_balance)}
                             </td>
                             <td colSpan={2}></td>
                         </tr>

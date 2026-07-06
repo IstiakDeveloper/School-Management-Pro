@@ -15,7 +15,7 @@ class EventController extends Controller
             ->when($request->event_type, fn($q) => $q->where('event_type', $request->event_type))
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->latest('start_date')
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         return Inertia::render('Communication/Events/Index', [
             'events' => $events,

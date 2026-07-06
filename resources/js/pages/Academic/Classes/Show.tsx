@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatAmount } from '@/lib/formatCurrency';
 import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
@@ -241,7 +242,7 @@ export default function Show({ schoolClass }: ShowProps) {
                                         </div>
                                         <div className="text-right">
                                             <p className="text-2xl font-bold text-green-600">
-                                                ৳{parseFloat(fee.amount.toString()).toLocaleString('en-IN')}
+                                                ৳{formatAmount(parseFloat(fee.amount.toString()))}
                                             </p>
                                         </div>
                                     </div>

@@ -23,7 +23,7 @@ class TeacherSubjectController extends Controller
             ->when($request->subject_id, fn($q) => $q->where('subject_id', $request->subject_id))
             ->when($request->class_id, fn($q) => $q->where('class_id', $request->class_id))
             ->latest()
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         // Ensure all relationships are properly loaded and transform to match frontend expectations
         $transformedAssignments = $assignments->getCollection()->map(function ($assignment) {

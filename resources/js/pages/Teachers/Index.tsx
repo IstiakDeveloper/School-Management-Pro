@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
 import Badge from '@/Components/Badge';
+import StatusToggle from '@/Components/StatusToggle';
 import IndexPagination from '@/Components/IndexPagination';
 import { Plus, Edit, Trash2, Eye, Users, Search, Mail, Phone, User } from 'lucide-react';
 
@@ -39,18 +40,44 @@ interface IndexProps {
         links?: PaginationLink[];
     };
     filters?: { search?: string; status?: string };
+    canToggleStatus?: boolean;
 }
 
-export default function Index({ teachers, filters = {} }: IndexProps) {
+const TOGGLEABLE_TEACHER_STATUSES = ['active', 'inactive'];
+
+const isTeacherActive = (status: string) => status === 'active';
+
+const canToggleTeacherStatus = (status: string) => TOGGLEABLE_TEACHER_STATUSES.includes(status);
+
+export default function Index({ teachers, filters = {}, canToggleStatus = false }: IndexProps) {
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
+    const [statusFilter, setStatusFilter] = useState(filters.status || '');
     const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
+    const [togglingId, setTogglingId] = useState<number | null>(null);
 
     const handleDelete = (id: number, name: string) => {
         if (confirm(`Are you sure you want to delete "${name}"?`)) router.delete(`/teachers/${id}`);
     };
 
     const handleSearch = () => {
-        router.get('/teachers', { search: searchTerm || undefined }, { preserveState: true });
+        router.get('/teachers', {
+            search: searchTerm || undefined,
+            status: statusFilter || undefined,
+        }, { preserveState: true });
+    };
+
+    const handleReset = () => {
+        setSearchTerm('');
+        setStatusFilter('');
+        router.get('/teachers');
+    };
+
+    const handleStatusToggle = (teacherId: number) => {
+        setTogglingId(teacherId);
+        router.patch(`/teachers/${teacherId}/toggle-status`, {}, {
+            preserveScroll: true,
+            onFinish: () => setTogglingId(null),
+        });
     };
 
     const getPhotoUrl = (photo: string | null) => {
@@ -78,16 +105,29 @@ export default function Index({ teachers, filters = {} }: IndexProps) {
                 </div>
 
                 <div className="bg-white rounded-lg border border-gray-200 p-3">
-                    <form onSubmit={(e) => { e.preventDefault(); handleSearch(); }} className="flex gap-2">
+                    <div className="flex flex-wrap items-end gap-2">
                         <input
                             type="text"
                             placeholder="Search by name, email, employee ID..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="flex-1 text-sm px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                            className="flex-1 min-w-[200px] text-sm px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
                         />
-                        <Button type="submit" size="sm" variant="secondary" icon={<Search className="w-4 h-4" />}>Search</Button>
-                    </form>
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="text-sm px-2.5 py-1.5 border border-gray-300 rounded w-32 focus:ring-1 focus:ring-gray-400"
+                        >
+                            <option value="">All Status</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="resigned">Resigned</option>
+                            <option value="retired">Retired</option>
+                        </select>
+                        <Button size="sm" variant="secondary" onClick={handleSearch} icon={<Search className="w-4 h-4" />}>Search</Button>
+                        <button type="button" onClick={handleReset} className="text-xs text-gray-500 hover:text-gray-700">Reset</button>
+                    </div>
                 </div>
 
                 <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -134,7 +174,16 @@ export default function Index({ teachers, filters = {} }: IndexProps) {
                                         <td className="px-4 py-3 text-xs text-gray-600">{teacher.qualification || '—'}</td>
                                         <td className="px-4 py-3"><Badge variant="info" className="text-xs">{teacher.subjects_count} subjects</Badge></td>
                                         <td className="px-4 py-3">
-                                            <Badge variant={teacher.status === 'active' ? 'success' : 'default'} className="capitalize text-xs">{teacher.status}</Badge>
+                                            {canToggleTeacherStatus(teacher.status) ? (
+                                                <StatusToggle
+                                                    checked={isTeacherActive(teacher.status)}
+                                                    onChange={() => handleStatusToggle(teacher.id)}
+                                                    disabled={!canToggleStatus}
+                                                    loading={togglingId === teacher.id}
+                                                />
+                                            ) : (
+                                                <Badge variant="default" className="capitalize text-xs">{teacher.status}</Badge>
+                                            )}
                                         </td>
                                         <td className="px-4 py-3 text-right">
                                             <div className="flex items-center justify-end gap-1">

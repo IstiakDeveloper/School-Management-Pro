@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatAmount } from '@/lib/formatCurrency';
 
 interface Teacher {
     id: number;
@@ -126,21 +127,21 @@ const PrintProvidentFundShow = React.forwardRef<HTMLDivElement, PrintProvidentFu
                         <tbody>
                             <tr>
                                 <td style={{ width: '25%' }}><strong>Employee Contribution:</strong></td>
-                                <td style={{ width: '25%' }}>৳{summary.total_employee_contribution.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                <td style={{ width: '25%' }}>৳{formatAmount(summary.total_employee_contribution)}</td>
                                 <td style={{ width: '25%' }}><strong>Employer Contribution:</strong></td>
-                                <td style={{ width: '25%' }}>৳{summary.total_employer_contribution.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                <td style={{ width: '25%' }}>৳{formatAmount(summary.total_employer_contribution)}</td>
                             </tr>
                             <tr>
                                 <td><strong>Total Withdrawn:</strong></td>
-                                <td>৳{summary.total_withdrawn.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                <td>৳{formatAmount(summary.total_withdrawn)}</td>
                                 <td><strong>Current Balance:</strong></td>
-                                <td style={{ fontWeight: 'bold' }}>৳{summary.current_balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                <td style={{ fontWeight: 'bold' }}>৳{formatAmount(summary.current_balance)}</td>
                             </tr>
                             <tr>
                                 <td><strong>Total Transactions:</strong></td>
                                 <td>{summary.total_transactions}</td>
                                 <td><strong>Current Salary:</strong></td>
-                                <td>৳{teacher.salary ? teacher.salary.toLocaleString('en-IN') : '0'}</td>
+                                <td>৳{teacher.salary ? formatAmount(teacher.salary) : '0'}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -178,13 +179,13 @@ const PrintProvidentFundShow = React.forwardRef<HTMLDivElement, PrintProvidentFu
                                     {formatDate(transaction.transaction_date)}
                                 </td>
                                 <td className="text-right">
-                                    ৳{parseFloat(transaction.employee_contribution.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    ৳{formatAmount(parseFloat(transaction.employee_contribution.toString()))}
                                 </td>
                                 <td className="text-right">
-                                    ৳{parseFloat(transaction.employer_contribution.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    ৳{formatAmount(parseFloat(transaction.employer_contribution.toString()))}
                                 </td>
                                 <td className="text-right" style={{ fontWeight: 'bold' }}>
-                                    ৳{parseFloat(transaction.total_contribution.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    ৳{formatAmount(parseFloat(transaction.total_contribution.toString()))}
                                 </td>
                                 <td className="text-center" style={{ fontSize: '8pt' }}>
                                     {transaction.salaryPayment?.payment_method === 'bank_transfer' ? 'Bank' :
@@ -198,13 +199,13 @@ const PrintProvidentFundShow = React.forwardRef<HTMLDivElement, PrintProvidentFu
                         <tr style={{ fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>
                             <td colSpan={4} className="text-right">TOTAL:</td>
                             <td className="text-right">
-                                ৳{summary.total_employee_contribution.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                ৳{formatAmount(summary.total_employee_contribution)}
                             </td>
                             <td className="text-right">
-                                ৳{summary.total_employer_contribution.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                ৳{formatAmount(summary.total_employer_contribution)}
                             </td>
                             <td className="text-right">
-                                ৳{(summary.total_employee_contribution + summary.total_employer_contribution).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                ৳{(summary.total_employee_contribution + formatAmount(summary.total_employer_contribution))}
                             </td>
                             <td></td>
                         </tr>
@@ -239,13 +240,13 @@ const PrintProvidentFundShow = React.forwardRef<HTMLDivElement, PrintProvidentFu
                                         <td>{formatDate(withdrawal.withdrawal_date)}</td>
                                         <td style={{ fontSize: '8pt' }}>{withdrawal.reason}</td>
                                         <td className="text-right">
-                                            ৳{parseFloat(withdrawal.employee_contribution.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            ৳{formatAmount(parseFloat(withdrawal.employee_contribution.toString()))}
                                         </td>
                                         <td className="text-right">
-                                            ৳{parseFloat(withdrawal.employer_contribution.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            ৳{formatAmount(parseFloat(withdrawal.employer_contribution.toString()))}
                                         </td>
                                         <td className="text-right" style={{ fontWeight: 'bold' }}>
-                                            ৳{parseFloat(withdrawal.total_amount.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            ৳{formatAmount(parseFloat(withdrawal.total_amount.toString()))}
                                         </td>
                                         <td style={{ fontSize: '8pt' }}>{withdrawal.approved_by || 'N/A'}</td>
                                     </tr>
@@ -255,13 +256,13 @@ const PrintProvidentFundShow = React.forwardRef<HTMLDivElement, PrintProvidentFu
                                 <tr style={{ fontWeight: 'bold', backgroundColor: '#f0f0f0' }}>
                                     <td colSpan={3} className="text-right">TOTAL WITHDRAWN:</td>
                                     <td className="text-right">
-                                        ৳{withdrawals.reduce((sum, w) => sum + parseFloat(w.employee_contribution.toString()), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                        ৳{withdrawals.reduce((sum, w) => sum + parseFloat(w.employee_contribution.toString()), formatAmount(0))}
                                     </td>
                                     <td className="text-right">
-                                        ৳{withdrawals.reduce((sum, w) => sum + parseFloat(w.employer_contribution.toString()), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                        ৳{withdrawals.reduce((sum, w) => sum + parseFloat(w.employer_contribution.toString()), formatAmount(0))}
                                     </td>
                                     <td className="text-right">
-                                        ৳{summary.total_withdrawn.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                        ৳{formatAmount(summary.total_withdrawn)}
                                     </td>
                                     <td></td>
                                 </tr>
