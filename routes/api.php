@@ -24,6 +24,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 Route::prefix('zkteco')->group(function () {
     Route::get('/teachers', [ZktecoController::class, 'getTeachers']);
     Route::get('/students', [ZktecoController::class, 'getStudents']);
+    Route::get('/other-staff', [ZktecoController::class, 'getOtherStaff']);
 
     // Main sync endpoint (used by ZKTeco Agent)
     Route::post('/sync', [ZktecoController::class, 'syncAttendance']);

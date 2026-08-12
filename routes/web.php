@@ -22,6 +22,8 @@ use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\Attendance\AttendanceSummaryController;
 use App\Http\Controllers\Attendance\StudentAttendanceController;
 use App\Http\Controllers\Attendance\TeacherAttendanceController;
+use App\Http\Controllers\OtherStaffController;
+use App\Http\Controllers\OtherStaffAttendanceController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
@@ -200,6 +202,17 @@ Route::middleware(['auth', 'restrict.admin.mutations'])->group(function () {
         Route::post('attendance-summary/generate', [AttendanceSummaryController::class, 'generate'])->name('attendance-summary.generate');
         Route::get('attendance-summary/student/{student}', [AttendanceSummaryController::class, 'student'])->name('attendance-summary.student');
         Route::get('attendance-summary/class', [AttendanceSummaryController::class, 'class'])->name('attendance-summary.class');
+    });
+
+    // ============================================
+    // OTHER STAFF & ATTENDANCE (Super Admin Only)
+    // ============================================
+    Route::middleware(['role:Super Admin'])->group(function () {
+        Route::resource('other-staff', OtherStaffController::class);
+        Route::patch('other-staff/{other_staff}/toggle-status', [OtherStaffController::class, 'toggleStatus'])->name('other-staff.toggle-status');
+
+        Route::get('other-staff-attendance', [OtherStaffAttendanceController::class, 'index'])->name('other-staff-attendance.index');
+        Route::post('other-staff-attendance', [OtherStaffAttendanceController::class, 'store'])->name('other-staff-attendance.store');
     });
 
     // ============================================

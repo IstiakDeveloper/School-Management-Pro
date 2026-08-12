@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AcademicYear;
 use App\Models\DeviceSetting;
+use App\Models\OtherStaff;
+use App\Models\OtherStaffAttendance;
 use App\Models\Student;
 use App\Models\StudentAttendance;
 use App\Models\Teacher;
@@ -34,6 +36,7 @@ class ZktecoController extends Controller
                 'user_data' => 'nullable|array',
                 'absent_teachers' => 'nullable|array',
                 'absent_students' => 'nullable|array',
+                'absent_other_staff' => 'nullable|array',
                 'sync_date' => 'nullable|date',
             ]);
 
@@ -42,6 +45,7 @@ class ZktecoController extends Controller
             $attendanceData = $validated['attendance_data'] ?? [];
             $absentTeachers = $validated['absent_teachers'] ?? [];
             $absentStudents = $validated['absent_students'] ?? [];
+            $absentOtherStaff = $validated['absent_other_staff'] ?? [];
             $syncDate = $validated['sync_date'] ?? now()->format('Y-m-d');
 
             $deviceSetting = DeviceSetting::current();
@@ -86,10 +90,19 @@ class ZktecoController extends Controller
                         continue;
                     }
 
+                    // Then try as other staff
+                    $otherStaff = OtherStaff::where('employee_id', $employeeId)->first();
+                    if ($otherStaff) {
+                        $this->processOtherStaffAttendance($processedRecord);
+                        $successCount++;
+
+                        continue;
+                    }
+
                     // Not found
                     $errors[] = [
                         'employee_id' => $employeeId,
-                        'error' => 'No teacher or student found with this ID',
+                        'error' => 'No teacher, student or other staff found with this ID',
                     ];
 
                 } catch (\Exception $e) {
@@ -201,6 +214,53 @@ class ZktecoController extends Controller
                 } catch (\Exception $e) {
                     $absentErrors[] = [
                         'employee_id' => $admissionNumber,
+                        'error' => $e->getMessage(),
+                    ];
+                }
+            }
+
+            // Process absent other staff
+            foreach ($absentOtherStaff as $employeeId) {
+                try {
+                    $staff = OtherStaff::where('employee_id', $employeeId)
+                        ->where('status', 'active')
+                        ->first();
+
+                    if (! $staff) {
+                        continue;
+                    }
+
+                    // Check if date is staff's weekend or global holiday
+                    if ($staff->isWeekend($syncDate) || $deviceSetting->isHoliday($syncDate)) {
+                        continue;
+                    }
+
+                    // Check if already has attendance record for today
+                    $existingAttendance = OtherStaffAttendance::where('other_staff_id', $staff->id)
+                        ->whereDate('date', $syncDate)
+                        ->exists();
+
+                    if ($existingAttendance) {
+                        continue;
+                    }
+
+                    // Mark as absent
+                    OtherStaffAttendance::create([
+                        'other_staff_id' => $staff->id,
+                        'employee_id' => $employeeId,
+                        'date' => $syncDate,
+                        'status' => 'absent',
+                        'in_time' => null,
+                        'out_time' => null,
+                        'device_sn' => $validated['serial_number'] ?? null,
+                        'marked_by' => null,
+                    ]);
+
+                    $absentMarked++;
+
+                } catch (\Exception $e) {
+                    $absentErrors[] = [
+                        'employee_id' => $employeeId,
                         'error' => $e->getMessage(),
                     ];
                 }
@@ -627,5 +687,120 @@ class ZktecoController extends Controller
         $attendance->save();
 
         Log::info("Student attendance updated: {$student->full_name} on {$date}");
+    }
+
+    /**
+     * Get all active other staff with their employee IDs for ZKTeco device
+     */
+    public function getOtherStaff(Request $request)
+    {
+        try {
+            $staff = OtherStaff::select('id', 'employee_id', 'name', 'status')
+                ->whereNotNull('employee_id')
+                ->where('status', 'active')
+                ->get()
+                ->map(function ($item) {
+                    return [
+                        'id' => $item->id,
+                        'employee_id' => $item->employee_id,
+                        'name' => $item->name,
+                        'type' => 'other_staff',
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'count' => $staff->count(),
+                'data' => $staff,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('ZKTeco getOtherStaff Error: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch other staff',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Process individual other staff attendance record
+     * First punch = Check In, Last punch = Check Out
+     */
+    private function processOtherStaffAttendance(array $record)
+    {
+        $staff = OtherStaff::where('employee_id', $record['employee_id'])->first();
+
+        if (! $staff) {
+            throw new \Exception("Other staff not found with employee_id: {$record['employee_id']}");
+        }
+
+        $punchTime = Carbon::parse($record['punch_time']);
+        $date = $punchTime->toDateString();
+
+        $defaultStatus = $staff->isWeekend($date) ? 'weekend' : 'present';
+
+        $attendance = OtherStaffAttendance::firstOrCreate(
+            [
+                'other_staff_id' => $staff->id,
+                'date' => $date,
+            ],
+            [
+                'status' => $defaultStatus,
+                'employee_id' => $record['employee_id'],
+                'marked_by' => null,
+            ]
+        );
+
+        $attendance->punch_time = $punchTime;
+        $attendance->punch_state = $record['punch_state'];
+        $attendance->punch_type = $record['punch_type'] ?? 'fingerprint';
+        $attendance->device_sn = $record['device_sn'] ?? null;
+
+        // Check In: First punch or earlier punch
+        if ($record['punch_state'] == 0 || ! $attendance->in_time) {
+            if (! $attendance->in_time || $punchTime->lt($attendance->in_time)) {
+                $attendance->in_time = $punchTime;
+            }
+        }
+
+        // Check Out: Last punch or later punch
+        if ($record['punch_state'] == 1 || $attendance->in_time) {
+            if (! $attendance->out_time || $punchTime->gt($attendance->out_time)) {
+                $attendance->out_time = $punchTime;
+            }
+        }
+
+        // Status calculation
+        if ($staff->isWeekend($date)) {
+            $attendance->status = 'weekend';
+        } else {
+            $status = 'present';
+
+            // Check Late
+            if ($attendance->in_time && $staff->late_time) {
+                $lateCutoff = Carbon::parse($date.' '.$staff->late_time);
+                if (Carbon::parse($attendance->in_time)->greaterThan($lateCutoff)) {
+                    $status = 'late';
+                }
+            }
+
+            // Check Early Leave
+            if ($attendance->out_time && $staff->out_time) {
+                $expectedOut = Carbon::parse($date.' '.$staff->out_time)->subMinutes(15);
+                if (Carbon::parse($attendance->out_time)->lessThan($expectedOut)) {
+                    if ($status === 'present') {
+                        $status = 'early_leave';
+                    }
+                }
+            }
+
+            $attendance->status = $status;
+        }
+
+        $attendance->save();
+
+        Log::info("Other staff attendance updated: {$staff->name} on {$date}");
     }
 }

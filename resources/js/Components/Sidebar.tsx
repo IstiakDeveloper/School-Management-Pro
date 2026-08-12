@@ -46,6 +46,7 @@ import {
     CalendarClock,
     BookCopy,
     ArrowLeftRight,
+    Calculator,
 } from 'lucide-react';
 
 interface User {
@@ -117,6 +118,16 @@ const menuItems: MenuItem[] = [
         children: [
             { name: 'Salary Payments', href: '/salary-payments', icon: <DollarSign className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
             { name: 'Provident Fund', href: '/provident-fund', icon: <Wallet className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
+        ],
+    },
+    {
+        name: 'Other Staff',
+        icon: <Users className={iconClass} />,
+        roles: ['Super Admin'],
+        children: [
+            { name: 'All Staff', href: '/other-staff', icon: <Users className={iconClass} />, roles: ['Super Admin'] },
+            { name: 'Attendance Logs', href: '/other-staff-attendance', icon: <ClipboardCheck className={iconClass} />, roles: ['Super Admin'] },
+            { name: 'Attendance Calculator', href: '/other-staff-attendance?tab=calculator', icon: <Calculator className={iconClass} />, roles: ['Super Admin'] },
         ],
     },
     {
@@ -228,7 +239,7 @@ export default function Sidebar() {
     React.useEffect(() => {
         menuItems.forEach((item) => {
             if (item.children) {
-                const hasActiveChild = item.children.some((child) => child.href && url.startsWith(child.href));
+                const hasActiveChild = item.children.some((child) => child.href && isActive(child.href));
                 if (hasActiveChild && !openMenus.includes(item.name)) {
                     setOpenMenus((prev) => [...prev, item.name]);
                 }
@@ -245,7 +256,25 @@ export default function Sidebar() {
     const isActive = (href?: string) => {
         if (!href) return false;
         if (href === '/dashboard') return url === '/dashboard';
-        return url.startsWith(href);
+
+        const [currentPath, currentQuery] = url.split('?');
+        const [targetPath, targetQuery] = href.split('?');
+
+        // Path must match exactly or match a sub-route with trailing slash boundary
+        const isPathMatch = currentPath === targetPath || currentPath.startsWith(targetPath + '/');
+        if (!isPathMatch) return false;
+
+        // If target specifies query parameter (e.g. ?tab=calculator), check query string
+        if (targetQuery) {
+            return currentQuery ? currentQuery.includes(targetQuery) : false;
+        }
+
+        // If current URL has tab=calculator, don't activate generic base link
+        if (currentQuery && currentQuery.includes('tab=calculator')) {
+            return false;
+        }
+
+        return true;
     };
 
     const hasAccess = (itemRoles?: string[]) => {

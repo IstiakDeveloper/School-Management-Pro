@@ -49,6 +49,7 @@ class HandleInertiaRequests extends Middleware
                     'email' => $request->user()->email,
                     'user_type' => $request->user()->user_type,
                     'roles' => $request->user()->roles,
+                    'is_super_admin' => $request->user()->isSuperAdmin(),
                 ] : null,
                 'can_edit_or_delete' => $request->user()?->canEditOrDeleteRecords() ?? false,
             ],
