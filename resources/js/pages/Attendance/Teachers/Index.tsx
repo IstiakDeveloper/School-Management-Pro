@@ -1,30 +1,47 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
-import { Plus, Calendar, Users, Trash2, Clock, UserCheck, UserX, RefreshCw, Download } from 'lucide-react';
+import ComboSelect from '@/Components/ComboSelect';
+import IndexPagination from '@/Components/IndexPagination';
+import { AttendancePageHeader, type AttendancePersonType } from '@/Components/TeacherAttendanceNav';
+import {
+    Calendar,
+    Users,
+    Trash2,
+    Clock,
+    UserCheck,
+    UserX,
+    RefreshCw,
+    Search,
+    Plus,
+    Edit,
+} from 'lucide-react';
 
-interface Teacher {
+interface Person {
     id: number;
-    employee_id: string;
-    user?: {
-        name: string;
-        email: string;
-    } | null;
-    designation?: string;
-    department?: string;
+    name: string;
+    employee_id: string | null;
+    email?: string | null;
+    designation?: string | null;
+    department?: string | null;
+    class_name?: string | null;
+    section_name?: string | null;
 }
 
-interface Attendance {
-    id: number;
+interface AttendanceRow {
+    id: number | null;
+    teacher_id: number;
     date: string;
-    status: string;
+    status: string | null;
     in_time: string | null;
     out_time: string | null;
+    in_time_formatted: string | null;
+    out_time_formatted: string | null;
+    hours: string | null;
     remarks: string | null;
-    reason: string | null;
-    teacher: Teacher | null;
-    created_at: string;
+    auto_remarks: string | null;
+    teacher: Person;
 }
 
 interface DeviceSettingInfo {
@@ -33,32 +50,38 @@ interface DeviceSettingInfo {
     last_sync_at: string | null;
 }
 
-interface TeacherNotMarked {
+interface ClassOption {
     id: number;
     name: string;
-    employee_id: string | null;
-    designation: string | null;
+}
+
+interface SectionOption {
+    id: number;
+    name: string;
+    class_id: number;
 }
 
 interface IndexProps {
+    reportType?: AttendancePersonType;
     attendances: {
-        data: Attendance[];
+        data: AttendanceRow[];
         current_page: number;
         last_page: number;
         per_page: number;
         total: number;
-        from: number;
-        to: number;
-        links: Array<{
-            url: string | null;
-            label: string;
-            active: boolean;
-        }>;
+        from: number | null;
+        to: number | null;
+        links: Array<{ url: string | null; label: string; active: boolean }>;
     };
-    teachersNotMarked?: TeacherNotMarked[];
     filters: {
+        report_type?: string;
         date: string;
         status?: string;
+        search?: string;
+        department?: string;
+        class_id?: string | number | null;
+        section_id?: string | number | null;
+        per_page?: number;
     };
     stats: {
         total: number;
@@ -67,306 +90,367 @@ interface IndexProps {
         late: number;
         leave: number;
         early_leave?: number;
+        half_day?: number;
+        holiday?: number;
+        weekend?: number;
     };
+    departments: string[];
+    classes?: ClassOption[];
+    sections?: SectionOption[];
+    needsClass?: boolean;
     deviceSetting?: DeviceSettingInfo | null;
 }
 
-export default function Index({ attendances, teachersNotMarked = [], filters, stats, deviceSetting }: IndexProps) {
+const statusConfig: Record<string, { label: string; badge: string; dot: string }> = {
+    present: { label: 'Present', badge: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20', dot: 'bg-emerald-500' },
+    absent: { label: 'Absent', badge: 'bg-rose-50 text-rose-700 ring-rose-600/20', dot: 'bg-rose-500' },
+    late: { label: 'Late', badge: 'bg-amber-50 text-amber-700 ring-amber-600/20', dot: 'bg-amber-500' },
+    early_leave: { label: 'Early leave', badge: 'bg-orange-50 text-orange-700 ring-orange-600/20', dot: 'bg-orange-500' },
+    half_day: { label: 'Half day', badge: 'bg-indigo-50 text-indigo-700 ring-indigo-600/20', dot: 'bg-indigo-500' },
+    holiday: { label: 'Holiday', badge: 'bg-purple-50 text-purple-700 ring-purple-600/20', dot: 'bg-purple-500' },
+    leave: { label: 'Leave', badge: 'bg-sky-50 text-sky-700 ring-sky-600/20', dot: 'bg-sky-500' },
+    weekend: { label: 'Weekend', badge: 'bg-slate-100 text-slate-600 ring-slate-500/20', dot: 'bg-slate-400' },
+};
+
+const statusItems = [
+    { value: 'present', label: 'Present' },
+    { value: 'absent', label: 'Absent' },
+    { value: 'late', label: 'Late' },
+    { value: 'early_leave', label: 'Early leave' },
+    { value: 'half_day', label: 'Half day' },
+    { value: 'leave', label: 'Leave' },
+    { value: 'holiday', label: 'Holiday' },
+    { value: 'weekend', label: 'Weekend' },
+];
+
+const fieldLabel = 'mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500';
+const dateInput = 'h-9 w-full rounded-xl border border-slate-200/80 bg-white px-3 text-sm text-slate-800 shadow-sm outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15';
+
+export default function Index({
+    reportType = 'teacher',
+    attendances,
+    filters,
+    stats,
+    departments,
+    classes = [],
+    sections = [],
+    needsClass = false,
+    deviceSetting,
+}: IndexProps) {
+    const isStudent = reportType === 'student';
+    const personLabel = isStudent ? 'student' : 'teacher';
     const [selectedDate, setSelectedDate] = useState(filters.date || new Date().toISOString().split('T')[0]);
     const [selectedStatus, setSelectedStatus] = useState(filters.status || '');
+    const [search, setSearch] = useState(filters.search || '');
+    const [department, setDepartment] = useState(filters.department || '');
+    const [classId, setClassId] = useState(filters.class_id ? String(filters.class_id) : '');
+    const [sectionId, setSectionId] = useState(filters.section_id ? String(filters.section_id) : '');
 
-    const handleDateChange = (date: string) => {
-        setSelectedDate(date);
-        router.get('/teacher-attendance',
-            { date, status: selectedStatus || undefined },
-            { preserveState: true, preserveScroll: true }
-        );
+    const sectionItems = useMemo(
+        () => sections
+            .filter((section) => !classId || String(section.class_id) === classId)
+            .map((section) => ({ value: String(section.id), label: section.name })),
+        [sections, classId],
+    );
+
+    const applyFilters = (overrides: Record<string, string | undefined> = {}) => {
+        const nextType = (overrides.report_type as AttendancePersonType) || reportType;
+        router.get('/teacher-attendance', {
+            report_type: nextType,
+            date: overrides.date ?? selectedDate,
+            status: (overrides.status ?? selectedStatus) || undefined,
+            search: (overrides.search ?? search) || undefined,
+            department: nextType === 'teacher' ? (overrides.department ?? department) || undefined : undefined,
+            class_id: nextType === 'student' ? (overrides.class_id ?? classId) || undefined : undefined,
+            section_id: nextType === 'student' ? (overrides.section_id ?? sectionId) || undefined : undefined,
+        }, { preserveState: true, preserveScroll: true });
     };
 
-    const handleStatusChange = (status: string) => {
-        setSelectedStatus(status);
-        router.get('/teacher-attendance',
-            { date: selectedDate, status: status || undefined },
-            { preserveState: true, preserveScroll: true }
-        );
+    const switchType = (next: AttendancePersonType) => {
+        setDepartment('');
+        setClassId('');
+        setSectionId('');
+        setSearch('');
+        applyFilters({
+            report_type: next,
+            department: '',
+            class_id: '',
+            section_id: '',
+            search: '',
+        });
     };
 
     const handleDelete = (id: number) => {
         if (confirm('Are you sure you want to delete this attendance record?')) {
-            router.delete(`/teacher-attendance/${id}`, {
-                preserveScroll: true,
-            });
+            router.delete(isStudent ? `/student-attendance/${id}` : `/teacher-attendance/${id}`, { preserveScroll: true });
         }
     };
 
-    const getStatusBadge = (status: string) => {
-        const badges: Record<string, string> = {
-            present: 'bg-green-100 text-green-800 border-green-200',
-            absent: 'bg-red-100 text-red-800 border-red-200',
-            late: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-            early_leave: 'bg-amber-100 text-amber-800 border-amber-200',
-            half_day: 'bg-blue-100 text-blue-800 border-blue-200',
-            holiday: 'bg-purple-100 text-purple-800 border-purple-200',
-            leave: 'bg-orange-100 text-orange-800 border-orange-200',
-        };
-        return badges[status] || 'bg-gray-100 text-gray-800 border-gray-200';
-    };
-
-    const getStatusIcon = (status: string) => {
-        switch (status) {
-            case 'present':
-                return <UserCheck className="h-4 w-4" />;
-            case 'absent':
-                return <UserX className="h-4 w-4" />;
-            case 'late':
-            case 'early_leave':
-                return <Clock className="h-4 w-4" />;
-            default:
-                return <Users className="h-4 w-4" />;
-        }
-    };
-
-    const formatTime = (time: string | null) => {
-        if (!time) return '---';
-        try {
-            const date = new Date(time);
-            return date.toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: true
-            });
-        } catch {
-            // If time is already formatted, return as is
-            return time;
-        }
-    };
-
-    const calculateWorkingHours = (inTime: string | null, outTime: string | null) => {
-        if (!inTime || !outTime) return '---';
-        try {
-            const start = new Date(inTime);
-            const end = new Date(outTime);
-            const diff = end.getTime() - start.getTime();
-            const hours = Math.floor(diff / (1000 * 60 * 60));
-            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-            return `${hours}h ${minutes}m`;
-        } catch {
-            return '---';
-        }
-    };
+    const markHref = isStudent
+        ? `/student-attendance/create?date=${selectedDate}${classId ? `&class_id=${classId}` : ''}${sectionId ? `&section_id=${sectionId}` : ''}`
+        : `/teacher-attendance/create?date=${selectedDate}`;
 
     return (
         <AuthenticatedLayout>
-            <Head title="Teacher Attendance" />
+            <Head title="Daily Attendance" />
 
-            <div className="space-y-6 animate-fade-in">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-xl font-semibold text-gray-900">Teacher Attendance</h1>
-                        <p className="text-xs text-emerald-700/80 mt-0.5">View and manage daily attendance records</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        {deviceSetting && (
-                            <div className="hidden sm:flex items-center gap-1.5 text-xs text-gray-500 bg-gray-100 px-2.5 py-1.5 rounded border border-emerald-100">
-                                <span className="font-medium text-gray-600">Device:</span>
-                                <span>{deviceSetting.device_name || 'N/A'}</span>
-                                {deviceSetting.device_ip && <span className="text-gray-400">({deviceSetting.device_ip})</span>}
-                                {deviceSetting.last_sync_at && (
-                                    <span className="text-gray-400">· Last sync: {new Date(deviceSetting.last_sync_at).toLocaleString()}</span>
-                                )}
-                            </div>
-                        )}
-                        <Link href="/teacher-attendance/calendar">
-                            <Button variant="outline" size="sm" icon={<Calendar className="w-4 h-4" />}>
-                                Calendar
-                            </Button>
-                        </Link>
-                        <Link href={`/teacher-attendance/create?date=${selectedDate}`}>
-                            <Button size="sm" icon={<Plus className="w-4 h-4" />}>
-                                Mark Attendance
-                            </Button>
-                        </Link>
-                    </div>
-                </div>
-
-                {/* Stats - compact */}
-                <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
+            <div className="space-y-5">
+                <AttendancePageHeader
+                    title="Daily Attendance"
+                    subtitle={isStudent ? 'All students for the selected date, including unmarked records' : 'All teachers for the selected date, including unmarked records'}
+                    current="daily"
+                    date={selectedDate}
+                    reportType={reportType}
+                    onTypeChange={switchType}
+                    extra={deviceSetting ? (
+                        <div className="hidden xl:flex items-center gap-1.5 rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-1.5 text-[11px] text-slate-500 shadow-sm">
+                            <span className="font-semibold text-slate-700">{deviceSetting.device_name || 'Device'}</span>
+                            {deviceSetting.last_sync_at && (
+                                <span>· {new Date(deviceSetting.last_sync_at).toLocaleString()}</span>
+                            )}
+                        </div>
+                    ) : undefined}
+                />
+                {/* KPI Stat Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2.5">
                     {[
-                        { label: 'Total', value: stats.total, icon: Users, color: 'text-gray-700 bg-gray-100' },
-                        { label: 'Present', value: stats.present, icon: UserCheck, color: 'text-green-700 bg-green-50' },
-                        { label: 'Absent', value: stats.absent, icon: UserX, color: 'text-red-700 bg-red-50' },
-                        { label: 'Late', value: stats.late, icon: Clock, color: 'text-amber-700 bg-amber-50' },
-                        { label: 'Early leave', value: stats.early_leave ?? 0, icon: Clock, color: 'text-amber-600 bg-amber-50' },
-                        { label: 'Leave', value: stats.leave, icon: Calendar, color: 'text-orange-700 bg-orange-50' },
-                    ].map(({ label, value, icon: Icon, color }) => (
-                        <div key={label} className="bg-white rounded-lg border border-emerald-100 px-4 py-3 flex items-center gap-3">
-                            <div className={`p-1.5 rounded ${color}`}>
-                                <Icon className="w-4 h-4" />
+                        { label: 'Total', value: stats.total, icon: Users, bg: 'bg-slate-100 text-slate-700' },
+                        { label: 'Present', value: stats.present, icon: UserCheck, bg: 'bg-emerald-50 text-emerald-700' },
+                        { label: 'Absent', value: stats.absent, icon: UserX, bg: 'bg-rose-50 text-rose-700' },
+                        { label: 'Late', value: stats.late, icon: Clock, bg: 'bg-amber-50 text-amber-700' },
+                        { label: 'Early leave', value: stats.early_leave ?? 0, icon: Clock, bg: 'bg-orange-50 text-orange-700' },
+                        { label: 'Leave', value: stats.leave, icon: Calendar, bg: 'bg-sky-50 text-sky-700' },
+                        { label: 'Holiday', value: stats.holiday ?? 0, icon: Calendar, bg: 'bg-purple-50 text-purple-700' },
+                        { label: 'Weekend', value: stats.weekend ?? 0, icon: Calendar, bg: 'bg-slate-100 text-slate-600' },
+                    ].map(({ label, value, icon: Icon, bg }) => (
+                        <div key={label} className="rounded-xl border border-slate-200/80 bg-white p-2.5 shadow-2xs">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-medium text-slate-500">{label}</span>
+                                <div className={`inline-flex rounded-md p-1 ${bg}`}>
+                                    <Icon className="h-3 w-3" />
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-xs text-gray-500">{label}</p>
-                                <p className="text-sm font-semibold text-gray-900">{value}</p>
-                            </div>
+                            <p className="mt-1 text-base font-bold tracking-tight text-slate-900">{value}</p>
                         </div>
                     ))}
                 </div>
 
-                {/* Date & Filter - minimal */}
-                <div className="bg-white rounded-lg border border-emerald-100 p-4">
-                    <div className="flex flex-wrap items-end gap-4">
-                        <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Date</label>
+                {/* Filter Panel */}
+                <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs">
+                    <div className="grid grid-cols-1 items-end gap-3 md:grid-cols-12">
+                        <div className="md:col-span-2">
+                            <label className={fieldLabel}>Date</label>
                             <input
                                 type="date"
                                 value={selectedDate}
-                                onChange={(e) => handleDateChange(e.target.value)}
-                                className="text-sm w-full max-w-[160px] px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                                onChange={(e) => {
+                                    setSelectedDate(e.target.value);
+                                    applyFilters({ date: e.target.value });
+                                }}
+                                className={dateInput}
                             />
                         </div>
-                        <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
-                            <select
-                                value={selectedStatus}
-                                onChange={(e) => handleStatusChange(e.target.value)}
-                                className="text-sm w-full max-w-[140px] px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
-                            >
-                                <option value="">All</option>
-                                <option value="present">Present</option>
-                                <option value="absent">Absent</option>
-                                <option value="late">Late</option>
-                                <option value="early_leave">Early leave</option>
-                                <option value="half_day">Half Day</option>
-                                <option value="leave">Leave</option>
-                                <option value="holiday">Holiday</option>
-                            </select>
+                        <div className={isStudent ? 'md:col-span-2' : 'md:col-span-3'}>
+                            <label className={fieldLabel}>Search {personLabel}</label>
+                            <div className="relative">
+                                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                                <input
+                                    type="text"
+                                    placeholder={isStudent ? 'Name, adm or roll...' : 'Search by name or ID...'}
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
+                                    className={`${dateInput} pl-8`}
+                                />
+                            </div>
                         </div>
-                        <div className="flex gap-1.5">
-                            <button
+                        {isStudent ? (
+                            <>
+                                <div className="md:col-span-2">
+                                    <label className={fieldLabel}>Class</label>
+                                    <ComboSelect
+                                        value={classId || null}
+                                        onChange={(next) => {
+                                            setClassId(next || '');
+                                            setSectionId('');
+                                            applyFilters({ class_id: next || '', section_id: '' });
+                                        }}
+                                        items={classes.map((item) => ({ value: String(item.id), label: item.name }))}
+                                        placeholder="All classes"
+                                    />
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label className={fieldLabel}>Section</label>
+                                    <ComboSelect
+                                        value={sectionId || null}
+                                        onChange={(next) => {
+                                            setSectionId(next || '');
+                                            applyFilters({ section_id: next || '' });
+                                        }}
+                                        items={sectionItems}
+                                        placeholder="All sections"
+                                    />
+                                </div>
+                            </>
+                        ) : (
+                            <div className="md:col-span-2">
+                                <label className={fieldLabel}>Department</label>
+                                <ComboSelect
+                                    value={department || null}
+                                    onChange={(next) => {
+                                        setDepartment(next || '');
+                                        applyFilters({ department: next || '' });
+                                    }}
+                                    items={departments.map((dept) => ({ value: dept, label: dept }))}
+                                    placeholder="All departments"
+                                />
+                            </div>
+                        )}
+                        <div className="md:col-span-2">
+                            <label className={fieldLabel}>Status</label>
+                            <ComboSelect
+                                value={selectedStatus || null}
+                                onChange={(next) => {
+                                    setSelectedStatus(next || '');
+                                    applyFilters({ status: next || '' });
+                                }}
+                                items={statusItems}
+                                placeholder="All statuses"
+                            />
+                        </div>
+                        <div className="flex gap-2 md:col-span-3">
+                            <Button
                                 type="button"
-                                onClick={() => handleDateChange(new Date().toISOString().split('T')[0])}
-                                className="text-xs px-2.5 py-1.5 border border-gray-300 rounded hover:bg-gray-50 text-gray-700"
+                                variant="outline"
+                                size="sm"
+                                className="h-9 rounded-xl border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                                onClick={() => {
+                                    const today = new Date().toISOString().split('T')[0];
+                                    setSelectedDate(today);
+                                    applyFilters({ date: today });
+                                }}
                             >
                                 Today
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 type="button"
-                                onClick={() => handleDateChange(selectedDate)}
-                                className="text-xs px-2.5 py-1.5 border border-gray-300 rounded hover:bg-gray-50 text-gray-700 inline-flex items-center gap-1"
+                                size="sm"
+                                className="h-9 rounded-xl bg-slate-900 text-xs font-semibold text-white hover:bg-slate-800"
+                                onClick={() => applyFilters()}
+                                icon={<RefreshCw className="h-3.5 w-3.5" />}
                             >
-                                <RefreshCw className="w-3 h-3" /> Refresh
-                            </button>
+                                Apply
+                            </Button>
                         </div>
-                        <p className="text-xs text-gray-400 ml-auto self-center">
-                            {new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
-                        </p>
                     </div>
                 </div>
 
-                {/* Attendance Table */}
-                <div className="bg-white rounded-lg border border-emerald-100 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">
-                            {attendances.data.length > 0
-                                ? `${attendances.data.length} record${attendances.data.length !== 1 ? 's' : ''}`
-                                : 'No records'
-                            }
-                        </span>
-                        <Link href="/teacher-attendance/report" className="text-xs text-gray-500 hover:text-gray-700 inline-flex items-center gap-1">
-                            <Download className="w-3.5 h-3.5" /> Report
-                        </Link>
+                {/* Table Container */}
+                <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-2xs">
+                    <div className="flex items-center justify-between border-b border-slate-100 bg-white px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-xs font-semibold text-slate-900">Attendance Register</h2>
+                            <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                                {attendances.total} {personLabel}{attendances.total !== 1 ? 's' : ''}
+                            </span>
+                        </div>
                     </div>
-
                     <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-emerald-50/70 border-b border-emerald-100">
+                        <table className="w-full text-left">
+                            <thead className="border-b border-slate-200 bg-slate-100/90">
                                 <tr>
-                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Teacher</th>
-                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">In</th>
-                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Out</th>
-                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Hours</th>
-                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Remarks</th>
-                                    <th className="px-4 py-2.5 text-right text-[11px] font-medium text-gray-500 uppercase tracking-wider w-12"></th>
+                                    {[isStudent ? 'Student' : 'Teacher', 'ID', isStudent ? 'Class' : 'Dept', 'Status', 'In', 'Out', 'Hours', 'Remarks', ''].map((heading, i) => (
+                                        <th
+                                            key={i}
+                                            className={`px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-700 ${heading === '' ? 'text-right' : ''}`}
+                                        >
+                                            {heading}
+                                        </th>
+                                    ))}
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-200 bg-white">
-                                {attendances.data.length > 0 ? (
-                                    attendances.data.map((attendance) => {
-                                        const teacher = attendance.teacher;
-                                        const displayName = teacher?.user?.name ?? (teacher?.employee_id ? `Employee ${teacher.employee_id}` : 'Deleted teacher');
-                                        const initial = (teacher?.user?.name?.charAt(0) ?? teacher?.employee_id?.charAt(0) ?? '?').toUpperCase();
-                                        return (
-                                        <tr key={attendance.id} className="hover:bg-gray-50/80 transition-colors">
-                                            <td className="px-4 py-3">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="flex-shrink-0 h-9 w-9 bg-gray-200 rounded-full flex items-center justify-center">
-                                                        <span className="text-gray-600 text-xs font-medium">
-                                                            {initial}
-                                                        </span>
+                            <tbody className="divide-y divide-slate-200">
+                                {attendances.data.length > 0 ? attendances.data.map((row) => {
+                                    const person = row.teacher;
+                                    const initial = (person?.name?.charAt(0) ?? person?.employee_id?.charAt(0) ?? '?').toUpperCase();
+                                    const statusKey = row.status?.toLowerCase() || '';
+                                    const meta = statusConfig[statusKey];
+
+                                    return (
+                                        <tr key={`${row.teacher_id}-${row.date}`} className="border-b border-slate-200/90 hover:bg-slate-50/80 transition-colors">
+                                            <td className="px-3 py-2">
+                                                <div className="flex items-center gap-2.5">
+                                                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-[11px] font-bold text-slate-700 ring-1 ring-slate-900/10">
+                                                        {initial}
                                                     </div>
                                                     <div>
-                                                        <p className="text-sm text-gray-900 font-medium">
-                                                            {displayName}
+                                                        <p className="text-xs font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors leading-tight">
+                                                            {person?.name}
                                                         </p>
-                                                        {teacher?.user?.email && (
-                                                            <p className="text-xs text-gray-500">
-                                                                {teacher.user.email}
-                                                            </p>
-                                                        )}
-                                                        {teacher?.designation && (
-                                                            <p className="text-xs text-gray-400 mt-0.5">
-                                                                {teacher.designation}
-                                                            </p>
+                                                        {person?.designation && (
+                                                            <p className="text-[10px] text-slate-400 leading-tight">{person.designation}</p>
                                                         )}
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-3">
-                                                <span className="text-xs text-gray-600 font-mono bg-gray-100 px-1.5 py-0.5 rounded">
-                                                    {teacher?.employee_id ?? '—'}
+                                            <td className="px-3 py-2">
+                                                <span className="inline-flex items-center font-mono text-[10px] text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/60">
+                                                    {person?.employee_id ?? '—'}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3 whitespace-nowrap">
-                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border ${getStatusBadge(attendance.status)}`}>
-                                                    {getStatusIcon(attendance.status)}
-                                                    <span className="capitalize">{attendance.status.replace('_', ' ')}</span>
+                                            <td className="px-3 py-2 text-xs text-slate-600">
+                                                {person?.department || '—'}
+                                            </td>
+                                            <td className="px-3 py-2">
+                                                {meta ? (
+                                                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${meta.badge}`}>
+                                                        <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
+                                                        {meta.label}
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-500/20">
+                                                        <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                                                        {row.status ? row.status.replace('_', ' ') : 'Unmarked'}
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-3 py-2 text-xs text-slate-700 font-mono">
+                                                {row.in_time_formatted || '—'}
+                                            </td>
+                                            <td className="px-3 py-2 text-xs text-slate-700 font-mono">
+                                                {row.out_time_formatted || '—'}
+                                            </td>
+                                            <td className="px-3 py-2">
+                                                <span className="inline-flex items-center font-mono text-[10px] text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">
+                                                    {row.hours || '—'}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">
-                                                {formatTime(attendance.in_time)}
+                                            <td className="max-w-[160px] truncate px-3 py-2 text-[11px] text-slate-500" title={row.auto_remarks || row.remarks || ''}>
+                                                {row.auto_remarks || row.remarks || '—'}
                                             </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-700">
-                                                {formatTime(attendance.out_time)}
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap">
-                                                <span className="text-xs text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">
-                                                    {calculateWorkingHours(attendance.in_time, attendance.out_time)}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3 text-xs text-gray-500 max-w-[120px] truncate">
-                                                {attendance.reason || attendance.remarks || '—'}
-                                            </td>
-                                            <td className="px-4 py-3 text-right">
+                                            <td className="px-3 py-2 text-right">
                                                 <button
-                                                    onClick={() => handleDelete(attendance.id)}
-                                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                                                    title="Delete attendance"
+                                                    type="button"
+                                                    onClick={() => openEditModal(row)}
+                                                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors shadow-2xs"
                                                 >
-                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                    <Edit className="h-3 w-3" />
+                                                    Edit
                                                 </button>
                                             </td>
                                         </tr>
-                                        );
-                                    })
-                                ) : (
+                                    );
+                                }) : (
                                     <tr>
-                                        <td colSpan={8} className="px-4 py-12 text-center">
-                                            <p className="text-sm text-gray-500 mb-3">No records for this date.</p>
-                                            <Link href={`/teacher-attendance/create?date=${selectedDate}`}>
-                                                <Button size="sm" icon={<Plus className="w-4 h-4" />}>
-                                                    Mark attendance
+                                        <td colSpan={9} className="px-4 py-12 text-center">
+                                            <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+                                                <Users className="h-5 w-5" />
+                                            </div>
+                                            <p className="text-xs font-semibold text-slate-700">No attendance records found</p>
+                                            <p className="text-[11px] text-slate-400 mt-0.5">Try adjusting your date or filter options</p>
+                                            <Link href={markHref} className="mt-4 inline-block">
+                                                <Button size="sm" className="rounded-xl bg-slate-900 text-white hover:bg-slate-800" icon={<Plus className="h-3.5 w-3.5" />}>
+                                                    Mark Attendance
                                                 </Button>
                                             </Link>
                                         </td>
@@ -375,77 +459,14 @@ export default function Index({ attendances, teachersNotMarked = [], filters, st
                             </tbody>
                         </table>
                     </div>
+                    <IndexPagination
+                        links={attendances.links}
+                        from={attendances.from}
+                        to={attendances.to}
+                        total={attendances.total}
+                        lastPage={attendances.last_page}
+                    />
                 </div>
-
-                {/* Teachers not marked for this date (e.g. Jannatul Ferdous - no device punch or no employee_id) */}
-                {teachersNotMarked.length > 0 && (
-                    <div className="bg-amber-50/80 rounded-lg border border-amber-200 overflow-hidden">
-                        <div className="px-4 py-3 border-b border-amber-200 flex items-center justify-between">
-                            <span className="text-sm font-medium text-amber-800">
-                                Not marked for this date ({teachersNotMarked.length} teacher{teachersNotMarked.length !== 1 ? 's' : ''})
-                            </span>
-                            <Link
-                                href={`/teacher-attendance/create?date=${selectedDate}`}
-                                className="text-xs font-medium text-amber-700 hover:text-amber-900 inline-flex items-center gap-1"
-                            >
-                                <Plus className="w-3.5 h-3.5" /> Mark attendance
-                            </Link>
-                        </div>
-                        <div className="p-4">
-                            <p className="text-xs text-amber-800/90 mb-3">
-                                These teachers have no attendance record today. They may not have punched on the device, or their Employee ID may not be set in the system. Mark manually if needed.
-                            </p>
-                            <ul className="flex flex-wrap gap-2">
-                                {teachersNotMarked.map((t) => (
-                                    <li
-                                        key={t.id}
-                                        className="inline-flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-amber-200 text-sm text-gray-700"
-                                    >
-                                        <Users className="w-4 h-4 text-amber-600" />
-                                        <span className="font-medium">{t.name}</span>
-                                        {t.employee_id && (
-                                            <span className="text-xs text-gray-500 font-mono">({t.employee_id})</span>
-                                        )}
-                                        {!t.employee_id && (
-                                            <span className="text-xs text-amber-600" title="Set Employee ID in Teacher profile for device sync">No device ID</span>
-                                        )}
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    </div>
-                )}
-
-                {/* Pagination */}
-                {attendances.last_page > 1 && (
-                    <div className="bg-white rounded-lg border border-emerald-100 px-4 py-3 flex items-center justify-between">
-                        <span className="text-xs text-gray-500">
-                            {attendances.from}–{attendances.to} of {attendances.total}
-                        </span>
-                        <div className="flex gap-1">
-                            {attendances.links.map((link, index) => (
-                                link.url ? (
-                                    <Link
-                                        key={index}
-                                        href={link.url}
-                                        preserveState
-                                        preserveScroll
-                                        className={`px-2.5 py-1 text-xs font-medium rounded border transition-colors ${
-                                            link.active ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-                                        }`}
-                                        dangerouslySetInnerHTML={{ __html: link.label }}
-                                    />
-                                ) : (
-                                    <span
-                                        key={index}
-                                        className="px-2.5 py-1 text-xs text-gray-400 border border-emerald-100 rounded cursor-not-allowed"
-                                        dangerouslySetInnerHTML={{ __html: link.label }}
-                                    />
-                                )
-                            ))}
-                        </div>
-                    </div>
-                )}
             </div>
         </AuthenticatedLayout>
     );

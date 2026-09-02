@@ -188,7 +188,7 @@ export default function Create({ classes, sections }: Props) {
             <div className="space-y-6">
                 <div className="flex justify-between items-center">
                     <h1 className="text-2xl font-bold text-gray-900">Mark Student Attendance</h1>
-                    <Button variant="secondary" onClick={() => router.get('/student-attendance')}>
+                    <Button variant="secondary" onClick={() => router.get('/teacher-attendance?report_type=student')}>
                         <ArrowLeft className="h-4 w-4 mr-2" />
                         Back
                     </Button>
@@ -316,7 +316,7 @@ export default function Create({ classes, sections }: Props) {
                             </div>
 
                             <div className="mt-6 flex justify-end space-x-4">
-                                <Button type="button" variant="secondary" onClick={() => router.get('/student-attendance')}>
+                                <Button type="button" variant="secondary" onClick={() => router.get('/teacher-attendance?report_type=student')}>
                                     Cancel
                                 </Button>
                                 <Button type="submit" disabled={processing}>

@@ -40,12 +40,13 @@
 /* Premium Modern Index Redesign Styles */
 
 /* Base main container fade-in animation */
-main.index-premium-layout {
-    animation: fadeIn 0.4s ease-out;
+main.index-premium-layout,
+main.attendance-module-layout {
+    animation: fadeIn 0.3s ease-out;
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(4px); }
+    from { opacity: 0; transform: translateY(3px); }
     to { opacity: 1; transform: translateY(0); }
 }
 

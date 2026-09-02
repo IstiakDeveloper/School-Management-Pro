@@ -98,22 +98,22 @@ export default function Calendar({ students, year, month, daysInMonth, classes, 
         : sections;
 
     const getStatusBadge = (status: string | null) => {
-        const badges = {
-            present: { bg: 'bg-green-100', text: 'text-green-800', label: 'P' },
-            absent: { bg: 'bg-red-100', text: 'text-red-800', label: 'A' },
-            late: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'L' },
-            excused: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'E' },
-            holiday: { bg: 'bg-purple-100', text: 'text-purple-800', label: 'H' },
-            weekend: { bg: 'bg-cyan-100', text: 'text-cyan-800', label: 'W' },
+        const badges: Record<string, { bg: string; text: string; label: string }> = {
+            present: { bg: 'bg-emerald-500', text: 'text-white', label: 'P' },
+            absent: { bg: 'bg-rose-500', text: 'text-white', label: 'A' },
+            late: { bg: 'bg-amber-500', text: 'text-white', label: 'L' },
+            excused: { bg: 'bg-sky-500', text: 'text-white', label: 'E' },
+            holiday: { bg: 'bg-purple-500', text: 'text-white', label: 'H' },
+            weekend: { bg: 'bg-slate-200', text: 'text-slate-700', label: 'W' },
         };
 
         if (!status) {
-            return <span className="text-gray-400 font-medium">-</span>;
+            return <span className="text-slate-300 font-medium text-xs">·</span>;
         }
 
-        const badge = badges[status as keyof typeof badges] || badges.absent;
+        const badge = badges[status] || badges.absent;
         return (
-            <div className={`${badge.bg} ${badge.text} w-full h-full flex items-center justify-center font-semibold text-[10px] rounded`}>
+            <div className={`${badge.bg} ${badge.text} w-5 h-5 mx-auto flex items-center justify-center font-bold text-[10px] rounded-md shadow-2xs transition-transform hover:scale-110`}>
                 {badge.label}
             </div>
         );
@@ -141,7 +141,7 @@ export default function Calendar({ students, year, month, daysInMonth, classes, 
                         .print\\:hidden {
                             display: none !important;
                         }
-                        .space-y-6 {
+                        .space-y-5 {
                             gap: 0 !important;
                             margin: 0 !important;
                         }
@@ -153,9 +153,6 @@ export default function Calendar({ students, year, month, daysInMonth, classes, 
                             border: none !important;
                             margin: 0 !important;
                             padding: 0 !important;
-                        }
-                        .rounded-xl {
-                            border-radius: 0 !important;
                         }
                         table {
                             width: 100% !important;
@@ -192,45 +189,37 @@ export default function Calendar({ students, year, month, daysInMonth, classes, 
             </Head>
 
             {/* Screen View */}
-            <div className="space-y-6 animate-fade-in print:hidden">
+            <div className="space-y-5 print:hidden">
                 {/* Header */}
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                        <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                            Student Attendance Calendar
-                        </h1>
-                        <p className="text-sm text-gray-600 mt-1">Monthly grid view of student attendance</p>
+                        <h1 className="text-xl font-bold tracking-tight text-slate-900">Student Attendance Calendar</h1>
+                        <p className="text-xs text-slate-500 mt-0.5">Monthly matrix view and performance summary</p>
                     </div>
-                    <div className="flex gap-2 print:hidden">
-                        <Button onClick={handlePrint} variant="outline" icon={<Printer className="w-4 h-4" />}>
+                    <div className="flex items-center gap-2">
+                        <Button onClick={handlePrint} variant="outline" size="sm" className="rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm" icon={<Printer className="w-3.5 h-3.5" />}>
                             Print
                         </Button>
                         <Link href="/student-attendance">
-                            <Button variant="outline" icon={<List className="w-4 h-4" />}>
-                                List View
-                            </Button>
-                        </Link>
-                        <Link href="/student-attendance">
-                            <Button variant="ghost" icon={<ArrowLeft className="w-4 h-4" />}>
-                                Back
+                            <Button variant="outline" size="sm" className="rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm" icon={<List className="w-3.5 h-3.5" />}>
+                                Register View
                             </Button>
                         </Link>
                     </div>
                 </div>
 
                 {/* Filters */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 print:hidden">
-                    <h3 className="text-xs font-semibold text-gray-700 mb-2">Filters</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-4.5 shadow-sm ring-1 ring-slate-950/[0.02]">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3.5">
                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                             <input
                                 type="text"
-                                placeholder="Search student..."
+                                placeholder="Search student name or roll..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 onKeyPress={(e) => e.key === 'Enter' && handleApplyFilters()}
-                                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="h-9 w-full rounded-xl border border-slate-200/80 bg-white pl-9 pr-3 text-sm text-slate-800 shadow-sm outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15"
                             />
                         </div>
                         <div>
@@ -240,7 +229,7 @@ export default function Calendar({ students, year, month, daysInMonth, classes, 
                                     setSelectedClass(e.target.value);
                                     setSelectedSection('');
                                 }}
-                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="h-9 w-full rounded-xl border border-slate-200/80 bg-white px-3 text-sm text-slate-800 shadow-sm outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15"
                             >
                                 <option value="">All Classes</option>
                                 {classes.map((cls) => (
@@ -255,7 +244,7 @@ export default function Calendar({ students, year, month, daysInMonth, classes, 
                                 value={selectedSection}
                                 onChange={(e) => setSelectedSection(e.target.value)}
                                 disabled={!selectedClass}
-                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                className="h-9 w-full rounded-xl border border-slate-200/80 bg-white px-3 text-sm text-slate-800 shadow-sm outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 disabled:bg-slate-50"
                             >
                                 <option value="">All Sections</option>
                                 {filteredSections.map((section) => (
@@ -265,126 +254,155 @@ export default function Calendar({ students, year, month, daysInMonth, classes, 
                                 ))}
                             </select>
                         </div>
-                        <Button onClick={handleApplyFilters}>Apply Filters</Button>
+                        <Button size="sm" className="h-9 rounded-xl bg-slate-900 text-white hover:bg-slate-800 shadow-sm" onClick={handleApplyFilters}>
+                            Apply Filters
+                        </Button>
                     </div>
                 </div>
 
                 {/* Legend */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 print:p-2">
+                <div className="rounded-2xl border border-slate-200/80 bg-white px-4 py-2.5 shadow-sm ring-1 ring-slate-950/[0.02]">
                     <div className="flex items-center justify-between flex-wrap gap-3">
-                        <div className="flex items-center gap-4">
+                        <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-slate-600">
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Legend:</span>
                             <div className="flex items-center gap-1.5">
-                                <div className="w-6 h-6 bg-green-100 text-green-800 rounded flex items-center justify-center font-semibold text-xs">P</div>
-                                <span className="text-xs text-gray-600">Present</span>
+                                <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-emerald-500 text-[9px] font-bold text-white">P</span>
+                                <span>Present</span>
                             </div>
                             <div className="flex items-center gap-1.5">
-                                <div className="w-6 h-6 bg-red-100 text-red-800 rounded flex items-center justify-center font-semibold text-xs">A</div>
-                                <span className="text-xs text-gray-600">Absent</span>
+                                <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-rose-500 text-[9px] font-bold text-white">A</span>
+                                <span>Absent</span>
                             </div>
                             <div className="flex items-center gap-1.5">
-                                <div className="w-6 h-6 bg-yellow-100 text-yellow-800 rounded flex items-center justify-center font-semibold text-xs">L</div>
-                                <span className="text-xs text-gray-600">Late</span>
+                                <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-amber-500 text-[9px] font-bold text-white">L</span>
+                                <span>Late</span>
                             </div>
                             <div className="flex items-center gap-1.5">
-                                <div className="w-6 h-6 bg-blue-100 text-blue-800 rounded flex items-center justify-center font-semibold text-xs">E</div>
-                                <span className="text-xs text-gray-600">Excused</span>
+                                <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-sky-500 text-[9px] font-bold text-white">E</span>
+                                <span>Excused</span>
                             </div>
                             <div className="flex items-center gap-1.5">
-                                <div className="w-6 h-6 bg-purple-100 text-purple-800 rounded flex items-center justify-center font-semibold text-xs">H</div>
-                                <span className="text-xs text-gray-600">Holiday</span>
+                                <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-purple-500 text-[9px] font-bold text-white">H</span>
+                                <span>Holiday</span>
                             </div>
                             <div className="flex items-center gap-1.5">
-                                <div className="w-6 h-6 bg-cyan-100 text-cyan-800 rounded flex items-center justify-center font-semibold text-xs">W</div>
-                                <span className="text-xs text-gray-600">Weekend</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                                <div className="w-6 h-6 bg-white border-2 border-gray-300 rounded flex items-center justify-center text-gray-400 font-semibold text-xs">-</div>
-                                <span className="text-xs text-gray-600">No Record</span>
+                                <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-slate-200 text-[9px] font-bold text-slate-700">W</span>
+                                <span>Weekend</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Calendar Grid */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-950/[0.02]">
                     {/* Month Navigation */}
-                    <div className="bg-gradient-to-r from-blue-50 to-cyan-50 px-4 py-2 border-b border-gray-200 print:py-1">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2">
-                                <CalendarIcon className="h-4 w-4 text-blue-600" />
-                                <h3 className="text-base font-semibold text-gray-900">
-                                    {months[month - 1]} {year}
-                                </h3>
-                            </div>
-                            <div className="flex items-center space-x-2 print:hidden">
-                                <button
-                                    onClick={handlePrevMonth}
-                                    className="p-1.5 hover:bg-white rounded-lg transition-colors border border-gray-300"
-                                >
-                                    <ChevronLeft className="h-4 w-4 text-gray-600" />
-                                </button>
-                                <button
-                                    onClick={handleNextMonth}
-                                    className="p-1.5 hover:bg-white rounded-lg transition-colors border border-gray-300"
-                                >
-                                    <ChevronRight className="h-4 w-4 text-gray-600" />
-                                </button>
-                            </div>
+                    <div className="border-b border-slate-100 bg-white px-5 py-3.5 flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                            <CalendarIcon className="h-4 w-4 text-slate-500" />
+                            <h3 className="text-sm font-semibold text-slate-900">
+                                {months[month - 1]} {year}
+                            </h3>
+                        </div>
+                        <div className="flex items-center space-x-1.5">
+                            <button
+                                onClick={handlePrevMonth}
+                                className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 text-slate-600"
+                                title="Previous month"
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                            </button>
+                            <button
+                                onClick={handleNextMonth}
+                                className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 text-slate-600"
+                                title="Next month"
+                            >
+                                <ChevronRight className="h-4 w-4" />
+                            </button>
                         </div>
                     </div>
 
                     <div className="overflow-x-auto">
                         <table className="w-full border-collapse">
-                            <thead className="bg-gray-50 sticky top-0 z-10">
+                            <thead className="bg-slate-100/90 border-b border-slate-200 sticky top-0 z-10">
                                 <tr>
-                                    <th className="px-2 py-1 text-left text-[9px] font-semibold text-gray-600 uppercase border-b-2 border-r border-gray-200 bg-gray-50 sticky left-0 z-20" style={{ minWidth: '140px' }}>
+                                    <th className="px-2.5 py-1.5 text-left text-[10px] font-bold text-slate-700 uppercase border-r border-slate-200 bg-slate-100 sticky left-0 z-20 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)]" style={{ minWidth: '150px' }}>
                                         Student
                                     </th>
-                                    {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => (
-                                        <th key={day} className="px-0.5 py-1 text-center text-[9px] font-semibold text-gray-600 border-b-2 border-gray-200" style={{ minWidth: '28px', width: '28px' }}>
-                                            {day}
-                                        </th>
-                                    ))}
-                                    <th className="px-2 py-1 text-center text-[9px] font-semibold text-gray-600 uppercase border-b-2 border-l border-gray-200 bg-gray-50" style={{ minWidth: '45px' }}>
+                                    {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
+                                        const d = new Date(Number(year), Number(month) - 1, day);
+                                        const dayOfWeek = d.getDay();
+                                        const dayName = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'][dayOfWeek];
+                                        const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
+
+                                        return (
+                                            <th
+                                                key={day}
+                                                className={`border-r border-slate-200/80 px-0.5 py-1 text-center select-none ${isWeekend ? 'bg-rose-50/70' : 'bg-slate-100/90'}`}
+                                                style={{ minWidth: '27px', width: '27px' }}
+                                                title={`${dayName}, ${months[month - 1]} ${day}`}
+                                            >
+                                                <div className={`text-[8px] font-semibold uppercase leading-none ${isWeekend ? 'text-rose-600' : 'text-slate-400'}`}>
+                                                    {dayName}
+                                                </div>
+                                                <div className={`text-[10px] font-bold leading-tight mt-0.5 ${isWeekend ? 'text-rose-700' : 'text-slate-800'}`}>
+                                                    {day}
+                                                </div>
+                                            </th>
+                                        );
+                                    })}
+                                    <th className="px-2 py-1 text-center text-[10px] font-bold text-slate-700 uppercase border-l border-slate-200 bg-slate-200/60" style={{ minWidth: '50px' }}>
                                         Total
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody className="divide-y divide-slate-200">
                                 {students.length > 0 ? (
                                     students.map((student) => (
-                                        <tr key={student.id} className="hover:bg-blue-50/50 transition-colors print:hover:bg-transparent">
-                                            <td className="px-2 py-1 border-b border-r border-gray-200 bg-white sticky left-0 z-10">
+                                        <tr key={student.id} className="border-b border-slate-200/90 hover:bg-slate-50/80 transition-colors">
+                                            <td className="px-2.5 py-1.5 border-r border-b border-slate-200 bg-white sticky left-0 z-10 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)]">
                                                 <div>
-                                                    <p className="text-[10px] font-semibold text-gray-900 leading-tight">{student.name}</p>
-                                                    <p className="text-[8px] text-gray-500 leading-tight">
+                                                    <p className="text-xs font-semibold text-slate-900 leading-tight truncate max-w-[140px]">{student.name}</p>
+                                                    <p className="text-[10px] text-slate-500 font-mono leading-tight mt-0.5">
                                                         Adm: {student.admission_number}
-                                                        {student.roll_number && ` | Roll: ${student.roll_number}`}
+                                                        {student.roll_number && ` · Roll ${student.roll_number}`}
                                                     </p>
-                                                    <p className="text-[8px] text-gray-400 leading-tight">
-                                                        Class {student.class_name} - {student.section_name}
+                                                    <p className="text-[10px] text-slate-400 leading-tight">
+                                                        {student.class_name} - {student.section_name}
                                                     </p>
                                                 </div>
                                             </td>
-                                            {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => (
-                                                <td key={day} className="px-0.5 py-0.5 border-b border-gray-200" style={{ minWidth: '28px', width: '28px', height: '35px' }}>
-                                                    {getStatusBadge(student.attendance[day]?.status)}
-                                                </td>
-                                            ))}
-                                            <td className="px-2 py-1 text-center border-b border-l border-gray-200 bg-gray-50">
-                                                <span className="text-[10px] font-bold text-green-600">{student.present_count}</span>
+                                            {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
+                                                const d = new Date(Number(year), Number(month) - 1, day);
+                                                const isWeekend = d.getDay() === 5 || d.getDay() === 6;
+
+                                                return (
+                                                    <td key={day} className={`px-0.5 py-1 text-center border-r border-b border-slate-100 ${isWeekend ? 'bg-slate-50/40' : ''}`} style={{ minWidth: '27px', width: '27px', height: '28px' }}>
+                                                        {getStatusBadge(student.attendance[day]?.status)}
+                                                    </td>
+                                                );
+                                            })}
+                                            <td className="px-2 py-1 text-center border-l border-b border-slate-200/70 bg-slate-50/40 font-semibold text-xs text-emerald-700">
+                                                {student.present_count}
                                             </td>
                                         </tr>
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={daysInMonth + 2} className="px-6 py-8 text-center text-sm text-gray-500">
+                                        <td colSpan={daysInMonth + 2} className="px-6 py-12 text-center text-xs text-slate-500">
                                             No students found for the selected filters
                                         </td>
                                     </tr>
                                 )}
                             </tbody>
                         </table>
+                    </div>
+                    <div className="bg-slate-50/75 border-t border-slate-200 px-4 py-2.5 flex items-center justify-between rounded-b-xl select-none">
+                        <span className="text-xs font-medium text-slate-500">
+                            Total <span className="font-semibold text-slate-800">{students.length}</span> students listed
+                        </span>
+                        <span className="text-[11px] font-medium text-slate-400">
+                            {months[month - 1]} {year}
+                        </span>
                     </div>
                 </div>
             </div>

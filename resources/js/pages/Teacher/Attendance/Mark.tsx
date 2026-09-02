@@ -40,35 +40,34 @@ export default function Mark({ section, date, students }: Props) {
     };
 
     const getStatusBadge = (status: string) => {
-        const variants: Record<string, any> = {
+        const variants: Record<string, { badge: string; dot: string; label: string }> = {
             present: {
-                color: 'bg-green-100 text-green-800 border-green-200',
-                icon: CheckCircle,
-                label: 'Present'
+                badge: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+                dot: 'bg-emerald-500',
+                label: 'Present',
             },
             absent: {
-                color: 'bg-red-100 text-red-800 border-red-200',
-                icon: XCircle,
-                label: 'Absent'
+                badge: 'bg-rose-50 text-rose-700 ring-rose-600/20',
+                dot: 'bg-rose-500',
+                label: 'Absent',
             },
             late: {
-                color: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-                icon: Clock,
-                label: 'Late'
+                badge: 'bg-amber-50 text-amber-700 ring-amber-600/20',
+                dot: 'bg-amber-500',
+                label: 'Late',
             },
             half_day: {
-                color: 'bg-blue-100 text-blue-800 border-blue-200',
-                icon: Calendar,
-                label: 'Half Day'
+                badge: 'bg-indigo-50 text-indigo-700 ring-indigo-600/20',
+                dot: 'bg-indigo-500',
+                label: 'Half Day',
             },
         };
 
         const variant = variants[status] || variants.present;
-        const Icon = variant.icon;
 
         return (
-            <span className={`inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg border ${variant.color}`}>
-                <Icon className="mr-1 h-4 w-4" />
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full ring-1 ring-inset ${variant.badge}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${variant.dot}`} />
                 {variant.label}
             </span>
         );
@@ -92,22 +91,22 @@ export default function Mark({ section, date, students }: Props) {
             <Head title="View Attendance" />
 
             <div className="py-6">
-                <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
+                <div className="mx-auto max-w-7xl sm:px-6 lg:px-8 space-y-5">
                     {/* Header */}
-                    <div className="mb-6">
+                    <div>
                         <button
                             onClick={() => window.history.back()}
-                            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
+                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 mb-3 transition-colors"
                         >
                             <ArrowLeft className="w-4 h-4" />
-                            Back
+                            Back to attendance
                         </button>
-                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
-                            <div className="flex items-center justify-between">
+                        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm ring-1 ring-slate-950/[0.02]">
+                            <div className="flex flex-wrap items-center justify-between gap-4">
                                 <div>
-                                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Attendance Records</h2>
-                                    <p className="text-sm text-gray-600">
-                                        Class {section.class_name} - Section {section.name}
+                                    <h2 className="text-xl font-bold text-slate-900 tracking-tight">Class Attendance Records</h2>
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        Class: <span className="font-semibold text-slate-700">{section.class_name}</span> · Section: <span className="font-semibold text-slate-700">{section.name}</span>
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-3">
@@ -115,94 +114,88 @@ export default function Mark({ section, date, students }: Props) {
                                         type="date"
                                         value={selectedDate}
                                         onChange={(e) => handleDateChange(e.target.value)}
-                                        className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                                        className="h-9 rounded-xl border border-slate-200/80 bg-white px-3 text-sm text-slate-800 shadow-sm outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15"
                                     />
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Summary Cards */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                        <div className="p-4 bg-white border border-green-200 rounded-lg shadow-sm">
-                            <p className="text-sm text-gray-600 mb-1">Present</p>
-                            <p className="text-3xl font-bold text-green-600">{summary.present}</p>
+                    {/* KPI Metric Tiles */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                        <div className="p-2.5 bg-white border border-slate-200/80 rounded-xl shadow-2xs">
+                            <p className="text-[10px] font-medium text-slate-500">Present</p>
+                            <p className="text-base font-bold text-emerald-600 mt-0.5">{summary.present}</p>
                         </div>
-                        <div className="p-4 bg-white border border-red-200 rounded-lg shadow-sm">
-                            <p className="text-sm text-gray-600 mb-1">Absent</p>
-                            <p className="text-3xl font-bold text-red-600">{summary.absent}</p>
+                        <div className="p-2.5 bg-white border border-slate-200/80 rounded-xl shadow-2xs">
+                            <p className="text-[10px] font-medium text-slate-500">Absent</p>
+                            <p className="text-base font-bold text-rose-600 mt-0.5">{summary.absent}</p>
                         </div>
-                        <div className="p-4 bg-white border border-yellow-200 rounded-lg shadow-sm">
-                            <p className="text-sm text-gray-600 mb-1">Late</p>
-                            <p className="text-3xl font-bold text-yellow-600">{summary.late}</p>
+                        <div className="p-2.5 bg-white border border-slate-200/80 rounded-xl shadow-2xs">
+                            <p className="text-[10px] font-medium text-slate-500">Late</p>
+                            <p className="text-base font-bold text-amber-600 mt-0.5">{summary.late}</p>
                         </div>
-                        <div className="p-4 bg-white border border-blue-200 rounded-lg shadow-sm">
-                            <p className="text-sm text-gray-600 mb-1">Half Day</p>
-                            <p className="text-3xl font-bold text-blue-600">{summary.half_day}</p>
+                        <div className="p-2.5 bg-white border border-slate-200/80 rounded-xl shadow-2xs">
+                            <p className="text-[10px] font-medium text-slate-500">Half Day</p>
+                            <p className="text-base font-bold text-indigo-600 mt-0.5">{summary.half_day}</p>
                         </div>
                     </div>
 
                     {/* Search Bar */}
-                    <div className="mb-6">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                            <input
-                                type="text"
-                                placeholder="Search by name or roll number..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                            />
-                        </div>
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-3.5 w-3.5" />
+                        <input
+                            type="text"
+                            placeholder="Search by student name or roll number..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="h-8.5 w-full rounded-xl border border-slate-200/80 bg-white pl-9 pr-3 text-xs text-slate-800 shadow-2xs outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15"
+                        />
                     </div>
 
                     {/* Attendance List */}
-                    <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
-                        <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-                            <h3 className="text-lg font-semibold text-gray-900">
-                                Student Attendance ({filteredStudents.length} of {students.length})
+                    <div className="bg-white rounded-xl shadow-2xs overflow-hidden border border-slate-200/80">
+                        <div className="bg-slate-100/90 px-4 py-2 border-b border-slate-200 flex items-center justify-between">
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                                Student Register
                             </h3>
+                            <span className="rounded-full bg-slate-200/60 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                                {filteredStudents.length} of {students.length} students
+                            </span>
                         </div>
 
-                        <div className="p-6 space-y-4">
+                        <div className="divide-y divide-slate-100">
                             {filteredStudents.length === 0 ? (
-                                <div className="text-center py-8 text-gray-500">
+                                <div className="text-center py-10 text-slate-400 text-xs">
                                     No students found matching your search.
                                 </div>
                             ) : (
                                 filteredStudents.map((student) => (
-                                    <div key={student.id} className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
-                                        <div className="flex items-start gap-4">
-                                            <div className="flex-shrink-0">
+                                    <div key={student.id} className="px-3.5 py-1.5 flex items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="shrink-0">
                                                 {student.photo ? (
                                                     <img
                                                         src={`/storage/${student.photo}`}
                                                         alt={student.full_name}
-                                                        className="h-12 w-12 rounded-full object-cover border-2 border-gray-200"
+                                                        className="h-7 w-7 rounded-lg object-cover ring-1 ring-slate-900/10"
                                                     />
                                                 ) : (
-                                                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-bold text-lg">
+                                                    <div className="h-7 w-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700 font-bold text-[10px] ring-1 ring-slate-900/10">
                                                         {student.full_name.charAt(0)}
                                                     </div>
                                                 )}
                                             </div>
-                                            <div className="flex-1">
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <div>
-                                                        <h4 className="font-semibold text-gray-900">{student.full_name}</h4>
-                                                        <p className="text-sm text-gray-600">Roll: {student.roll_number}</p>
-                                                    </div>
-                                                    <div>
-                                                        {getStatusBadge(student.attendance_status || 'absent')}
-                                                    </div>
-                                                </div>
+                                            <div>
+                                                <h4 className="text-xs font-semibold text-slate-900 leading-tight">{student.full_name}</h4>
+                                                <p className="text-[10px] text-slate-500 font-mono leading-tight mt-0.5">Roll: {student.roll_number}</p>
                                                 {student.remarks && (
-                                                    <div className="mt-2 p-2 bg-gray-50 rounded border border-gray-200">
-                                                        <p className="text-xs font-medium text-gray-700 mb-1">Remarks:</p>
-                                                        <p className="text-sm text-gray-600">{student.remarks}</p>
-                                                    </div>
+                                                    <p className="text-[10px] text-slate-400 leading-tight truncate max-w-xs">Note: {student.remarks}</p>
                                                 )}
                                             </div>
+                                        </div>
+                                        <div>
+                                            {getStatusBadge(student.attendance_status || 'absent')}
                                         </div>
                                     </div>
                                 ))

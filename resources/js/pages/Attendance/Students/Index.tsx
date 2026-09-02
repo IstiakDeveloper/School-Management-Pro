@@ -101,22 +101,12 @@ export default function Index({ attendances, filters, stats, classes, sections }
         }
     };
 
-    const getStatusBadge = (status: string) => {
-        const badges: Record<string, string> = {
-            present: 'bg-green-100 text-green-800 border-green-200',
-            absent: 'bg-red-100 text-red-800 border-red-200',
-            late: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-            excused: 'bg-blue-100 text-blue-800 border-blue-200',
-        };
-        return badges[status] || 'bg-gray-100 text-gray-800 border-gray-200';
-    };
-
-    const getStatusIcon = (status: string) => {
-        switch (status) {
-            case 'present': return <UserCheck className="h-3.5 w-3.5" />;
-            case 'absent': return <UserX className="h-3.5 w-3.5" />;
-            default: return <Clock className="h-3.5 w-3.5" />;
-        }
+    const statusConfig: Record<string, { label: string; badge: string; dot: string }> = {
+        present: { label: 'Present', badge: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20', dot: 'bg-emerald-500' },
+        absent: { label: 'Absent', badge: 'bg-rose-50 text-rose-700 ring-rose-600/20', dot: 'bg-rose-500' },
+        late: { label: 'Late', badge: 'bg-amber-50 text-amber-700 ring-amber-600/20', dot: 'bg-amber-500' },
+        excused: { label: 'Excused', badge: 'bg-sky-50 text-sky-700 ring-sky-600/20', dot: 'bg-sky-500' },
+        half_day: { label: 'Half day', badge: 'bg-indigo-50 text-indigo-700 ring-indigo-600/20', dot: 'bg-indigo-500' },
     };
 
     const formatTime = (time: string | null) => {
@@ -150,84 +140,90 @@ export default function Index({ attendances, filters, stats, classes, sections }
         <AuthenticatedLayout>
             <Head title="Student Attendance" />
 
-            <div className="space-y-4">
-                <div className="flex items-center justify-between">
+            <div className="space-y-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                        <h1 className="text-xl font-semibold text-gray-900">Student Attendance</h1>
-                        <p className="text-xs text-emerald-700/80 mt-0.5">View and mark student attendance</p>
+                        <h1 className="text-xl font-bold tracking-tight text-slate-900">Student Attendance</h1>
+                        <p className="text-xs text-slate-500 mt-0.5">View, filter and manage student attendance records</p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-2">
                         <Link href="/student-attendance/calendar">
-                            <Button variant="outline" size="sm" icon={<Calendar className="w-4 h-4" />}>Calendar</Button>
+                            <Button variant="outline" size="sm" className="rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm" icon={<Calendar className="w-4 h-4" />}>
+                                Calendar
+                            </Button>
                         </Link>
                         <Link href={`/student-attendance/create?date=${selectedDate}${selectedClass ? `&class_id=${selectedClass}` : ''}${selectedSection ? `&section_id=${selectedSection}` : ''}`}>
-                            <Button size="sm" icon={<Plus className="w-4 h-4" />}>Mark Attendance</Button>
+                            <Button size="sm" className="rounded-xl bg-slate-900 text-white hover:bg-slate-800 shadow-sm" icon={<Plus className="w-4 h-4" />}>
+                                Mark Attendance
+                            </Button>
                         </Link>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                {/* KPI Cards */}
+                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-5">
                     {[
-                        { label: 'Total', value: stats.total, icon: Users, color: 'text-gray-700 bg-gray-100' },
-                        { label: 'Present', value: stats.present, icon: UserCheck, color: 'text-green-700 bg-green-50' },
-                        { label: 'Absent', value: stats.absent, icon: UserX, color: 'text-red-700 bg-red-50' },
-                        { label: 'Late', value: stats.late, icon: Clock, color: 'text-amber-700 bg-amber-50' },
-                        { label: 'Excused', value: stats.excused, icon: Calendar, color: 'text-purple-700 bg-purple-50' },
-                    ].map(({ label, value, icon: Icon, color }) => (
-                        <div key={label} className="bg-white rounded-lg border border-emerald-100 px-4 py-3 flex items-center gap-3">
-                            <div className={`p-1.5 rounded ${color}`}>
-                                <Icon className="w-4 h-4" />
+                        { label: 'Total', value: stats.total, icon: Users, bg: 'bg-slate-100 text-slate-700' },
+                        { label: 'Present', value: stats.present, icon: UserCheck, bg: 'bg-emerald-50 text-emerald-700' },
+                        { label: 'Absent', value: stats.absent, icon: UserX, bg: 'bg-rose-50 text-rose-700' },
+                        { label: 'Late', value: stats.late, icon: Clock, bg: 'bg-amber-50 text-amber-700' },
+                        { label: 'Excused', value: stats.excused, icon: AlertCircle, bg: 'bg-sky-50 text-sky-700' },
+                    ].map(({ label, value, icon: Icon, bg }) => (
+                        <div key={label} className="rounded-xl border border-slate-200/80 bg-white p-2.5 shadow-2xs">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-medium text-slate-500">{label}</span>
+                                <div className={`p-1 rounded-md ${bg}`}>
+                                    <Icon className="w-3.5 h-3.5" />
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-xs text-gray-500">{label}</p>
-                                <p className="text-sm font-semibold text-gray-900">{value}</p>
-                            </div>
+                            <p className="mt-1 text-base font-bold tracking-tight text-slate-900">{value}</p>
                         </div>
                     ))}
                 </div>
 
-                <div className="bg-white rounded-lg border border-emerald-100 p-4">
+                {/* Filter Bar */}
+                <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs">
                     <div className="flex flex-wrap items-end gap-3">
                         <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Date</label>
+                            <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Date</label>
                             <input
                                 type="date"
                                 value={selectedDate}
                                 onChange={(e) => handleDateChange(e.target.value)}
-                                className="text-sm px-2.5 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                                className="h-8.5 rounded-xl border border-slate-200/80 bg-white px-2.5 text-xs text-slate-800 shadow-2xs outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15"
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Class</label>
+                            <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Class</label>
                             <select
                                 value={selectedClass}
                                 onChange={(e) => handleClassChange(e.target.value)}
-                                className="text-sm px-2.5 py-1.5 border border-gray-300 rounded w-32 focus:ring-1 focus:ring-gray-400"
+                                className="h-8.5 rounded-xl border border-slate-200/80 bg-white px-2.5 text-xs text-slate-800 shadow-2xs outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 min-w-[120px]"
                             >
-                                <option value="">All</option>
+                                <option value="">All Classes</option>
                                 {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Section</label>
+                            <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Section</label>
                             <select
                                 value={selectedSection}
                                 onChange={(e) => handleSectionChange(e.target.value)}
                                 disabled={!selectedClass}
-                                className="text-sm px-2.5 py-1.5 border border-gray-300 rounded w-28 focus:ring-1 focus:ring-gray-400 disabled:bg-gray-100"
+                                className="h-8.5 rounded-xl border border-slate-200/80 bg-white px-2.5 text-xs text-slate-800 shadow-2xs outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 min-w-[110px] disabled:bg-slate-50"
                             >
-                                <option value="">All</option>
+                                <option value="">All Sections</option>
                                 {filteredSections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
+                            <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Status</label>
                             <select
                                 value={selectedStatus}
                                 onChange={(e) => handleStatusChange(e.target.value)}
-                                className="text-sm px-2.5 py-1.5 border border-gray-300 rounded w-28 focus:ring-1 focus:ring-gray-400"
+                                className="h-8.5 rounded-xl border border-slate-200/80 bg-white px-2.5 text-xs text-slate-800 shadow-2xs outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 min-w-[110px]"
                             >
-                                <option value="">All</option>
+                                <option value="">All Statuses</option>
                                 <option value="present">Present</option>
                                 <option value="absent">Absent</option>
                                 <option value="late">Late</option>
@@ -238,82 +234,100 @@ export default function Index({ attendances, filters, stats, classes, sections }
                             <button
                                 type="button"
                                 onClick={() => handleDateChange(new Date().toISOString().split('T')[0])}
-                                className="text-xs px-2.5 py-1.5 border border-gray-300 rounded hover:bg-gray-50"
+                                className="h-8.5 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs transition-colors"
                             >
                                 Today
                             </button>
                             <button
                                 type="button"
                                 onClick={() => applyFilters()}
-                                className="text-xs px-2.5 py-1.5 border border-gray-300 rounded hover:bg-gray-50 inline-flex items-center gap-1"
+                                className="h-8.5 rounded-xl bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-800 inline-flex items-center gap-1 shadow-2xs transition-colors"
                             >
-                                <RefreshCw className="w-3 h-3" /> Refresh
+                                <RefreshCw className="w-3 h-3" /> Apply
                             </button>
                         </div>
-                        <p className="text-xs text-gray-400 ml-auto self-center">
+                        <p className="text-[11px] font-medium text-slate-400 ml-auto self-center">
                             {new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
                         </p>
                     </div>
                 </div>
 
-                <div className="bg-white rounded-lg border border-emerald-100 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-emerald-100 flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">
-                            {data.length > 0 ? `${data.length} record${data.length !== 1 ? 's' : ''}` : 'No records'}
-                        </span>
-                        <Link href="/student-attendance/report" className="text-xs text-gray-500 hover:text-gray-700 inline-flex items-center gap-1">
-                            <Download className="w-3.5 h-3.5" /> Report
+                {/* Table Container */}
+                <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-2xs">
+                    <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between bg-white">
+                        <div className="flex items-center gap-2">
+                            <h3 className="text-xs font-semibold text-slate-900">Student Register</h3>
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                                {data.length} record{data.length !== 1 ? 's' : ''}
+                            </span>
+                        </div>
+                        <Link href="/student-attendance/report" className="text-xs font-semibold text-slate-600 hover:text-slate-900 inline-flex items-center gap-1">
+                            <Download className="w-3.5 h-3.5 text-slate-400" /> Report
                         </Link>
                     </div>
                     <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-emerald-50/70 border-b border-emerald-100">
+                        <table className="w-full text-left">
+                            <thead className="bg-slate-100/90 border-b border-slate-200">
                                 <tr>
-                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Student</th>
-                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Class</th>
-                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">In</th>
-                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Out</th>
-                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Duration</th>
-                                    <th className="px-4 py-2.5 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">Reason</th>
-                                    <th className="px-4 py-2.5 text-right text-[11px] font-medium text-gray-500 uppercase tracking-wider w-12"></th>
+                                    <th className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-700">Student</th>
+                                    <th className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-700">Class</th>
+                                    <th className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-700">Status</th>
+                                    <th className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-700">In</th>
+                                    <th className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-700">Out</th>
+                                    <th className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-700">Duration</th>
+                                    <th className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-700">Reason</th>
+                                    <th className="px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-slate-700 w-12"></th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-200">
+                            <tbody className="divide-y divide-slate-200">
                                 {data.length > 0 ? data.map((att) => {
                                     const name = att.student?.user?.name ?? att.student?.admission_number ?? '—';
                                     const initial = (att.student?.user?.name?.charAt(0) ?? att.student?.admission_number?.charAt(0) ?? '?').toUpperCase();
+                                    const statusKey = att.status?.toLowerCase() || '';
+                                    const meta = statusConfig[statusKey];
+
                                     return (
-                                        <tr key={att.id} className="hover:bg-gray-50/80">
-                                            <td className="px-4 py-3">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-9 h-9 bg-gray-200 rounded-full flex items-center justify-center text-xs font-medium text-gray-600">
+                                        <tr key={att.id} className="border-b border-slate-200/90 hover:bg-slate-50/80 transition-colors">
+                                            <td className="px-3 py-2">
+                                                <div className="flex items-center gap-2.5">
+                                                    <div className="w-7 h-7 shrink-0 rounded-lg bg-slate-100 text-slate-700 ring-1 ring-slate-900/10 flex items-center justify-center text-[10px] font-bold">
                                                         {initial}
                                                     </div>
                                                     <div>
-                                                        <p className="text-sm font-medium text-gray-900">{name}</p>
-                                                        <p className="text-xs text-gray-500">Adm: {att.student?.admission_number ?? '—'}</p>
+                                                        <p className="text-xs font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors leading-tight">{name}</p>
+                                                        <p className="text-[10px] text-slate-400 font-mono leading-tight mt-0.5">Adm: {att.student?.admission_number ?? '—'}</p>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-3 text-xs text-gray-600">
-                                                {att.school_class?.name} / {att.section?.name}
+                                            <td className="px-3 py-2 text-xs font-medium text-slate-600">
+                                                {att.school_class?.name} · {att.section?.name}
                                             </td>
-                                            <td className="px-4 py-3">
-                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border ${getStatusBadge(att.status)}`}>
-                                                    {getStatusIcon(att.status)}
-                                                    <span className="capitalize">{att.status}</span>
+                                            <td className="px-3 py-2">
+                                                {meta ? (
+                                                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${meta.badge}`}>
+                                                        <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
+                                                        {meta.label}
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-500/20">
+                                                        <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                                                        {att.status}
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-3 py-2 text-xs font-mono text-slate-700">{formatTime(att.in_time)}</td>
+                                            <td className="px-3 py-2 text-xs font-mono text-slate-700">{formatTime(att.out_time)}</td>
+                                            <td className="px-3 py-2">
+                                                <span className="inline-flex items-center font-mono text-[10px] text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/60">
+                                                    {calcHours(att.in_time, att.out_time)}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3 text-xs text-gray-700">{formatTime(att.in_time)}</td>
-                                            <td className="px-4 py-3 text-xs text-gray-700">{formatTime(att.out_time)}</td>
-                                            <td className="px-4 py-3"><span className="text-xs text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">{calcHours(att.in_time, att.out_time)}</span></td>
-                                            <td className="px-4 py-3 text-xs text-gray-500 max-w-[120px] truncate">{att.reason || '—'}</td>
-                                            <td className="px-4 py-3 text-right">
+                                            <td className="px-3 py-2 text-[11px] text-slate-500 max-w-[140px] truncate">{att.reason || '—'}</td>
+                                            <td className="px-3 py-2 text-right">
                                                 <button
                                                     type="button"
                                                     onClick={() => handleDelete(att.id)}
-                                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                                                     title="Delete"
                                                 >
                                                     <Trash2 className="w-3.5 h-3.5" />
@@ -323,10 +337,14 @@ export default function Index({ attendances, filters, stats, classes, sections }
                                     );
                                 }) : (
                                     <tr>
-                                        <td colSpan={8} className="px-4 py-12 text-center">
-                                            <p className="text-sm text-gray-500 mb-3">No records for this date.</p>
+                                        <td colSpan={8} className="px-5 py-16 text-center">
+                                            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                                                <Users className="h-6 w-6" />
+                                            </div>
+                                            <p className="text-sm font-medium text-slate-700 mb-1">No student attendance records for this date.</p>
+                                            <p className="text-xs text-slate-400 mb-4">You can record attendance using the button below.</p>
                                             <Link href={`/student-attendance/create?date=${selectedDate}${selectedClass ? `&class_id=${selectedClass}` : ''}${selectedSection ? `&section_id=${selectedSection}` : ''}`}>
-                                                <Button size="sm" icon={<Plus className="w-4 h-4" />}>Mark attendance</Button>
+                                                <Button size="sm" className="rounded-xl bg-slate-900 text-white hover:bg-slate-800" icon={<Plus className="w-4 h-4" />}>Mark attendance</Button>
                                             </Link>
                                         </td>
                                     </tr>

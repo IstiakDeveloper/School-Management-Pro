@@ -135,10 +135,12 @@ const menuItems: MenuItem[] = [
         icon: <ClipboardCheck className={iconClass} />,
         roles: ['Super Admin', 'Admin', 'Principal', 'Teacher'],
         children: [
-            { name: 'Student Attendance', href: '/student-attendance', icon: <UserCheck className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
             { name: 'View Attendance', href: '/teacher/attendance', icon: <ClipboardList className={iconClass} />, roles: ['Teacher'] },
             { name: 'My Attendance', href: '/teacher/attendance/my', icon: <UserCheck className={iconClass} />, roles: ['Teacher'] },
-            { name: 'Teacher Attendance', href: '/teacher-attendance', icon: <ClipboardCheck className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
+            { name: 'Daily Attendance', href: '/teacher-attendance', icon: <ClipboardCheck className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
+            { name: 'Monthly View', href: '/teacher-attendance/monthly', icon: <CalendarDays className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
+            { name: 'Attendance Report', href: '/teacher-attendance/report', icon: <FileText className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
+            { name: 'Attendance Sheet Report', href: '/teacher-attendance/sheet-report', icon: <ClipboardList className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
             { name: 'Device Settings', href: '/device-settings', icon: <Cpu className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
         ],
     },
@@ -253,6 +255,15 @@ export default function Sidebar() {
         );
     };
 
+    const collectHrefs = (items: MenuItem[]): string[] => {
+        return items.flatMap((item) => {
+            const own = item.href ? [item.href.split('?')[0]] : [];
+            return item.children ? [...own, ...collectHrefs(item.children)] : own;
+        });
+    };
+
+    const menuPaths = collectHrefs(menuItems);
+
     const isActive = (href?: string) => {
         if (!href) return false;
         if (href === '/dashboard') return url === '/dashboard';
@@ -260,16 +271,24 @@ export default function Sidebar() {
         const [currentPath, currentQuery] = url.split('?');
         const [targetPath, targetQuery] = href.split('?');
 
-        // Path must match exactly or match a sub-route with trailing slash boundary
-        const isPathMatch = currentPath === targetPath || currentPath.startsWith(targetPath + '/');
-        if (!isPathMatch) return false;
+        const isExact = currentPath === targetPath;
+        const isPrefix = currentPath.startsWith(`${targetPath}/`);
+        if (!isExact && !isPrefix) return false;
 
-        // If target specifies query parameter (e.g. ?tab=calculator), check query string
+        // Prefer the most specific sidebar item (Daily should not stay active on Monthly/Report/Sheet)
+        if (isPrefix) {
+            const hasMoreSpecific = menuPaths.some((otherPath) => {
+                if (otherPath === targetPath) return false;
+                const matches = currentPath === otherPath || currentPath.startsWith(`${otherPath}/`);
+                return matches && otherPath.length > targetPath.length;
+            });
+            if (hasMoreSpecific) return false;
+        }
+
         if (targetQuery) {
             return currentQuery ? currentQuery.includes(targetQuery) : false;
         }
 
-        // If current URL has tab=calculator, don't activate generic base link
         if (currentQuery && currentQuery.includes('tab=calculator')) {
             return false;
         }
@@ -311,7 +330,7 @@ export default function Sidebar() {
             <nav className="flex-1 overflow-y-auto py-2 px-2 bg-white">
                 <ul className="space-y-0.5">
                     {filteredMenuItems.map((item) => (
-                        <li key={item.name}>
+                        <li key={item.href || item.name}>
                             {item.children ? (
                                 <>
                                     <button
@@ -332,7 +351,7 @@ export default function Sidebar() {
                                     {openMenus.includes(item.name) && (
                                         <ul className="mt-0.5 ml-4 pl-2 border-l-2 border-emerald-200 space-y-0.5">
                                             {item.children.map((child) => (
-                                                <li key={child.name}>
+                                                <li key={child.href || child.name}>
                                                     <Link
                                                         href={child.href!}
                                                         className={`flex items-center gap-2 py-1.5 px-2 rounded-lg text-xs transition-colors ${

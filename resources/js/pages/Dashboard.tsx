@@ -106,8 +106,7 @@ export default function Dashboard({
 
     const quickActions = [
         { name: 'Add Student', href: '/students/create', icon: Users, desc: 'Register new student' },
-        { name: 'Student Attendance', href: '/student-attendance', icon: UserCheck, desc: 'Mark daily attendance' },
-        { name: 'Teacher Attendance', href: '/teacher-attendance', icon: UserCheck, desc: 'View teacher attendance' },
+        { name: 'Daily Attendance', href: '/teacher-attendance', icon: UserCheck, desc: 'Teacher & student attendance' },
         { name: 'Fee Collection', href: '/fee-collections', icon: DollarSign, desc: 'Collect & manage fees' },
     ];
 
@@ -199,7 +198,7 @@ export default function Dashboard({
                                     </div>
                                     <div className="mt-3 flex flex-wrap gap-3">
                                         <Link
-                                            href="/student-attendance"
+                                            href="/teacher-attendance?report_type=student"
                                             className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-800"
                                         >
                                             Student attendance <ChevronRight className="w-3.5 h-3.5" />
@@ -208,7 +207,7 @@ export default function Dashboard({
                                             href="/teacher-attendance"
                                             className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-800"
                                         >
-                                            Teacher attendance <ChevronRight className="w-3.5 h-3.5" />
+                                            Daily attendance <ChevronRight className="w-3.5 h-3.5" />
                                         </Link>
                                     </div>
                                 </div>

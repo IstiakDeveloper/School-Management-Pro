@@ -2,7 +2,8 @@ import React, { useState, FormEventHandler } from 'react';
 import { Head, Link, useForm, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
-import { ArrowLeft, Save, Calendar, Users, Check, X } from 'lucide-react';
+import { AttendancePageHeader } from '@/Components/TeacherAttendanceNav';
+import { Save, Users, Check, X } from 'lucide-react';
 
 interface SchoolClass {
     id: number;
@@ -132,169 +133,183 @@ export default function Create({ classes, sections, date }: CreateProps) {
 
     const getStatusColor = (status: string) => {
         const colors = {
-            present: 'bg-green-500 hover:bg-green-600',
-            absent: 'bg-red-500 hover:bg-red-600',
-            late: 'bg-yellow-500 hover:bg-yellow-600',
-            half_day: 'bg-blue-500 hover:bg-blue-600',
-            holiday: 'bg-purple-500 hover:bg-purple-600',
+            present: 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-600',
+            absent: 'bg-rose-600 text-white shadow-sm ring-1 ring-rose-600',
+            late: 'bg-amber-500 text-white shadow-sm ring-1 ring-amber-500',
+            half_day: 'bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-600',
+            holiday: 'bg-purple-600 text-white shadow-sm ring-1 ring-purple-600',
         };
-        return colors[status as keyof typeof colors] || 'bg-gray-500';
+        return colors[status as keyof typeof colors] || 'bg-slate-100 text-slate-600';
     };
 
     return (
         <AuthenticatedLayout>
             <Head title="Mark Student Attendance" />
 
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 py-8">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    {/* Header */}
-                    <div className="mb-8">
-                        <Link
-                            href="/student-attendance"
-                            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
-                        >
-                            <ArrowLeft className="w-4 h-4" />
-                            Back to Attendance
-                        </Link>
-                        <div className="flex items-center gap-4">
-                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
-                                <Calendar className="w-8 h-8 text-white" />
-                            </div>
+            <div className="space-y-5">
+                <AttendancePageHeader
+                    title="Mark Student Attendance"
+                    subtitle="Record daily attendance for students"
+                    current="create"
+                    date={data.date}
+                    reportType="student"
+                    onTypeChange={(type) => {
+                        if (type === 'teacher') {
+                            router.get(`/teacher-attendance/create?date=${data.date}`);
+                        }
+                    }}
+                />
+
+                <form onSubmit={handleSubmit} className="space-y-5">
+                    {/* Date and Class Selection */}
+                    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm ring-1 ring-slate-950/[0.02]">
+                        <h2 className="text-sm font-semibold text-slate-900 mb-4">Select Target Class & Date</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <h1 className="text-3xl font-bold text-gray-900">Mark Student Attendance</h1>
-                                <p className="text-gray-600 mt-1">Record daily attendance for students</p>
+                                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+                                    Date <span className="text-rose-500">*</span>
+                                </label>
+                                <input
+                                    type="date"
+                                    value={data.date}
+                                    onChange={(e) => setData('date', e.target.value)}
+                                    className="h-9 w-full rounded-xl border border-slate-200/80 bg-white px-3 text-sm text-slate-800 shadow-sm outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15"
+                                    required
+                                />
+                                {errors.date && <p className="mt-1 text-xs text-rose-600">{errors.date}</p>}
                             </div>
+
+                            <div>
+                                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+                                    Class <span className="text-rose-500">*</span>
+                                </label>
+                                <select
+                                    value={selectedClass}
+                                    onChange={(e) => handleClassChange(e.target.value)}
+                                    className="h-9 w-full rounded-xl border border-slate-200/80 bg-white px-3 text-sm text-slate-800 shadow-sm outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15"
+                                    required
+                                >
+                                    <option value="">Select Class</option>
+                                    {classes.map((cls) => (
+                                        <option key={cls.id} value={cls.id}>
+                                            {cls.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                {errors.class_id && <p className="mt-1 text-xs text-rose-600">{errors.class_id}</p>}
+                            </div>
+
+                            <div>
+                                <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+                                    Section <span className="text-rose-500">*</span>
+                                </label>
+                                <select
+                                    value={selectedSection}
+                                    onChange={(e) => handleSectionChange(e.target.value)}
+                                    className="h-9 w-full rounded-xl border border-slate-200/80 bg-white px-3 text-sm text-slate-800 shadow-sm outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 disabled:bg-slate-50"
+                                    required
+                                    disabled={!selectedClass}
+                                >
+                                    <option value="">Select Section</option>
+                                    {filteredSections.map((section) => (
+                                        <option key={section.id} value={section.id}>
+                                            {section.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                {errors.section_id && <p className="mt-1 text-xs text-rose-600">{errors.section_id}</p>}
+                            </div>
+                        </div>
+
+                        <div className="mt-4 flex justify-start">
+                            <Button
+                                type="button"
+                                size="sm"
+                                onClick={loadStudents}
+                                disabled={!selectedClass || !selectedSection || loading}
+                                className="rounded-xl bg-slate-900 text-white hover:bg-slate-800 shadow-sm"
+                                icon={<Users className="w-4 h-4" />}
+                            >
+                                {loading ? 'Loading Students...' : 'Load Students'}
+                            </Button>
                         </div>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        {/* Date and Class Selection */}
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                            <h2 className="text-xl font-semibold text-gray-900 mb-6">Select Date & Class</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Date <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={data.date}
-                                        onChange={(e) => setData('date', e.target.value)}
-                                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        required
-                                    />
-                                    {errors.date && <p className="mt-1 text-sm text-red-600">{errors.date}</p>}
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Class <span className="text-red-500">*</span>
-                                    </label>
-                                    <select
-                                        value={selectedClass}
-                                        onChange={(e) => handleClassChange(e.target.value)}
-                                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        required
-                                    >
-                                        <option value="">Select Class</option>
-                                        {classes.map((cls) => (
-                                            <option key={cls.id} value={cls.id}>
-                                                {cls.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {errors.class_id && <p className="mt-1 text-sm text-red-600">{errors.class_id}</p>}
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Section <span className="text-red-500">*</span>
-                                    </label>
-                                    <select
-                                        value={selectedSection}
-                                        onChange={(e) => handleSectionChange(e.target.value)}
-                                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        required
-                                        disabled={!selectedClass}
-                                    >
-                                        <option value="">Select Section</option>
-                                        {filteredSections.map((section) => (
-                                            <option key={section.id} value={section.id}>
-                                                {section.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {errors.section_id && <p className="mt-1 text-sm text-red-600">{errors.section_id}</p>}
-                                </div>
-                            </div>
-
-                            <div className="mt-4">
-                                <Button
-                                    type="button"
-                                    onClick={loadStudents}
-                                    disabled={!selectedClass || !selectedSection || loading}
-                                    icon={<Users className="w-5 h-5" />}
-                                >
-                                    {loading ? 'Loading Students...' : 'Load Students'}
-                                </Button>
-                            </div>
-                        </div>
-
-                        {/* Students List */}
-                        {students.length > 0 && (
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                                <div className="flex items-center justify-between mb-6">
-                                    <h2 className="text-xl font-semibold text-gray-900">
-                                        Students ({students.length})
+                    {/* Students List */}
+                    {students.length > 0 && (
+                        <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-950/[0.02]">
+                            <div className="px-5 py-3.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 bg-white">
+                                <div className="flex items-center gap-2">
+                                    <h2 className="text-sm font-semibold text-slate-900">
+                                        Students
                                     </h2>
-                                    <div className="flex gap-2">
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            onClick={() => markAll('present')}
-                                            className="bg-green-500 hover:bg-green-600 text-white"
-                                        >
-                                            Mark All Present
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            onClick={() => markAll('absent')}
-                                            className="bg-red-500 hover:bg-red-600 text-white"
-                                        >
-                                            Mark All Absent
-                                        </Button>
-                                    </div>
+                                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                                        {students.length} students
+                                    </span>
                                 </div>
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        onClick={() => markAll('present')}
+                                        className="h-8 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm text-xs font-semibold"
+                                    >
+                                        Mark All Present
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        onClick={() => markAll('absent')}
+                                        className="h-8 rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-sm text-xs font-semibold"
+                                    >
+                                        Mark All Absent
+                                    </Button>
+                                </div>
+                            </div>
 
-                                <div className="space-y-3">
-                                    {students.map((student, index) => (
+                            <div className="divide-y divide-slate-100">
+                                {students.map((student, index) => {
+                                    const initial = (student.first_name?.charAt(0) || '?').toUpperCase();
+                                    const currentStatus = data.attendances[index]?.status;
+
+                                    return (
                                         <div
                                             key={student.id}
-                                            className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                                            className="flex flex-col gap-3 px-5 py-3.5 lg:flex-row lg:items-center hover:bg-slate-50/50 transition-colors"
                                         >
-                                            <div className="flex-1">
-                                                <p className="font-medium text-gray-900">
-                                                    {student.first_name} {student.last_name}
-                                                </p>
-                                                <p className="text-sm text-gray-500">{student.admission_number}</p>
+                                            <div className="flex items-center gap-3 min-w-[200px] flex-1">
+                                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 text-xs font-bold text-slate-700 ring-1 ring-slate-900/10">
+                                                    {initial}
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-semibold text-slate-900">
+                                                        {student.first_name} {student.last_name}
+                                                    </p>
+                                                    <p className="text-xs text-slate-500 font-mono">
+                                                        Adm: {student.admission_number}
+                                                        {student.roll_number ? ` · Roll ${student.roll_number}` : ''}
+                                                    </p>
+                                                </div>
                                             </div>
 
-                                            <div className="flex gap-2">
-                                                {['present', 'absent', 'late', 'half_day'].map((status) => (
-                                                    <button
-                                                        key={status}
-                                                        type="button"
-                                                        onClick={() => updateAttendance(student.id, 'status', status)}
-                                                        className={`px-4 py-2 rounded-lg text-white text-sm font-medium transition-all ${
-                                                            data.attendances[index]?.status === status
-                                                                ? getStatusColor(status)
-                                                                : 'bg-gray-300 hover:bg-gray-400'
-                                                        }`}
-                                                    >
-                                                        {status.replace('_', ' ').charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
-                                                    </button>
-                                                ))}
+                                            <div className="flex flex-wrap gap-1">
+                                                {['present', 'absent', 'late', 'half_day'].map((status) => {
+                                                    const isActive = currentStatus === status;
+                                                    return (
+                                                        <button
+                                                            key={status}
+                                                            type="button"
+                                                            onClick={() => updateAttendance(student.id, 'status', status)}
+                                                            className={`rounded-lg px-3 py-1 text-xs font-semibold capitalize transition-all ${
+                                                                isActive
+                                                                    ? getStatusColor(status)
+                                                                    : 'bg-slate-100/80 text-slate-600 hover:bg-slate-200/80 hover:text-slate-900'
+                                                            }`}
+                                                        >
+                                                            {status.replace('_', ' ')}
+                                                        </button>
+                                                    );
+                                                })}
                                             </div>
 
                                             <input
@@ -304,31 +319,32 @@ export default function Create({ classes, sections, date }: CreateProps) {
                                                 onChange={(e) =>
                                                     updateAttendance(student.id, 'remarks', e.target.value)
                                                 }
-                                                className="w-48 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                                className="h-9 w-44 rounded-xl border border-slate-200/80 bg-white px-3 text-xs text-slate-800 shadow-sm outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15"
                                             />
                                         </div>
-                                    ))}
-                                </div>
+                                    );
+                                })}
                             </div>
-                        )}
+                        </div>
+                    )}
 
-                        {/* Submit Buttons */}
-                        {students.length > 0 && (
-                            <div className="flex items-center justify-end gap-4">
-                                <Link href="/student-attendance">
-                                    <Button variant="ghost">Cancel</Button>
-                                </Link>
-                                <Button
-                                    type="submit"
-                                    disabled={processing}
-                                    icon={<Save className="w-5 h-5" />}
-                                >
-                                    {processing ? 'Saving...' : 'Save Attendance'}
-                                </Button>
-                            </div>
-                        )}
-                    </form>
-                </div>
+                    {/* Submit Buttons */}
+                    {students.length > 0 && (
+                        <div className="flex items-center justify-end gap-3">
+                            <Link href="/teacher-attendance?report_type=student">
+                                <Button variant="ghost" className="rounded-xl">Cancel</Button>
+                            </Link>
+                            <Button
+                                type="submit"
+                                disabled={processing}
+                                className="rounded-xl bg-slate-900 px-5 py-2 text-white hover:bg-slate-800 shadow-sm"
+                                icon={<Save className="w-4 h-4" />}
+                            >
+                                {processing ? 'Saving...' : 'Save Attendance'}
+                            </Button>
+                        </div>
+                    )}
+                </form>
             </div>
         </AuthenticatedLayout>
     );

@@ -79,9 +79,10 @@ class DeviceSetting extends Model
      */
     public function isWeekend($date)
     {
-        $dayOfWeek = Carbon::parse($date)->dayOfWeek;
+        $dayOfWeek = (int) Carbon::parse($date)->dayOfWeek;
+        $days = array_map('intval', $this->weekend_days ?? []);
 
-        return in_array($dayOfWeek, $this->weekend_days ?? []);
+        return in_array($dayOfWeek, $days, true);
     }
 
     /**

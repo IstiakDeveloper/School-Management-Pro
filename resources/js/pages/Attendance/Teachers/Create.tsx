@@ -1,21 +1,27 @@
-import React, { useState, FormEventHandler } from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
+import React, { FormEventHandler, useMemo, useState } from 'react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Button from '@/Components/Button';
-import { ArrowLeft, Save, Calendar, Users, Clock } from 'lucide-react';
+import ComboSelect from '@/Components/ComboSelect';
+import { AttendancePageHeader, type AttendancePersonType } from '@/Components/TeacherAttendanceNav';
+import { Save, Clock } from 'lucide-react';
 
 interface Teacher {
     id: number;
     employee_id: string;
+    name?: string;
+    designation?: string;
+    department?: string;
     user?: {
         name: string;
         email: string;
     };
-    attendances?: Array<{
+    attendance?: {
         status: string;
-        check_in_time: string | null;
-        check_out_time: string | null;
-    }>;
+        in_time: string | null;
+        out_time: string | null;
+        reason: string | null;
+    } | null;
 }
 
 interface CreateProps {
@@ -23,21 +29,31 @@ interface CreateProps {
     date: string;
 }
 
+const statuses = ['present', 'absent', 'late', 'early_leave', 'half_day', 'leave', 'holiday'];
+
+const statusStyles: Record<string, string> = {
+    present: 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-600',
+    absent: 'bg-rose-600 text-white shadow-sm ring-1 ring-rose-600',
+    late: 'bg-amber-500 text-white shadow-sm ring-1 ring-amber-500',
+    early_leave: 'bg-orange-500 text-white shadow-sm ring-1 ring-orange-500',
+    half_day: 'bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-600',
+    holiday: 'bg-purple-600 text-white shadow-sm ring-1 ring-purple-600',
+    leave: 'bg-sky-600 text-white shadow-sm ring-1 ring-sky-600',
+};
+
+const fieldLabel = 'mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-slate-500';
+const dateInput = 'h-9 w-full rounded-xl border border-slate-200/80 bg-white px-3 text-sm text-slate-800 shadow-sm outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15';
+
 export default function Create({ teachers, date }: CreateProps) {
+    const [focusTeacher, setFocusTeacher] = useState('');
     const { data, setData, post, processing, errors } = useForm({
         date: date,
         attendances: teachers.map((teacher) => ({
             teacher_id: teacher.id,
-            status: teacher.attendances && teacher.attendances.length > 0
-                ? teacher.attendances[0].status
-                : 'present',
-            check_in_time: teacher.attendances && teacher.attendances.length > 0
-                ? teacher.attendances[0].check_in_time || ''
-                : '',
-            check_out_time: teacher.attendances && teacher.attendances.length > 0
-                ? teacher.attendances[0].check_out_time || ''
-                : '',
-            remarks: '',
+            status: teacher.attendance?.status || 'present',
+            in_time: teacher.attendance?.in_time || '',
+            out_time: teacher.attendance?.out_time || '',
+            reason: teacher.attendance?.reason || '',
         })),
     });
 
@@ -45,201 +61,214 @@ export default function Create({ teachers, date }: CreateProps) {
         setData(
             'attendances',
             data.attendances.map((att) =>
-                att.teacher_id === teacherId ? { ...att, [field]: value } : att
-            )
+                att.teacher_id === teacherId ? { ...att, [field]: value } : att,
+            ),
         );
     };
 
     const markAll = (status: string) => {
         setData(
             'attendances',
-            data.attendances.map((att) => ({ ...att, status }))
+            data.attendances.map((att) => ({
+                ...att,
+                status: status,
+            })),
         );
     };
 
-    const handleSubmit: FormEventHandler = (e) => {
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         post('/teacher-attendance');
     };
 
-    const getStatusColor = (status: string) => {
-        const colors = {
-            present: 'bg-green-500 hover:bg-green-600',
-            absent: 'bg-red-500 hover:bg-red-600',
-            late: 'bg-yellow-500 hover:bg-yellow-600',
-            half_day: 'bg-blue-500 hover:bg-blue-600',
-            holiday: 'bg-purple-500 hover:bg-purple-600',
-            leave: 'bg-orange-500 hover:bg-orange-600',
-        };
-        return colors[status as keyof typeof colors] || 'bg-gray-500';
-    };
+    const visibleTeachers = useMemo(() => {
+        if (!focusTeacher) return teachers;
+        return teachers.filter((teacher) => String(teacher.id) === focusTeacher);
+    }, [teachers, focusTeacher]);
 
     return (
         <AuthenticatedLayout>
             <Head title="Mark Teacher Attendance" />
 
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 via-purple-50 to-pink-50 py-8">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    {/* Header */}
-                    <div className="mb-8">
-                        <Link
-                            href="/teacher-attendance"
-                            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
-                        >
-                            <ArrowLeft className="w-4 h-4" />
-                            Back to Attendance
-                        </Link>
-                        <div className="flex items-center gap-4">
-                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg">
-                                <Calendar className="w-8 h-8 text-white" />
-                            </div>
-                            <div>
-                                <h1 className="text-3xl font-bold text-gray-900">Mark Teacher Attendance</h1>
-                                <p className="text-gray-600 mt-1">Record daily attendance for teachers</p>
-                            </div>
-                        </div>
-                    </div>
+            <div className="space-y-5">
+                <AttendancePageHeader
+                    title="Mark Attendance"
+                    subtitle="Set status, in time and out time for each teacher"
+                    current="create"
+                    date={data.date}
+                    reportType="teacher"
+                    onTypeChange={(type: AttendancePersonType) => {
+                        if (type === 'student') {
+                            router.get(`/student-attendance/create?date=${data.date}`);
+                        }
+                    }}
+                />
 
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        {/* Date Selection */}
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                            <h2 className="text-xl font-semibold text-gray-900 mb-6">Select Date</h2>
-                            <div className="max-w-md">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Date <span className="text-red-500">*</span>
-                                </label>
+                <form onSubmit={handleSubmit} className="space-y-5">
+                    {/* Control Panel */}
+                    <div className="rounded-2xl border border-slate-200/80 bg-white p-4.5 shadow-sm ring-1 ring-slate-950/[0.02]">
+                        <div className="grid grid-cols-1 items-end gap-3.5 md:grid-cols-12">
+                            <div className="md:col-span-3">
+                                <label className={fieldLabel}>Date</label>
                                 <input
                                     type="date"
                                     value={data.date}
                                     onChange={(e) => setData('date', e.target.value)}
-                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                    className={dateInput}
                                     required
                                 />
                                 {errors.date && <p className="mt-1 text-sm text-red-600">{errors.date}</p>}
                             </div>
+                            <div className="md:col-span-4">
+                                <label className={fieldLabel}>Jump to teacher</label>
+                                <ComboSelect
+                                    value={focusTeacher || null}
+                                    onChange={(next) => setFocusTeacher(next || '')}
+                                    items={teachers.map((teacher) => ({
+                                        value: String(teacher.id),
+                                        label: `${teacher.name || teacher.user?.name || 'Teacher'}${teacher.employee_id ? ` (${teacher.employee_id})` : ''}`,
+                                        keywords: `${teacher.employee_id || ''} ${teacher.name || ''} ${teacher.user?.name || ''}`,
+                                    }))}
+                                    placeholder="Search and select teacher"
+                                />
+                            </div>
+                            <div className="flex flex-wrap gap-2 md:col-span-5">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    className="h-9 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm"
+                                    onClick={() => markAll('present')}
+                                >
+                                    All present
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    className="h-9 rounded-xl bg-rose-600 text-white hover:bg-rose-700 shadow-sm"
+                                    onClick={() => markAll('absent')}
+                                >
+                                    All absent
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-9 rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50"
+                                    onClick={() => markAll('holiday')}
+                                >
+                                    Holiday
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Marking Ledger */}
+                    <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-950/[0.02]">
+                        <div className="flex items-center justify-between border-b border-slate-100 bg-white px-5 py-3.5">
+                            <div className="flex items-center gap-2">
+                                <h3 className="text-sm font-semibold text-slate-900">Teachers Ledger</h3>
+                                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                                    {visibleTeachers.length} of {teachers.length}
+                                </span>
+                            </div>
+                            {focusTeacher && (
+                                <button
+                                    type="button"
+                                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+                                    onClick={() => setFocusTeacher('')}
+                                >
+                                    Show all teachers
+                                </button>
+                            )}
                         </div>
 
-                        {/* Teachers List */}
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-xl font-semibold text-gray-900">
-                                    Teachers ({teachers.length})
-                                </h2>
-                                <div className="flex gap-2">
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        onClick={() => markAll('present')}
-                                        className="bg-green-500 hover:bg-green-600 text-white"
-                                    >
-                                        Mark All Present
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        onClick={() => markAll('absent')}
-                                        className="bg-red-500 hover:bg-red-600 text-white"
-                                    >
-                                        Mark All Absent
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        onClick={() => markAll('holiday')}
-                                        className="bg-purple-500 hover:bg-purple-600 text-white"
-                                    >
-                                        Mark Holiday
-                                    </Button>
-                                </div>
-                            </div>
+                        <div className="divide-y divide-slate-100">
+                            {visibleTeachers.map((teacher) => {
+                                const index = data.attendances.findIndex((att) => att.teacher_id === teacher.id);
+                                const row = data.attendances[index];
+                                const initial = (teacher.name?.charAt(0) || teacher.employee_id?.charAt(0) || '?').toUpperCase();
 
-                            <div className="space-y-3">
-                                {teachers.map((teacher, index) => (
-                                    <div
-                                        key={teacher.id}
-                                        className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                                    >
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-medium text-gray-900 truncate">
-                                                {teacher.user?.name}
-                                            </p>
-                                            <p className="text-sm text-gray-500">{teacher.employee_id}</p>
+                                return (
+                                    <div key={teacher.id} className="flex flex-col gap-3 px-5 py-3.5 lg:flex-row lg:items-center hover:bg-slate-50/50 transition-colors">
+                                        <div className="flex items-center gap-3 min-w-[200px] flex-1">
+                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 text-xs font-bold text-slate-700 ring-1 ring-slate-900/10">
+                                                {initial}
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-semibold text-slate-900">{teacher.name || teacher.user?.name}</p>
+                                                <p className="text-xs text-slate-500 font-mono">
+                                                    {teacher.employee_id}{teacher.department ? ` · ${teacher.department}` : ''}
+                                                </p>
+                                            </div>
                                         </div>
 
-                                        <div className="flex gap-2 flex-wrap">
-                                            {['present', 'absent', 'late', 'half_day', 'leave', 'holiday'].map((status) => (
-                                                <button
-                                                    key={status}
-                                                    type="button"
-                                                    onClick={() => updateAttendance(teacher.id, 'status', status)}
-                                                    className={`px-3 py-1.5 rounded-lg text-white text-xs font-medium transition-all ${
-                                                        data.attendances[index]?.status === status
-                                                            ? getStatusColor(status)
-                                                            : 'bg-gray-300 hover:bg-gray-400'
-                                                    }`}
-                                                >
-                                                    {status.replace('_', ' ').charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
-                                                </button>
-                                            ))}
+                                        <div className="flex flex-wrap gap-1">
+                                            {statuses.map((status) => {
+                                                const isActive = row?.status === status;
+                                                return (
+                                                    <button
+                                                        key={status}
+                                                        type="button"
+                                                        onClick={() => updateAttendance(teacher.id, 'status', status)}
+                                                        className={`rounded-lg px-2.5 py-1 text-xs font-semibold capitalize transition-all ${
+                                                            isActive
+                                                                ? statusStyles[status]
+                                                                : 'bg-slate-100/80 text-slate-600 hover:bg-slate-200/80 hover:text-slate-900'
+                                                        }`}
+                                                    >
+                                                        {status.replace('_', ' ')}
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
 
-                                        <div className="flex gap-2">
+                                        <div className="flex flex-wrap items-center gap-2">
                                             <div className="relative">
-                                                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                                <Clock className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                                                 <input
                                                     type="time"
-                                                    placeholder="Check In"
-                                                    value={data.attendances[index]?.check_in_time || ''}
-                                                    onChange={(e) =>
-                                                        updateAttendance(teacher.id, 'check_in_time', e.target.value)
-                                                    }
-                                                    className="w-32 pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                                                    value={row?.in_time || ''}
+                                                    onChange={(e) => updateAttendance(teacher.id, 'in_time', e.target.value)}
+                                                    className={`${dateInput} w-28 pl-8 text-xs`}
                                                 />
                                             </div>
-
                                             <div className="relative">
-                                                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                                <Clock className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                                                 <input
                                                     type="time"
-                                                    placeholder="Check Out"
-                                                    value={data.attendances[index]?.check_out_time || ''}
-                                                    onChange={(e) =>
-                                                        updateAttendance(teacher.id, 'check_out_time', e.target.value)
-                                                    }
-                                                    className="w-32 pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                                                    value={row?.out_time || ''}
+                                                    onChange={(e) => updateAttendance(teacher.id, 'out_time', e.target.value)}
+                                                    className={`${dateInput} w-28 pl-8 text-xs`}
                                                 />
                                             </div>
-
                                             <input
                                                 type="text"
-                                                placeholder="Remarks (optional)"
-                                                value={data.attendances[index]?.remarks || ''}
-                                                onChange={(e) =>
-                                                    updateAttendance(teacher.id, 'remarks', e.target.value)
-                                                }
-                                                className="w-48 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                                                placeholder="Remarks"
+                                                value={row?.reason || ''}
+                                                onChange={(e) => updateAttendance(teacher.id, 'reason', e.target.value)}
+                                                className={`${dateInput} w-36 text-xs`}
                                             />
                                         </div>
                                     </div>
-                                ))}
-                            </div>
+                                );
+                            })}
                         </div>
+                    </div>
 
-                        {/* Submit Buttons */}
-                        <div className="flex items-center justify-end gap-4">
-                            <Link href="/teacher-attendance">
-                                <Button variant="ghost">Cancel</Button>
-                            </Link>
-                            <Button
-                                type="submit"
-                                disabled={processing}
-                                icon={<Save className="w-5 h-5" />}
-                            >
-                                {processing ? 'Saving...' : 'Save Attendance'}
-                            </Button>
-                        </div>
-                    </form>
-                </div>
+                    <div className="flex items-center justify-end gap-3">
+                        <Link href="/teacher-attendance">
+                            <Button variant="ghost" className="rounded-xl">Cancel</Button>
+                        </Link>
+                        <Button
+                            type="submit"
+                            disabled={processing}
+                            className="rounded-xl bg-slate-900 px-5 py-2 text-white hover:bg-slate-800 shadow-sm"
+                            icon={<Save className="h-4 w-4" />}
+                        >
+                            {processing ? 'Saving...' : 'Save attendance'}
+                        </Button>
+                    </div>
+                </form>
             </div>
         </AuthenticatedLayout>
     );
