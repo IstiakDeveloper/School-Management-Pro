@@ -1,15 +1,18 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { formatAmount } from '@/lib/formatCurrency';
+import { formatReceiptNumber } from '@/lib/formatReceipt';
 import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Printer, Download, ArrowLeft, Pencil } from 'lucide-react';
+import { Printer, ArrowLeft, Pencil, Plus } from 'lucide-react';
 
 function formatDate(dateString: string): string {
+    if (!dateString) return 'N/A';
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-function getMonthName(month: number): string {
+function getMonthName(month: number | null): string {
+    if (!month) return '';
     return new Date(2000, month - 1).toLocaleString('default', { month: 'long' });
 }
 
@@ -21,9 +24,12 @@ interface Collection {
     id: number;
     receipt_number: string;
     student: {
-        user: { name: string; email: string; phone: string };
+        id: number;
+        user: { name: string; email?: string; phone?: string };
         admission_number: string;
+        roll_number?: string;
         school_class: { name: string };
+        section?: { name: string };
     };
     fee_type: FeeType;
     amount: number;
@@ -34,10 +40,10 @@ interface Collection {
     payment_date: string;
     payment_method: string;
     status: string;
-    month: number;
-    year: number;
-    remarks: string;
-    collector: { name: string };
+    month: number | null;
+    year: number | null;
+    remarks?: string;
+    collector?: { name: string };
     created_at: string;
 }
 
@@ -47,9 +53,10 @@ interface RelatedCollection {
     amount: number;
     late_fee: number;
     discount: number;
+    paid_amount?: number;
     total_amount: number;
-    month: number;
-    year: number;
+    month: number | null;
+    year: number | null;
 }
 
 interface Props {
@@ -63,6 +70,16 @@ export default function Receipt({ collection, relatedCollections, totalAmount }:
         window.print();
     };
 
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('autoprint') === '1' || params.get('auto_print') === '1' || params.get('print') === '1') {
+            const timer = setTimeout(() => {
+                window.print();
+            }, 300);
+            return () => clearTimeout(timer);
+        }
+    }, []);
+
     const getPaymentMethodLabel = (method: string) => {
         const labels: { [key: string]: string } = {
             cash: 'Cash',
@@ -71,8 +88,12 @@ export default function Receipt({ collection, relatedCollections, totalAmount }:
             mobile_banking: 'Mobile Banking',
             online: 'Online Payment',
         };
-        return labels[method] || method;
+        return labels[method] || method?.replace('_', ' ') || 'Cash';
     };
+
+    const actualTotal = totalAmount > 0
+        ? totalAmount
+        : relatedCollections.reduce((sum, item) => sum + (Number(item.paid_amount) || Number(item.total_amount)), 0);
 
     const ReceiptContent = ({ copyType }: { copyType: string }) => (
         <div className="receipt-box">
@@ -83,7 +104,7 @@ export default function Receipt({ collection, relatedCollections, totalAmount }:
                 <p className="school-contact">Phone: +8801713-758424 | Email: mubn2020@gmail.com</p>
                 <div className="title-bar">
                     <span className="title">FEE PAYMENT RECEIPT</span>
-
+                    <span className="copy-badge">{copyType}</span>
                 </div>
             </div>
 
@@ -91,7 +112,7 @@ export default function Receipt({ collection, relatedCollections, totalAmount }:
             <div className="info-bar">
                 <div>
                     <span className="info-label">Receipt No: </span>
-                    <span className="info-value">{collection.receipt_number}</span>
+                    <span className="info-value font-mono font-bold">#{formatReceiptNumber(collection.receipt_number)}</span>
                 </div>
                 <div>
                     <span className="info-label">Date: </span>
@@ -103,15 +124,21 @@ export default function Receipt({ collection, relatedCollections, totalAmount }:
             <div className="info-grid">
                 <div className="info-item">
                     <span className="info-label">Student Name:</span>
-                    <span className="info-value">{collection.student.user.name}</span>
+                    <span className="info-value">{collection.student?.user?.name}</span>
                 </div>
                 <div className="info-item">
                     <span className="info-label">Class:</span>
-                    <span className="info-value">{collection.student.school_class.name}</span>
+                    <span className="info-value">
+                        {collection.student?.school_class?.name}
+                        {collection.student?.section?.name ? ` (${collection.student.section.name})` : ''}
+                    </span>
                 </div>
                 <div className="info-item">
-                    <span className="info-label">Admission No:</span>
-                    <span className="info-value">{collection.student.admission_number}</span>
+                    <span className="info-label">Roll & ID:</span>
+                    <span className="info-value">
+                        {collection.student?.roll_number ? `Roll: ${collection.student.roll_number} | ` : ''}
+                        ID: {collection.student?.admission_number}
+                    </span>
                 </div>
                 <div className="info-item">
                     <span className="info-label">Payment Method:</span>
@@ -123,8 +150,9 @@ export default function Receipt({ collection, relatedCollections, totalAmount }:
             <table className="fee-table">
                 <thead>
                     <tr>
+                        <th style={{ width: '28px', textAlign: 'center' }}>#</th>
                         <th>Description</th>
-                        <th>Period</th>
+                        <th style={{ textAlign: 'center' }}>Period</th>
                         <th className="text-right">Amount</th>
                         <th className="text-right">Late Fee</th>
                         <th className="text-right">Discount</th>
@@ -132,21 +160,29 @@ export default function Receipt({ collection, relatedCollections, totalAmount }:
                     </tr>
                 </thead>
                 <tbody>
-                    {relatedCollections.map((item, index) => (
-                        <tr key={`${copyType}-${index}`}>
-                            <td>{item.fee_type.name}</td>
-                            <td className="text-center">{getMonthName(item.month)} {item.year}</td>
-                            <td className="text-right">৳{formatAmount(item.amount)}</td>
-                            <td className="text-right">{item.late_fee > 0 ? `৳${formatAmount(item.late_fee)}` : '-'}</td>
-                            <td className="text-right">{item.discount > 0 ? `-৳${formatAmount(item.discount)}` : '-'}</td>
-                            <td className="text-right strong">৳{formatAmount(item.total_amount)}</td>
-                        </tr>
-                    ))}
+                    {relatedCollections.map((item, index) => {
+                        const periodStr = (item.month && item.year)
+                            ? `${getMonthName(item.month)} ${item.year}`
+                            : 'One-time';
+                        const lineAmount = item.paid_amount !== undefined ? item.paid_amount : item.total_amount;
+
+                        return (
+                            <tr key={`${copyType}-${index}`}>
+                                <td style={{ textAlign: 'center' }}>{index + 1}</td>
+                                <td>{item.fee_type?.name}</td>
+                                <td className="text-center">{periodStr}</td>
+                                <td className="text-right">৳{formatAmount(item.amount)}</td>
+                                <td className="text-right">{item.late_fee > 0 ? `৳${formatAmount(item.late_fee)}` : '-'}</td>
+                                <td className="text-right">{item.discount > 0 ? `-৳${formatAmount(item.discount)}` : '-'}</td>
+                                <td className="text-right strong">৳{formatAmount(lineAmount)}</td>
+                            </tr>
+                        );
+                    })}
                 </tbody>
                 <tfoot>
                     <tr>
-                        <td colSpan={5} className="text-right strong">TOTAL AMOUNT PAID:</td>
-                        <td className="text-right total-amount">৳{formatAmount(totalAmount)}</td>
+                        <td colSpan={6} className="text-right strong">TOTAL AMOUNT PAID:</td>
+                        <td className="text-right total-amount">৳{formatAmount(actualTotal)}</td>
                     </tr>
                 </tfoot>
             </table>
@@ -159,14 +195,19 @@ export default function Receipt({ collection, relatedCollections, totalAmount }:
                 </div>
             )}
 
-            {/* Footer */}
+            {/* Footer with Seal & Signature space */}
             <div className="receipt-footer">
                 <div className="footer-left">
                     <div>
                         <span className="info-label">Collected By: </span>
-                        <span>{collection.collector?.name || 'N/A'}</span>
+                        <span className="info-value">{collection.collector?.name || 'Cashier'}</span>
                     </div>
                     <p className="footer-note">This is a computer-generated receipt.</p>
+                </div>
+                <div className="footer-center">
+                    <div className="seal-area">
+                        <span className="seal-text">School Seal</span>
+                    </div>
                 </div>
                 <div className="footer-right">
                     <div className="signature-area">
@@ -183,174 +224,183 @@ export default function Receipt({ collection, relatedCollections, totalAmount }:
             <Head title={`Receipt - ${collection.receipt_number}`} />
 
             <div className="receipt-container">
-                {/* Action Buttons */}
+                {/* Modern, Clean Action Buttons */}
                 <div className="action-buttons no-print">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <button type="button" onClick={() => router.visit('/fee-collections')} className="btn-back">
-                            <ArrowLeft className="w-4 h-4" />
-                            Back to Collections
+                    <div className="action-left">
+                        <button
+                            type="button"
+                            onClick={() => router.visit('/fee-collections')}
+                            className="btn-action btn-back"
+                        >
+                            <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
+                            Back to Ledger
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => router.visit('/fee-collections/create')}
+                            className="btn-action btn-pos"
+                        >
+                            <Plus className="w-3.5 h-3.5 shrink-0" />
+                            Collect Next Fee (POS)
                         </button>
                         {collection.status === 'paid' && (
                             <button
                                 type="button"
-                                onClick={() =>
-                                    router.visit(
-                                        typeof route !== 'undefined'
-                                            ? route('fee-collections.edit', collection.id)
-                                            : `/fee-collections/${collection.id}/edit`
-                                    )
-                                }
-                                className="btn-edit-receipt"
+                                onClick={() => router.visit(`/fee-collections/${collection.id}/edit`)}
+                                className="btn-action btn-edit"
                             >
-                                <Pencil className="w-4 h-4" />
-                                Edit receipt
+                                <Pencil className="w-3.5 h-3.5 shrink-0" />
+                                Edit Receipt
                             </button>
                         )}
                     </div>
-                    <div className="btn-group">
-                        <button onClick={handlePrint} className="btn-download">
-                            <Download className="w-4 h-4" />
-                            Download PDF
-                        </button>
-                        <button onClick={handlePrint} className="btn-print">
-                            <Printer className="w-4 h-4" />
-                            Print Receipt
+                    <div className="action-right">
+                        <button onClick={handlePrint} className="btn-action btn-print">
+                            <Printer className="w-3.5 h-3.5 shrink-0" />
+                            Print Receipt (1 Page A4)
                         </button>
                     </div>
                 </div>
 
-                {/* Receipt Preview */}
+                {/* Receipt Preview (Dual Copy: Student Copy + Office Copy) */}
                 <div className="receipt-preview">
-                    <ReceiptContent copyType="School Copy" />
+                    {/* Top: Student Copy */}
+                    <ReceiptContent copyType="Student Copy" />
+
+                    {/* Middle: Dotted Cut Line */}
+                    <div className="cut-separator">
+                        <span className="cut-text">
+                            ✂ ------------------ Cut Here (Student Copy / Office Copy Separator) ------------------ ✂
+                        </span>
+                    </div>
+
+                    {/* Bottom: Office Copy */}
+                    <ReceiptContent copyType="Office Copy" />
                 </div>
             </div>
 
-            {/* Styles */}
+            {/* Original Stylesheet Refined for 1 A4 Page Fit */}
             <style>{`
-                /* Common Styles - Screen */
+                /* Screen Layout */
                 .receipt-container {
-                    padding: 20px;
-                    background: #f5f5f5;
+                    padding: 16px 20px 40px;
+                    background: #f1f5f9;
                     min-height: 100vh;
                 }
 
                 .action-buttons {
                     display: flex;
                     justify-content: space-between;
-                    margin-bottom: 20px;
+                    align-items: center;
+                    margin-bottom: 16px;
                     max-width: 210mm;
                     margin-left: auto;
                     margin-right: auto;
+                    gap: 12px;
                 }
 
-                .btn-group {
-                    display: flex;
-                    gap: 10px;
-                }
-
-                .btn-back, .btn-download, .btn-print {
+                .action-left, .action-right {
                     display: flex;
                     align-items: center;
                     gap: 8px;
-                    padding: 10px 16px;
-                    border-radius: 8px;
-                    border: none;
+                    flex-wrap: wrap;
+                }
+
+                .btn-action {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 6px 14px;
+                    border-radius: 6px;
                     cursor: pointer;
-                    font-size: 14px;
-                    font-weight: 500;
-                    transition: all 0.2s;
+                    font-size: 12px;
+                    font-weight: 600;
+                    transition: all 0.15s ease-in-out;
+                    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
                 }
 
                 .btn-back {
-                    background: #f3f4f6;
-                    color: #374151;
+                    background: #ffffff;
+                    border: 1px solid #cbd5e1;
+                    color: #334155;
+                }
+                .btn-back:hover {
+                    background: #f8fafc;
+                    border-color: #94a3b8;
                 }
 
-                .btn-edit-receipt {
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    padding: 10px 16px;
-                    border-radius: 8px;
-                    border: 1px solid #fcd34d;
-                    cursor: pointer;
-                    font-size: 14px;
-                    font-weight: 500;
-                    transition: all 0.2s;
+                .btn-pos {
+                    background: #4f46e5;
+                    border: 1px solid #4338ca;
+                    color: #ffffff;
+                }
+                .btn-pos:hover {
+                    background: #4338ca;
+                }
+
+                .btn-edit {
                     background: #fffbeb;
-                    color: #78350f;
+                    border: 1px solid #fde68a;
+                    color: #92400e;
                 }
-
-                .btn-edit-receipt:hover {
+                .btn-edit:hover {
                     background: #fef3c7;
                 }
 
-                .btn-back:hover {
-                    background: #e5e7eb;
-                }
-
-                .btn-download {
-                    background: #10b981;
-                    color: white;
-                }
-
-                .btn-download:hover {
-                    background: #059669;
-                }
-
                 .btn-print {
-                    background: #6366f1;
-                    color: white;
+                    background: #059669;
+                    border: 1px solid #047857;
+                    color: #ffffff;
                 }
-
                 .btn-print:hover {
-                    background: #4f46e5;
+                    background: #047857;
                 }
 
+                /* Receipt Paper Box */
                 .receipt-preview {
                     max-width: 210mm;
                     margin: 0 auto;
                     background: white;
-                    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+                    padding: 4mm;
+                    box-sizing: border-box;
                 }
 
                 .receipt-box {
-                    padding: 20px;
+                    padding: 10px 14px;
                     font-family: Arial, Helvetica, sans-serif;
                     color: #000;
-                    border: 2px solid #000;
-                    margin: 10mm;
+                    border: 1.5px solid #000;
                     background: white;
-                }
-
-                .receipt-box:first-child {
-                    margin-bottom: 5mm;
+                    box-sizing: border-box;
                 }
 
                 /* Header */
                 .receipt-header {
                     text-align: center;
-                    border-bottom: 2px solid #000;
-                    padding-bottom: 10px;
-                    margin-bottom: 15px;
+                    border-bottom: 1.5px solid #000;
+                    padding-bottom: 5px;
+                    margin-bottom: 6px;
                 }
 
                 .school-name {
-                    font-size: 20px;
+                    font-size: 16px;
                     font-weight: bold;
-                    margin: 0 0 5px 0;
+                    margin: 0 0 2px 0;
                     text-transform: uppercase;
                     letter-spacing: 0.5px;
+                    line-height: 1.1;
                 }
 
                 .school-address {
-                    font-size: 12px;
-                    margin: 3px 0;
+                    font-size: 10.5px;
+                    margin: 1px 0;
+                    color: #111;
                 }
 
                 .school-contact {
-                    font-size: 10px;
-                    margin: 3px 0 0 0;
+                    font-size: 9.5px;
+                    margin: 1px 0 0 0;
                     color: #333;
                 }
 
@@ -358,78 +408,83 @@ export default function Receipt({ collection, relatedCollections, totalAmount }:
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    margin-top: 10px;
-                    padding: 5px 0;
+                    margin-top: 4px;
+                    padding: 2px 0;
                     border-top: 1px solid #000;
                     border-bottom: 1px solid #000;
                 }
 
                 .title {
-                    font-size: 14px;
+                    font-size: 11px;
                     font-weight: bold;
                     letter-spacing: 0.5px;
                 }
 
                 .copy-badge {
-                    font-size: 11px;
+                    font-size: 9.5px;
                     font-weight: bold;
-                    padding: 3px 10px;
+                    padding: 1px 6px;
                     border: 1px solid #000;
+                    text-transform: uppercase;
+                    background: #f8fafc;
                 }
 
                 /* Info Bar */
                 .info-bar {
                     display: flex;
                     justify-content: space-between;
-                    padding: 8px 0;
-                    margin-bottom: 12px;
+                    padding: 3px 0;
+                    margin-bottom: 5px;
                     border-bottom: 1px solid #000;
-                    font-size: 12px;
+                    font-size: 10.5px;
                 }
 
                 /* Info Grid */
                 .info-grid {
                     display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 8px 15px;
-                    margin-bottom: 15px;
-                    padding: 10px 0;
+                    grid-template-columns: 1.2fr 1fr;
+                    gap: 3px 12px;
+                    margin-bottom: 6px;
+                    padding: 3px 0 5px;
                     border-bottom: 1px solid #000;
                 }
 
                 .info-item {
-                    font-size: 11px;
+                    font-size: 10px;
+                    line-height: 1.2;
                 }
 
                 .info-label {
                     font-weight: normal;
-                    color: #000;
+                    color: #222;
                 }
 
                 .info-value {
                     font-weight: 600;
-                    margin-left: 5px;
+                    margin-left: 4px;
+                    color: #000;
                 }
 
                 /* Fee Table */
                 .fee-table {
                     width: 100%;
                     border-collapse: collapse;
-                    margin: 15px 0;
-                    font-size: 10px;
+                    margin: 5px 0 6px;
+                    font-size: 9.5px;
                 }
 
                 .fee-table th {
-                    background: #f0f0f0;
-                    padding: 6px 4px;
+                    background: #f1f5f9;
+                    padding: 3px 5px;
                     border: 1px solid #000;
                     font-weight: bold;
                     text-align: left;
                 }
 
                 .fee-table td {
-                    padding: 5px 4px;
+                    padding: 3px 5px;
                     border: 1px solid #000;
+                    line-height: 1.2;
                 }
 
                 .fee-table tbody tr {
@@ -437,11 +492,11 @@ export default function Receipt({ collection, relatedCollections, totalAmount }:
                 }
 
                 .fee-table tfoot tr {
-                    background: #e8e8e8;
+                    background: #f8fafc;
                 }
 
                 .fee-table tfoot td {
-                    padding: 8px 4px;
+                    padding: 4px 5px;
                     border: 1.5px solid #000;
                     font-weight: bold;
                 }
@@ -459,17 +514,17 @@ export default function Receipt({ collection, relatedCollections, totalAmount }:
                 }
 
                 .total-amount {
-                    font-size: 13px !important;
+                    font-size: 11px !important;
                     font-weight: bold;
                 }
 
                 /* Remarks */
                 .remarks {
-                    margin: 10px 0;
-                    padding: 8px;
+                    margin: 3px 0 5px;
+                    padding: 3px 6px;
                     border: 1px solid #000;
                     background: #f9f9f9;
-                    font-size: 10px;
+                    font-size: 9px;
                 }
 
                 /* Footer */
@@ -477,10 +532,10 @@ export default function Receipt({ collection, relatedCollections, totalAmount }:
                     display: flex;
                     justify-content: space-between;
                     align-items: flex-end;
-                    margin-top: 20px;
-                    padding-top: 15px;
+                    margin-top: 8px;
+                    padding-top: 6px;
                     border-top: 1px solid #000;
-                    font-size: 10px;
+                    font-size: 9.5px;
                 }
 
                 .footer-left {
@@ -488,87 +543,114 @@ export default function Receipt({ collection, relatedCollections, totalAmount }:
                 }
 
                 .footer-note {
-                    font-size: 9px;
-                    color: #666;
+                    font-size: 8px;
+                    color: #555;
                     font-style: italic;
-                    margin-top: 8px;
+                    margin-top: 3px;
+                }
+
+                .footer-center {
+                    flex: 1;
+                    text-align: center;
+                }
+
+                .seal-area {
+                    width: 70px;
+                    height: 36px;
+                    border: 1px dashed #888;
+                    border-radius: 4px;
+                    margin: 0 auto;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .seal-text {
+                    font-size: 8px;
+                    color: #888;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
                 }
 
                 .footer-right {
+                    flex: 1;
                     text-align: right;
                 }
 
                 .signature-area {
-                    margin-top: 30px;
+                    display: inline-block;
+                    text-align: center;
                 }
 
                 .signature-line {
                     width: 120px;
                     border-top: 1px solid #000;
-                    margin-bottom: 5px;
+                    margin-bottom: 3px;
                 }
 
                 .signature-label {
-                    font-size: 9px;
+                    font-size: 8.5px;
                     color: #000;
+                    font-weight: 600;
                 }
 
-                /* Print Styles */
+                .cut-separator {
+                    margin: 6px 0;
+                    text-align: center;
+                }
+
+                .cut-text {
+                    font-size: 9px;
+                    color: #64748b;
+                    font-family: monospace;
+                    display: block;
+                    letter-spacing: 0.5px;
+                }
+
+                /* Print Styles Guaranteed to strictly fit on 1 A4 Page */
                 @media print {
-                    /* Hide EVERYTHING first */
                     body * {
                         visibility: hidden;
                     }
 
-                    /* Then show only receipt */
                     .receipt-preview,
                     .receipt-preview * {
                         visibility: visible !important;
                     }
 
-                    /* Hide sidebar, nav, header completely */
-                    aside, nav, header, .sidebar, [class*="sidebar"], [class*="Sidebar"] {
+                    aside, nav, header, .sidebar, .no-print, [class*="sidebar"], [class*="Sidebar"] {
                         display: none !important;
                         width: 0 !important;
                         height: 0 !important;
-                        overflow: hidden !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
                     }
 
-                    /* Reset all margins and paddings on containers */
+                    @page {
+                        size: A4 portrait;
+                        margin: 4mm 6mm;
+                    }
+
                     html, body {
                         margin: 0 !important;
                         padding: 0 !important;
                         background: white !important;
                         width: 100% !important;
+                        height: 287mm !important;
+                        max-height: 287mm !important;
+                        overflow: hidden !important;
                     }
 
                     body > div,
                     body > div > div,
                     body > div > div > div,
-                    body > div > div > div > div,
-                    main, [class*="main"], [class*="Main"], [class*="content"], [class*="Content"] {
+                    main {
                         margin: 0 !important;
                         padding: 0 !important;
-                        margin-left: 0 !important;
-                        padding-left: 0 !important;
                         width: 100% !important;
-                        max-width: 100% !important;
                         position: static !important;
                         left: 0 !important;
-                    }
-
-                    * {
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
-                    }
-
-                    @page {
-                        size: A4 portrait;
-                        margin: 5mm;
-                    }
-
-                    .no-print {
-                        display: none !important;
+                        top: 0 !important;
                     }
 
                     .receipt-container {
@@ -576,8 +658,8 @@ export default function Receipt({ collection, relatedCollections, totalAmount }:
                         left: 0 !important;
                         top: 0 !important;
                         padding: 0 !important;
-                        background: white !important;
                         margin: 0 !important;
+                        background: white !important;
                         width: 100% !important;
                     }
 
@@ -587,84 +669,83 @@ export default function Receipt({ collection, relatedCollections, totalAmount }:
                         top: 0 !important;
                         box-shadow: none !important;
                         max-width: 100% !important;
-                        width: 200mm !important;
-                        height: auto !important;
-                        margin: 0 !important;
+                        width: 198mm !important;
+                        height: 285mm !important;
+                        max-height: 285mm !important;
+                        margin: 0 auto !important;
+                        padding: 0 !important;
+                        overflow: hidden !important;
+                        display: flex !important;
+                        flex-direction: column !important;
+                        justify-content: space-between !important;
+                        page-break-after: avoid !important;
+                        page-break-inside: avoid !important;
                     }
 
                     .receipt-box {
-                        padding: 6mm;
-                        margin: 0;
-                        border: 1.5pt solid #000;
-                        page-break-inside: avoid;
-                        page-break-after: avoid;
-                        height: auto;
-                        max-height: 140mm;
-                        box-sizing: border-box;
+                        padding: 2.5mm 4mm !important;
+                        margin: 0 !important;
+                        border: 1.5pt solid #000 !important;
+                        page-break-inside: avoid !important;
+                        page-break-after: avoid !important;
+                        box-sizing: border-box !important;
+                        height: 136mm !important;
+                        max-height: 136mm !important;
+                        overflow: hidden !important;
+                    }
+
+                    .cut-separator {
+                        margin: 1mm 0 !important;
+                        height: 4mm !important;
                     }
 
                     .school-name {
-                        font-size: 16pt;
+                        font-size: 14pt !important;
                     }
 
                     .school-address {
-                        font-size: 10pt;
+                        font-size: 9pt !important;
                     }
 
                     .school-contact {
-                        font-size: 8pt;
+                        font-size: 8pt !important;
                     }
 
                     .title {
-                        font-size: 11pt;
+                        font-size: 9.5pt !important;
                     }
 
                     .copy-badge {
-                        font-size: 9pt;
+                        font-size: 8pt !important;
                     }
 
                     .info-bar {
-                        font-size: 10pt;
-                    }
-
-                    .info-grid {
-                        gap: 6px 12px;
+                        font-size: 9pt !important;
                     }
 
                     .info-item {
-                        font-size: 9pt;
+                        font-size: 8.5pt !important;
                     }
 
                     .fee-table {
-                        font-size: 8pt;
+                        font-size: 8pt !important;
                     }
 
-                    .fee-table th {
-                        padding: 1.5mm;
-                    }
-
-                    .fee-table td {
-                        padding: 1.5mm;
+                    .fee-table th, .fee-table td {
+                        padding: 1.2mm 1.5mm !important;
                     }
 
                     .total-amount {
-                        font-size: 11pt !important;
-                    }
-
-                    .remarks {
-                        font-size: 8pt;
+                        font-size: 9.5pt !important;
                     }
 
                     .receipt-footer {
-                        font-size: 8pt;
+                        font-size: 8pt !important;
                     }
 
-                    .footer-note {
-                        font-size: 7pt;
-                    }
-
-                    .signature-label {
-                        font-size: 7pt;
+                    * {
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
                     }
                 }
             `}</style>

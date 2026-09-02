@@ -258,12 +258,13 @@ Route::middleware(['auth', 'restrict.admin.mutations'])->group(function () {
         Route::resource('fee-structures', FeeStructureController::class)->except(['show']);
 
         // Fee collections with auto-generation middleware
+        Route::get('fee-collections/create', [FeeCollectionController::class, 'create'])->name('fee-collections.create');
         Route::resource('fee-collections', FeeCollectionController::class)
-            ->except(['show', 'create'])
+            ->except(['show'])
             ->middleware('auto.fees');
 
-        // Custom fee collection routes (must be before resource routes to avoid conflicts)
-        Route::get('fee-collections/student-fees', [FeeCollectionController::class, 'studentFeesPage'])->name('fee-collections.student-fees');
+        // Custom fee collection routes
+        Route::get('fee-collections/student-fees', [FeeCollectionController::class, 'create'])->name('fee-collections.student-fees');
         Route::get('fee-collections/{fee_collection}/receipt', [FeeCollectionController::class, 'receipt'])->name('fee-collections.receipt');
         Route::get('students/{student}/fees', [FeeCollectionController::class, 'studentFees'])->name('students.fees');
 

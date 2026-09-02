@@ -51,7 +51,7 @@ export default function ReceiptPayment({
     cumulativeClosingBalance,
     filters,
     accounts,
-    schoolName = 'School Management Pro',
+    schoolName = 'Mousumi Bidyaniketon',
     schoolAddress = '',
 }: ReceiptPaymentProps) {
     const [startDate, setStartDate] = useState(filters?.start_date || '');

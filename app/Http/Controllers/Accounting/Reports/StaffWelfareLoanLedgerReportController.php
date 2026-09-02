@@ -25,7 +25,7 @@ class StaffWelfareLoanLedgerReportController extends Controller
 
         $teacherId = $request->filled('teacher_id') ? (int) $request->teacher_id : null;
 
-        $schoolName = Setting::where('key', 'school_name')->value('value') ?: 'School Management Pro';
+        $schoolName = Setting::where('key', 'school_name')->value('value') ?: config('app.name', 'Mousumi Bidyaniketon');
         $schoolAddress = Setting::where('key', 'school_address')->value('value') ?: '';
 
         $teachers = Teacher::query()

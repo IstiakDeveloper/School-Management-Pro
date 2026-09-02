@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
-import { Bell, User, LogOut, ChevronDown } from 'lucide-react';
+import { Bell, User, LogOut, ChevronDown, Receipt } from 'lucide-react';
 
 export default function Navbar() {
     const { auth } = usePage().props as { auth: { user: { id: number; name: string; email: string; roles?: Array<{ name: string }> } } };
@@ -31,7 +31,16 @@ export default function Navbar() {
                 </div>
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
+                    <Link
+                        href="/fee-collections/create"
+                        className="px-2.5 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs inline-flex items-center gap-1.5 transition cursor-pointer"
+                        title="Collect Fee (POS Desk)"
+                    >
+                        <Receipt className="w-3.5 h-3.5 shrink-0" />
+                        <span className="hidden sm:inline">Collect Fee</span>
+                    </Link>
+
                     <div className="relative">
                         <button
                             type="button"

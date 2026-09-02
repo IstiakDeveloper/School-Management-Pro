@@ -7,6 +7,9 @@ use App\Models\Account;
 use App\Models\FeeCollection;
 use App\Models\FeeStructure;
 use App\Models\FeeType;
+use App\Models\FeeWaiver;
+use App\Models\SchoolClass;
+use App\Models\Section;
 use App\Models\Student;
 use App\Models\Transaction;
 use App\Traits\CreatesAccountingTransactions;
@@ -28,6 +31,11 @@ class FeeCollectionController extends Controller
 
         FeeCollection::cancelAllOrphanUnpaidDuplicates();
 
+        $activeTab = $request->get('tab', 'paid');
+        if (in_array($request->status, ['pending', 'overdue'], true)) {
+            $activeTab = 'dues';
+        }
+
         // Date range: support date_from/date_to or month+year (monthly filter)
         $dateFrom = $request->date_from;
         $dateTo = $request->date_to;
@@ -36,162 +44,170 @@ class FeeCollectionController extends Controller
             $dateTo = Carbon::create($request->year, $request->month, 1)->endOfMonth()->format('Y-m-d');
         }
 
-        // Get collections with relationships
-        $collectionsQuery = FeeCollection::with([
-            'student.user',
-            'student.schoolClass',
-            'student.section',
-            'feeType',
-            'account',
-            'collector',
-        ])
-            ->where('status', '!=', 'cancelled')
-            ->when($request->status, function ($query, $status) {
-                if (in_array($status, ['pending', 'partial', 'overdue'], true)) {
-                    $query->outstanding()->where('status', $status);
-                } else {
-                    $query->where('status', $status);
-                }
-            })
-            ->when($request->fee_type_id, function ($query, $feeTypeId) {
-                $query->where('fee_type_id', $feeTypeId);
-            })
-            ->when($dateFrom, function ($query) use ($dateFrom) {
-                $query->whereDate('payment_date', '>=', $dateFrom);
-            })
-            ->when($dateTo, function ($query) use ($dateTo) {
-                $query->whereDate('payment_date', '<=', $dateTo);
-            })
-            ->when($request->class_id, function ($query, $classId) {
-                $query->whereHas('student', function ($q) use ($classId) {
-                    $q->where('class_id', $classId);
-                });
-            })
-            ->when($request->section_id, function ($query, $sectionId) {
-                $query->whereHas('student', function ($q) use ($sectionId) {
-                    $q->where('section_id', $sectionId);
-                });
-            })
-            ->when($request->search, function ($query, $search) {
-                $query->where(function ($q) use ($search) {
-                    $q->whereHas('student.user', function ($sq) use ($search) {
-                        $sq->where('name', 'like', "%{$search}%");
-                    })
-                        ->orWhereHas('student', function ($sq) use ($search) {
-                            $sq->where('admission_number', 'like', "%{$search}%");
-                        })
-                        ->orWhere('receipt_number', 'like', "%{$search}%");
-                });
-            })
-            ->whereHas('student') // Exclude fee records for soft-deleted students
-            ->latest('created_at')
-            ->get();
-
-        // Group by receipt number
-        $groupedCollections = $collectionsQuery->groupBy('receipt_number')->map(function ($group) {
-            $first = $group->first();
-            $monthsCount = $group->count();
-
-            // Get month range
-            $months = $group->pluck('month')->sort()->values();
-            $years = $group->pluck('year')->sort()->values();
-
-            if ($monthsCount === 1) {
-                $period = Carbon::create($first->year, $first->month, 1)->format('F Y');
-            } else {
-                $firstMonth = Carbon::create($years->first(), $months->first(), 1)->format('M Y');
-                $lastMonth = Carbon::create($years->last(), $months->last(), 1)->format('M Y');
-                $period = "{$firstMonth} - {$lastMonth} ({$monthsCount} months)";
-            }
-
-            return [
-                'id' => $first->id,
-                'receipt_number' => $first->receipt_number,
-                'student' => [
-                    'user' => ['name' => $first->student->user->name ?? 'N/A'],
-                    'admission_number' => $first->student->admission_number ?? 'N/A',
-                    'school_class' => ['name' => $first->student->schoolClass->name ?? 'N/A'],
-                ],
-                'fee_type' => ['name' => $group->pluck('feeType.name')->unique()->join(', ')],
-                'period' => $period,
-                'months_count' => $monthsCount,
-                'amount' => $group->sum('amount'),
-                'paid_amount' => $group->sum('paid_amount'),
-                'discount' => $group->sum('discount'),
-                'payment_date' => $first->payment_date,
-                'payment_method' => $first->payment_method,
-                'status' => $first->status,
-                'month' => $first->month,
-                'year' => $first->year,
-            ];
-        })->values();
-
-        // Unique students in this result (one student can have multiple receipts)
-        $uniqueStudentCount = $collectionsQuery->pluck('student_id')->unique()->count();
-
-        // Paginate manually
-        $page = $request->get('page', 1);
-        $perPage = 20;
-        $total = $groupedCollections->count();
-        $collections = new \Illuminate\Pagination\LengthAwarePaginator(
-            $groupedCollections->slice(($page - 1) * $perPage, $perPage)->values(),
-            $total,
-            $perPage,
-            $page,
-            ['path' => $request->url(), 'query' => $request->query()]
-        );
-
-        // Get all pending/overdue fees (exclude periods already settled as paid)
-        $pendingFees = FeeCollection::with([
-            'student.user',
-            'student.schoolClass',
-            'feeType',
-        ])
-            ->whereHas('student') // Exclude fee records for soft-deleted students
-            ->outstanding()
-            ->orderBy('year', 'desc')
-            ->orderBy('month', 'desc')
-            ->get()
-            ->map(function ($fee) {
-                return [
-                    'id' => $fee->id,
-                    'student_name' => $fee->student->user->name ?? 'N/A',
-                    'student_id' => $fee->student_id,
-                    'class_name' => $fee->student->schoolClass->name ?? 'N/A',
-                    'fee_type' => $fee->feeType->name ?? 'N/A',
-                    'month' => $fee->month,
-                    'year' => $fee->year,
-                    'amount' => $fee->amount,
-                    'late_fee' => $fee->late_fee,
-                    'discount' => $fee->discount,
-                    'total_amount' => $fee->total_amount,
-                    'status' => $fee->status,
-                    'month_name' => Carbon::create($fee->year, $fee->month, 1)->format('F Y'),
-                ];
-            });
-
-        // Calculate statistics (apply same filters for consistency)
+        // Calculate statistics (system-wide and consistent)
         $statsQueryPaid = FeeCollection::where('status', 'paid')
-            ->whereHas('student') // Exclude soft-deleted students
+            ->whereHas('student')
             ->when($request->fee_type_id, fn ($q, $id) => $q->where('fee_type_id', $id))
             ->when($dateFrom, fn ($q) => $q->whereDate('payment_date', '>=', $dateFrom))
             ->when($dateTo, fn ($q) => $q->whereDate('payment_date', '<=', $dateTo));
+
         $statsQueryPending = FeeCollection::outstanding()
-            ->whereHas('student') // Exclude soft-deleted students
+            ->whereHas('student')
             ->when($request->fee_type_id, fn ($q, $id) => $q->where('fee_type_id', $id));
 
+        $todayCollected = FeeCollection::where('status', 'paid')
+            ->whereHas('student')
+            ->whereDate('payment_date', Carbon::today())
+            ->sum('paid_amount');
+
+        $todayReceiptsCount = FeeCollection::where('status', 'paid')
+            ->whereHas('student')
+            ->whereDate('payment_date', Carbon::today())
+            ->distinct('receipt_number')
+            ->count('receipt_number');
+
+        $thisMonthCollected = FeeCollection::where('status', 'paid')
+            ->whereHas('student')
+            ->whereMonth('payment_date', Carbon::now()->month)
+            ->whereYear('payment_date', Carbon::now()->year)
+            ->sum('paid_amount');
+
         $stats = [
-            'total_collected' => (clone $statsQueryPaid)->sum('paid_amount'),
-            'pending_fees' => (clone $statsQueryPending)->where('status', 'pending')->sum('total_amount'),
-            'overdue_fees' => (clone $statsQueryPending)->where('status', 'overdue')->sum('total_amount'),
-            'pending_count' => (clone $statsQueryPending)->where('status', 'pending')->count(),
-            'overdue_count' => (clone $statsQueryPending)->where('status', 'overdue')->count(),
+            'total_collected' => (float) (clone $statsQueryPaid)->sum('paid_amount'),
+            'today_collected' => (float) $todayCollected,
+            'today_receipts_count' => (int) $todayReceiptsCount,
+            'this_month_collected' => (float) $thisMonthCollected,
+            'pending_fees' => (float) (clone $statsQueryPending)->where('status', 'pending')->sum('total_amount'),
+            'overdue_fees' => (float) (clone $statsQueryPending)->where('status', 'overdue')->sum('total_amount'),
+            'pending_count' => (int) (clone $statsQueryPending)->where('status', 'pending')->count(),
+            'overdue_count' => (int) (clone $statsQueryPending)->where('status', 'overdue')->count(),
         ];
+
+        if ($activeTab === 'dues') {
+            // UNPAID DUES TAB: Real student fee demands (pending / overdue)
+            $duesQuery = FeeCollection::with([
+                'student.user',
+                'student.schoolClass',
+                'student.section',
+                'feeType',
+            ])
+                ->whereHas('student')
+                ->outstanding()
+                ->when($request->status && in_array($request->status, ['pending', 'overdue'], true), function ($q) use ($request) {
+                    $q->where('status', $request->status);
+                })
+                ->when($request->fee_type_id, fn ($q, $id) => $q->where('fee_type_id', $id))
+                ->when($request->class_id, fn ($q, $cid) => $q->whereHas('student', fn ($sq) => $sq->where('class_id', $cid)))
+                ->when($request->section_id, fn ($q, $sid) => $q->whereHas('student', fn ($sq) => $sq->where('section_id', $sid)))
+                ->when($request->search, function ($q, $search) {
+                    $q->where(function ($sq) use ($search) {
+                        $sq->whereHas('student.user', fn ($u) => $u->where('name', 'like', "%{$search}%"))
+                            ->orWhereHas('student', fn ($s) => $s->where('admission_number', 'like', "%{$search}%")->orWhere('roll_number', 'like', "%{$search}%"));
+                    });
+                })
+                ->orderBy('year', 'desc')
+                ->orderBy('month', 'desc')
+                ->orderBy('id', 'desc');
+
+            $collections = $duesQuery->paginate(20)->withQueryString()->through(function ($fee) {
+                $period = ($fee->month && $fee->year)
+                    ? Carbon::create($fee->year, $fee->month, 1)->format('M Y')
+                    : 'One-time';
+
+                return [
+                    'id' => $fee->id,
+                    'student_id' => $fee->student_id,
+                    'student_name' => $fee->student->user->name ?? 'N/A',
+                    'admission_number' => $fee->student->admission_number ?? 'N/A',
+                    'roll_number' => $fee->student->roll_number ?? 'N/A',
+                    'class_name' => $fee->student->schoolClass->name ?? 'N/A',
+                    'section_name' => $fee->student->section->name ?? '',
+                    'fee_type_name' => $fee->feeType->name ?? 'Fee',
+                    'period' => $period,
+                    'month' => $fee->month,
+                    'year' => $fee->year,
+                    'amount' => (float) $fee->amount,
+                    'late_fee' => (float) $fee->late_fee,
+                    'discount' => (float) $fee->discount,
+                    'total_amount' => (float) $fee->total_amount,
+                    'due_date' => $fee->due_date ? Carbon::parse($fee->due_date)->format('d M Y') : null,
+                    'status' => $fee->status,
+                ];
+            });
+        } else {
+            // PAID MONEY RECEIPTS TAB: Clean cash-in receipts ledger
+            $paidQuery = FeeCollection::with([
+                'student.user',
+                'student.schoolClass',
+                'student.section',
+                'feeType',
+                'account',
+                'collector',
+            ])
+                ->where('status', 'paid')
+                ->whereNotNull('receipt_number')
+                ->whereHas('student')
+                ->when($request->fee_type_id, fn ($q, $id) => $q->where('fee_type_id', $id))
+                ->when($dateFrom, fn ($q) => $q->whereDate('payment_date', '>=', $dateFrom))
+                ->when($dateTo, fn ($q) => $q->whereDate('payment_date', '<=', $dateTo))
+                ->when($request->class_id, fn ($q, $cid) => $q->whereHas('student', fn ($sq) => $sq->where('class_id', $cid)))
+                ->when($request->section_id, fn ($q, $sid) => $q->whereHas('student', fn ($sq) => $sq->where('section_id', $sid)))
+                ->when($request->search, function ($q, $search) {
+                    $q->where(function ($sq) use ($search) {
+                        $sq->whereHas('student.user', fn ($u) => $u->where('name', 'like', "%{$search}%"))
+                            ->orWhereHas('student', fn ($s) => $s->where('admission_number', 'like', "%{$search}%")->orWhere('roll_number', 'like', "%{$search}%"))
+                            ->orWhere('receipt_number', 'like', "%{$search}%");
+                    });
+                })
+                ->latest('payment_date')
+                ->latest('id')
+                ->get();
+
+            $groupedReceipts = $paidQuery->groupBy('receipt_number')->map(function ($group) {
+                $first = $group->first();
+                $itemsCount = $group->count();
+
+                $feeNames = $group->map(function ($f) {
+                    $period = ($f->month && $f->year) ? Carbon::create($f->year, $f->month, 1)->format('M y') : null;
+                    return ($f->feeType->name ?? 'Fee') . ($period ? " ($period)" : '');
+                })->unique()->join(', ');
+
+                return [
+                    'id' => $first->id,
+                    'receipt_number' => $first->receipt_number,
+                    'student_name' => $first->student->user->name ?? 'N/A',
+                    'admission_number' => $first->student->admission_number ?? 'N/A',
+                    'roll_number' => $first->student->roll_number ?? 'N/A',
+                    'class_name' => $first->student->schoolClass->name ?? 'N/A',
+                    'section_name' => $first->student->section->name ?? '',
+                    'fee_items_summary' => $feeNames,
+                    'items_count' => $itemsCount,
+                    'amount' => (float) $group->sum('amount'),
+                    'late_fee' => (float) $group->sum('late_fee'),
+                    'discount' => (float) $group->sum('discount'),
+                    'paid_amount' => (float) $group->sum('paid_amount'),
+                    'payment_date' => $first->payment_date ? Carbon::parse($first->payment_date)->format('d M Y') : 'N/A',
+                    'payment_method' => $first->payment_method ?? 'cash',
+                    'account_name' => $first->account->account_name ?? 'Cash Account',
+                    'collector_name' => $first->collector->name ?? 'Cashier',
+                    'status' => 'paid',
+                ];
+            })->values();
+
+            $page = (int) $request->get('page', 1);
+            $perPage = 20;
+            $total = $groupedReceipts->count();
+            $collections = new \Illuminate\Pagination\LengthAwarePaginator(
+                $groupedReceipts->slice(($page - 1) * $perPage, $perPage)->values(),
+                $total,
+                $perPage,
+                $page,
+                ['path' => $request->url(), 'query' => $request->query()]
+            );
+        }
 
         return Inertia::render('Fees/Collections/Index', [
             'collections' => $collections,
-            'uniqueStudentCount' => $uniqueStudentCount,
-            'pendingFees' => $pendingFees,
             'students' => Student::with(['user', 'schoolClass'])
                 ->where('status', 'active')
                 ->get(),
@@ -204,28 +220,85 @@ class FeeCollectionController extends Controller
                 ->where('status', 'active')
                 ->get(['id', 'name', 'class_id']),
             'feeTypes' => FeeType::active()->orderBy('name')->get(['id', 'name']),
+            'activeTab' => $activeTab,
             'stats' => $stats,
-            'filters' => $request->only([
+            'filters' => array_merge($request->only([
                 'status', 'search', 'class_id', 'section_id',
                 'fee_type_id', 'date_from', 'date_to', 'month', 'year',
-            ]),
+            ]), ['tab' => $activeTab]),
         ]);
     }
 
     /**
-     * Display student fees page (new professional interface)
+     * Display the modern POS-style fee collection counter
      */
-    public function studentFeesPage()
+    public function create(Request $request)
     {
         $this->authorize('manage_fees');
 
-        return Inertia::render('Fees/Collections/StudentFees', [
-            'students' => Student::with(['user', 'schoolClass'])
-                ->where('status', 'active')
-                ->get(),
-            'accounts' => $this->getActiveAccounts(),
-            'defaultAccountId' => $this->getDefaultFeeAccountId(),
+        FeeCollection::cancelAllOrphanUnpaidDuplicates();
+
+        $students = Student::with(['user:id,name', 'schoolClass:id,name', 'section:id,name'])
+            ->where('status', 'active')
+            ->orderBy('admission_number')
+            ->get([
+                'id',
+                'user_id',
+                'class_id',
+                'section_id',
+                'admission_number',
+                'roll_number',
+                'father_name',
+                'phone',
+                'guardian_phone',
+                'photo',
+                'monthly_fee',
+            ])
+            ->map(function ($s) {
+                return [
+                    'id' => $s->id,
+                    'name' => $s->user->name ?? '',
+                    'admission_number' => $s->admission_number ?? '',
+                    'roll_number' => $s->roll_number ?? '',
+                    'class_id' => $s->class_id,
+                    'section_id' => $s->section_id,
+                    'class_name' => $s->schoolClass->name ?? '',
+                    'section_name' => $s->section->name ?? '',
+                    'phone' => $s->phone ?? $s->guardian_phone ?? '',
+                    'father_name' => $s->father_name ?? '',
+                    'photo' => $s->photo ? asset('storage/'.$s->photo) : null,
+                    'monthly_fee' => $s->monthly_fee ? (float) $s->monthly_fee : null,
+                ];
+            });
+
+        $classes = SchoolClass::where('status', 'active')
+            ->orderBy('order')
+            ->get(['id', 'name']);
+
+        $sections = Section::where('status', 'active')
+            ->get(['id', 'name', 'class_id']);
+
+        $accounts = $this->getActiveAccounts();
+        $defaultAccountId = $this->getDefaultFeeAccountId();
+
+        return Inertia::render('Fees/Collections/Create', [
+            'students' => $students,
+            'classes' => $classes,
+            'sections' => $sections,
+            'accounts' => $accounts,
+            'defaultAccountId' => $defaultAccountId,
+            'preselectedStudentId' => $request->query('student_id') ? (int) $request->query('student_id') : null,
+            'preselectedMonth' => $request->query('month') ? (int) $request->query('month') : null,
+            'preselectedFeeId' => $request->query('fee_id') ? (int) $request->query('fee_id') : null,
         ]);
+    }
+
+    /**
+     * Display student fees page (alias to create)
+     */
+    public function studentFeesPage(Request $request)
+    {
+        return $this->create($request);
     }
 
     /**
@@ -272,18 +345,8 @@ class FeeCollectionController extends Controller
             $usesPerFeeDiscounts = ! empty($validated['pending_fees'])
                 || collect($validated['fee_structures'] ?? [])->contains(fn ($fee) => array_key_exists('discount', $fee));
 
-            // Generate ONE unique receipt number for this entire payment
-            $todayPrefix = 'RCP-'.date('Ymd');
-            $receiptNumber = null;
-
-            // Simple increment without sequence table
-            $maxExisting = DB::table('fee_collections')
-                ->where('receipt_number', 'LIKE', $todayPrefix.'-%')
-                ->lockForUpdate()
-                ->max(DB::raw('CAST(SUBSTRING(receipt_number, 15) AS UNSIGNED)'));
-
-            $nextNumber = ($maxExisting ?? 0) + 1;
-            $receiptNumber = $todayPrefix.'-'.str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+            // One voucher per payment: 4-digit running number after the last RCP receipt
+            $receiptNumber = FeeCollection::nextPaidReceiptNumber();
 
             $totalAmount = 0;
             $feeDescriptions = [];
@@ -347,8 +410,12 @@ class FeeCollectionController extends Controller
                         $fee->id
                     );
 
-                    $monthName = Carbon::create($fee->year, $fee->month, 1)->format('M Y');
-                    $feeDescriptions[] = $fee->feeType->name.' ('.$monthName.')';
+                    $monthName = ($fee->year && $fee->month)
+                        ? Carbon::create($fee->year, $fee->month, 1)->format('M Y')
+                        : null;
+                    $feeDescriptions[] = $monthName
+                        ? $fee->feeType->name.' ('.$monthName.')'
+                        : $fee->feeType->name;
                 }
             }
 
@@ -498,6 +565,13 @@ class FeeCollectionController extends Controller
                 "Collected {$feeCount} fees from {$student->user->name} (Receipt: {$receiptNumber})",
                 FeeCollection::class
             );
+
+            $firstFee = FeeCollection::where('receipt_number', $receiptNumber)->first();
+
+            if ($request->boolean('redirect_to_receipt', true) && $firstFee) {
+                return redirect()->route('fee-collections.receipt', $firstFee->id)
+                    ->with('success', "Fees collected successfully! Receipt: {$receiptNumber} ({$feeCount} items)");
+            }
 
             return redirect()->back()
                 ->with('success', "Fees collected successfully! Receipt: {$receiptNumber} ({$feeCount} months)");
@@ -725,6 +799,7 @@ class FeeCollectionController extends Controller
         $feeCollection->load([
             'student.user',
             'student.schoolClass',
+            'student.section',
             'feeType',
             'academicYear',
             'collector',
@@ -822,61 +897,189 @@ class FeeCollectionController extends Controller
     }
 
     /**
-     * Get student pending/overdue fees (API endpoint)
+     * Get student pending/overdue fees and advance collection details (API endpoint)
      */
     public function getStudentDues(Request $request)
     {
         $studentId = $request->query('student_id');
 
         if (! $studentId) {
-            return response()->json(['dues' => [], 'next_month' => date('n'), 'next_year' => date('Y')]);
+            return response()->json([
+                'student' => null,
+                'dues' => [],
+                'advance_months' => [],
+                'fee_structures' => [],
+                'active_waivers' => [],
+                'recent_receipts' => [],
+                'next_month' => (int) date('n'),
+                'next_year' => (int) date('Y'),
+            ]);
         }
 
         FeeCollection::cancelAllOrphanUnpaidDuplicates();
 
+        $student = Student::with(['user:id,name', 'schoolClass:id,name', 'section:id,name'])
+            ->find($studentId);
+
+        if (! $student) {
+            return response()->json(['error' => 'Student not found'], 404);
+        }
+
+        // Get student pending/overdue/partial dues
         $dues = FeeCollection::with(['feeType'])
             ->where('student_id', $studentId)
             ->outstanding()
             ->orderBy('year', 'asc')
             ->orderBy('month', 'asc')
+            ->orderBy('id', 'asc')
             ->get()
             ->map(function ($fee) {
+                $monthName = ($fee->month && $fee->year)
+                    ? Carbon::create($fee->year, $fee->month, 1)->format('F Y')
+                    : 'N/A';
+
                 return [
                     'id' => $fee->id,
-                    'fee_type' => $fee->feeType->name,
+                    'fee_type_id' => $fee->fee_type_id,
+                    'fee_type' => $fee->feeType->name ?? 'Fee',
                     'month' => $fee->month,
                     'year' => $fee->year,
-                    'month_name' => Carbon::create($fee->year, $fee->month, 1)->format('F Y'),
-                    'amount' => $fee->amount,
-                    'late_fee' => $fee->late_fee,
-                    'discount' => $fee->discount,
-                    'total_amount' => $fee->total_amount,
+                    'month_name' => $monthName,
+                    'amount' => (float) $fee->amount,
+                    'late_fee' => (float) $fee->late_fee,
+                    'discount' => (float) $fee->discount,
+                    'total_amount' => (float) $fee->total_amount,
+                    'paid_amount' => (float) $fee->paid_amount,
                     'status' => $fee->status,
+                    'due_date' => $fee->payment_date ? Carbon::parse($fee->payment_date)->format('Y-m-d') : null,
                 ];
             });
 
-        // Find next unpaid month
-        $lastPaid = FeeCollection::where('student_id', $studentId)
-            ->where('status', 'paid')
+        // Find latest recorded month (either paid or pending) so advance months come next
+        $latestRecord = FeeCollection::where('student_id', $studentId)
+            ->where('status', '!=', 'cancelled')
+            ->whereNotNull('month')
+            ->whereNotNull('year')
             ->orderBy('year', 'desc')
             ->orderBy('month', 'desc')
             ->first();
 
-        $nextMonth = date('n');
-        $nextYear = date('Y');
+        $currentM = (int) date('n');
+        $currentY = (int) date('Y');
 
-        if ($lastPaid) {
-            $nextMonth = $lastPaid->month + 1;
-            $nextYear = $lastPaid->year;
-
+        if ($latestRecord) {
+            $nextMonth = $latestRecord->month + 1;
+            $nextYear = $latestRecord->year;
             if ($nextMonth > 12) {
                 $nextMonth = 1;
                 $nextYear++;
             }
+        } else {
+            $nextMonth = $currentM;
+            $nextYear = $currentY;
         }
 
+        // Find class fee structures
+        $feeStructures = FeeStructure::with('feeType')
+            ->where('class_id', $student->class_id)
+            ->get()
+            ->map(function ($fs) use ($student) {
+                $isMonthly = ($fs->feeType->frequency ?? '') === 'monthly';
+                $amount = ($isMonthly && $student->monthly_fee)
+                    ? (float) $student->monthly_fee
+                    : (float) $fs->amount;
+
+                return [
+                    'id' => $fs->id,
+                    'fee_type_id' => $fs->fee_type_id,
+                    'fee_type_name' => $fs->feeType->name ?? 'Fee',
+                    'frequency' => $fs->feeType->frequency ?? 'one_time',
+                    'amount' => $amount,
+                ];
+            });
+
+        $monthlyStructure = $feeStructures->first(fn ($fs) => $fs['frequency'] === 'monthly')
+            ?? $feeStructures->first();
+
+        // Generate next 6 advance months
+        $advanceMonths = [];
+        $tMonth = $nextMonth;
+        $tYear = $nextYear;
+        for ($i = 0; $i < 6; $i++) {
+            $dateObj = Carbon::create($tYear, $tMonth, 1);
+            $advanceMonths[] = [
+                'month' => $tMonth,
+                'year' => $tYear,
+                'label' => $dateObj->format('M Y'),
+                'full_label' => $dateObj->format('F Y'),
+                'fee_structure_id' => $monthlyStructure['id'] ?? null,
+                'fee_type_name' => $monthlyStructure['fee_type_name'] ?? 'Tuition Fee',
+                'amount' => $monthlyStructure['amount'] ?? 0,
+            ];
+
+            $tMonth++;
+            if ($tMonth > 12) {
+                $tMonth = 1;
+                $tYear++;
+            }
+        }
+
+        // Active waivers for this student
+        $activeWaivers = FeeWaiver::where('student_id', $studentId)
+            ->active()
+            ->with('feeType')
+            ->get()
+            ->map(fn ($w) => [
+                'id' => $w->id,
+                'fee_type_id' => $w->fee_type_id,
+                'fee_type_name' => $w->feeType->name ?? 'All Fees',
+                'waiver_type' => $w->waiver_type,
+                'waiver_value' => (float) $w->waiver_value,
+                'reason' => $w->reason,
+            ]);
+
+        // Recent paid receipts (last 5 receipts)
+        $recentReceipts = FeeCollection::with('feeType')
+            ->where('student_id', $studentId)
+            ->where('status', 'paid')
+            ->latest('payment_date')
+            ->latest('id')
+            ->get()
+            ->groupBy('receipt_number')
+            ->take(5)
+            ->map(function ($group) {
+                $first = $group->first();
+
+                return [
+                    'id' => $first->id,
+                    'receipt_number' => $first->receipt_number,
+                    'payment_date' => $first->payment_date ? Carbon::parse($first->payment_date)->format('d M Y') : 'N/A',
+                    'payment_method' => ucfirst(str_replace('_', ' ', $first->payment_method ?? 'cash')),
+                    'total_paid' => (float) $group->sum('paid_amount'),
+                    'items_count' => $group->count(),
+                    'fee_names' => $group->map(fn ($f) => $f->feeType->name ?? 'Fee')->unique()->join(', '),
+                ];
+            })
+            ->values();
+
         return response()->json([
+            'student' => [
+                'id' => $student->id,
+                'name' => $student->user->name ?? '',
+                'admission_number' => $student->admission_number ?? '',
+                'roll_number' => $student->roll_number ?? '',
+                'class_name' => $student->schoolClass->name ?? '',
+                'section_name' => $student->section->name ?? '',
+                'phone' => $student->phone ?? $student->guardian_phone ?? '',
+                'father_name' => $student->father_name ?? '',
+                'photo' => $student->photo ? asset('storage/'.$student->photo) : null,
+                'monthly_fee' => $student->monthly_fee ? (float) $student->monthly_fee : null,
+            ],
             'dues' => $dues,
+            'advance_months' => $advanceMonths,
+            'fee_structures' => $feeStructures,
+            'active_waivers' => $activeWaivers,
+            'recent_receipts' => $recentReceipts,
             'next_month' => $nextMonth,
             'next_year' => $nextYear,
         ]);

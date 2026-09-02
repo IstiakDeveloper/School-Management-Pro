@@ -9,12 +9,13 @@ import {
     AlertCircle,
     Plus,
     CreditCard,
+    Search,
+    ArrowLeft,
     Receipt,
     Clock,
     XCircle,
-    Search,
-    ArrowLeft,
 } from 'lucide-react';
+import { formatReceiptNumber } from '@/lib/formatReceipt';
 
 function route(name: string, params?: any): string {
     if (name === 'fee-collections.store') return '/fee-collections';
@@ -640,8 +641,8 @@ export default function StudentFees({ students, accounts }: Props) {
                                                             <div className="flex-1">
                                                                 <div className="flex items-center gap-2 mb-2">
                                                                     <Receipt className="w-4 h-4 text-indigo-600" />
-                                                                    <h4 className="font-semibold text-gray-800">
-                                                                        {payment.receipt_number}
+                                                                    <h4 className="font-semibold text-gray-800 font-mono">
+                                                                        #{formatReceiptNumber(payment.receipt_number)}
                                                                     </h4>
                                                                     <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">
                                                                         Paid

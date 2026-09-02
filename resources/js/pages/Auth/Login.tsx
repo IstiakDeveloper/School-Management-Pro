@@ -1,247 +1,214 @@
 import React, { FormEvent, useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
-import Input from '@/Components/Input';
-import Button from '@/Components/Button';
-import { Mail, Lock, GraduationCap, ArrowRight, Sparkles, BookOpen, Users, Award } from 'lucide-react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { Mail, Lock, GraduationCap, ArrowRight, Eye, EyeOff, ShieldCheck, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 
-export default function Login() {
-    const [data, setData] = useState({
+interface LoginProps {
+    status?: string;
+}
+
+export default function Login({ status }: LoginProps) {
+    const [showPassword, setShowPassword] = useState(false);
+    const { flash } = usePage<{ flash?: { error?: string; success?: string; message?: string } }>().props;
+
+    const { data, setData, post, processing, errors, reset } = useForm({
         email: '',
         password: '',
         remember: false,
     });
-    const [errors, setErrors] = useState<any>({});
-    const [processing, setProcessing] = useState(false);
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
-        setProcessing(true);
-
-        router.post('/login', data, {
-            onError: (errors) => {
-                setErrors(errors);
-                setProcessing(false);
-            },
-            onSuccess: () => {
-                setProcessing(false);
-            },
+        post('/login', {
+            onFinish: () => reset('password'),
         });
     };
 
+    const displayStatus = status || flash?.success || flash?.message;
+    const generalError = flash?.error;
+
     return (
-        <div className="min-h-screen relative overflow-hidden">
-            <Head title="Login" />
+        <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden selection:bg-emerald-500 selection:text-white">
+            <Head title="Sign In" />
 
-            {/* Animated gradient background */}
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 animate-gradient"></div>
+            {/* Subtle background grid pattern */}
+            <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:24px_24px] opacity-60 pointer-events-none" />
 
-            {/* Animated floating shapes */}
-            <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute -top-40 -right-40 w-96 h-96 bg-white/10 rounded-full blur-3xl animate-blob"></div>
-                <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-white/10 rounded-full blur-3xl animation-delay-2000 animate-blob"></div>
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-white/5 rounded-full blur-3xl animation-delay-4000 animate-blob"></div>
-            </div>
+            {/* Soft ambient gradient glow */}
+            <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[340px] bg-emerald-100/40 rounded-full blur-3xl pointer-events-none -z-0" />
 
-            {/* Floating icons */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <GraduationCap className="absolute top-20 left-20 w-16 h-16 text-white/10 animate-float" />
-                <BookOpen className="absolute top-40 right-32 w-12 h-12 text-white/10 animation-delay-1000 animate-float" />
-                <Users className="absolute bottom-32 left-40 w-16 h-16 text-white/10 animation-delay-2000 animate-float" />
-                <Award className="absolute bottom-20 right-20 w-14 h-14 text-white/10 animation-delay-3000 animate-float" />
-                <Sparkles className="absolute top-1/3 right-1/4 w-10 h-10 text-white/10 animation-delay-4000 animate-float" />
-            </div>
-
-            <div className="relative min-h-screen flex items-center justify-center p-4">
-                <div className="w-full max-w-md">
-                    {/* Logo and branding */}
-                    <div className="text-center mb-8 animate-fade-in-down">
-                        <div className="inline-flex items-center justify-center w-24 h-24 bg-white/20 backdrop-blur-xl rounded-3xl mb-6 shadow-2xl border border-white/30 transform hover:scale-110 transition-all duration-300">
-                            <GraduationCap className="w-12 h-12 text-white drop-shadow-lg" />
-                        </div>
-                        <h1 className="text-5xl font-extrabold text-white mb-3 drop-shadow-2xl tracking-tight">
-                            School <span className="text-yellow-300">Management</span>
-                        </h1>
-                        <div className="flex items-center justify-center gap-2 text-white/90 text-lg font-medium">
-                            <Sparkles className="w-5 h-5 text-yellow-300 animate-pulse" />
-                            <span>Welcome Back!</span>
-                            <Sparkles className="w-5 h-5 text-yellow-300 animate-pulse" />
-                        </div>
+            <div className="w-full max-w-md relative z-10">
+                {/* Header & Logo */}
+                <div className="text-center mb-8">
+                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-white p-2 shadow-lg shadow-emerald-600/10 mb-4 ring-8 ring-emerald-50 border border-slate-100 transition-transform duration-200 hover:scale-105 overflow-hidden">
+                        <img src="/logo.png" alt="Mousumi Bidyaniketon" className="w-full h-full object-contain" />
                     </div>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                        Mousumi Bidyaniketon
+                    </h1>
+                    <p className="mt-1.5 text-sm text-slate-500">
+                        Sign in to your school management portal
+                    </p>
+                </div>
 
-                    {/* Login card with glassmorphism */}
-                    <div className="bg-white/95 backdrop-blur-2xl rounded-3xl shadow-2xl p-8 border border-white/50 animate-fade-in-up hover:shadow-3xl transition-all duration-500 transform hover:scale-[1.02]">
-                        <form onSubmit={submit} className="space-y-6">
-                            <div className="space-y-5">
-                                <div className="group transform transition-all duration-300 hover:scale-[1.02]">
-                                    <Input
-                                        type="email"
-                                        label="Email Address"
-                                        value={data.email}
-                                        onChange={(e) => setData({ ...data, email: e.target.value })}
-                                        error={errors.email}
-                                        icon={<Mail className="w-5 h-5 text-blue-500 group-hover:text-purple-600 transition-colors duration-300" />}
-                                        required
-                                        autoFocus
-                                        className="focus:ring-4 focus:ring-purple-300 transition-all duration-300"
-                                    />
-                                </div>
+                {/* Main Card */}
+                <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-100 p-7 sm:p-9">
+                    {/* Status Alert */}
+                    {displayStatus && (
+                        <div className="mb-6 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-start gap-2.5 text-emerald-800 text-sm">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                            <span>{displayStatus}</span>
+                        </div>
+                    )}
 
-                                <div className="group transform transition-all duration-300 hover:scale-[1.02]">
-                                    <Input
-                                        type="password"
-                                        label="Password"
-                                        value={data.password}
-                                        onChange={(e) => setData({ ...data, password: e.target.value })}
-                                        error={errors.password}
-                                        icon={<Lock className="w-5 h-5 text-blue-500 group-hover:text-purple-600 transition-colors duration-300" />}
-                                        required
-                                        className="focus:ring-4 focus:ring-purple-300 transition-all duration-300"
-                                    />
+                    {/* General Error Alert */}
+                    {generalError && (
+                        <div className="mb-6 p-3.5 rounded-xl bg-red-50 border border-red-200 flex items-start gap-2.5 text-red-800 text-sm">
+                            <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                            <span>{generalError}</span>
+                        </div>
+                    )}
+
+                    <form onSubmit={submit} className="space-y-5">
+                        {/* Email Field */}
+                        <div>
+                            <label
+                                htmlFor="email"
+                                className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5"
+                            >
+                                Email Address <span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                    <Mail className="w-4 h-4" />
                                 </div>
+                                <input
+                                    id="email"
+                                    type="email"
+                                    name="email"
+                                    value={data.email}
+                                    onChange={(e) => setData('email', e.target.value)}
+                                    required
+                                    autoFocus
+                                    autoComplete="email"
+                                    placeholder="admin@school.com"
+                                    className={`w-full pl-10 pr-3.5 py-2.5 text-sm bg-white border rounded-xl text-slate-900 placeholder:text-slate-400 transition-all outline-none ${
+                                        errors.email
+                                            ? 'border-red-300 focus:border-red-500 focus:ring-4 focus:ring-red-500/10'
+                                            : 'border-slate-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 hover:border-slate-300'
+                                    }`}
+                                />
                             </div>
+                            {errors.email && (
+                                <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1">
+                                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                    <span>{errors.email}</span>
+                                </p>
+                            )}
+                        </div>
 
-                            <div className="flex items-center justify-between">
-                                <label className="flex items-center gap-2 cursor-pointer group">
-                                    <input
-                                        type="checkbox"
-                                        checked={data.remember}
-                                        onChange={(e) => setData({ ...data, remember: e.target.checked })}
-                                        className="w-5 h-5 text-purple-600 border-2 border-gray-300 rounded-lg focus:ring-4 focus:ring-purple-300 cursor-pointer transition-all duration-200 hover:scale-110"
-                                    />
-                                    <span className="text-sm font-semibold text-gray-700 group-hover:text-purple-600 transition-colors duration-200">
-                                        Remember me
-                                    </span>
-                                </label>
-
-                                <Link
-                                    href="/forgot-password"
-                                    className="text-sm font-bold text-purple-600 hover:text-pink-600 transition-all duration-200 hover:underline hover:scale-105 inline-block"
+                        {/* Password Field */}
+                        <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                                <label
+                                    htmlFor="password"
+                                    className="block text-xs font-semibold uppercase tracking-wider text-slate-600"
                                 >
-                                    Forgot password?
-                                </Link>
+                                    Password <span className="text-red-500">*</span>
+                                </label>
                             </div>
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                    <Lock className="w-4 h-4" />
+                                </div>
+                                <input
+                                    id="password"
+                                    type={showPassword ? 'text' : 'password'}
+                                    name="password"
+                                    value={data.password}
+                                    onChange={(e) => setData('password', e.target.value)}
+                                    required
+                                    autoComplete="current-password"
+                                    placeholder="••••••••"
+                                    className={`w-full pl-10 pr-10 py-2.5 text-sm bg-white border rounded-xl text-slate-900 placeholder:text-slate-400 transition-all outline-none ${
+                                        errors.password
+                                            ? 'border-red-300 focus:border-red-500 focus:ring-4 focus:ring-red-500/10'
+                                            : 'border-slate-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 hover:border-slate-300'
+                                    }`}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors focus:outline-none"
+                                    tabIndex={-1}
+                                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                >
+                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                            </div>
+                            {errors.password && (
+                                <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1">
+                                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                    <span>{errors.password}</span>
+                                </p>
+                            )}
+                        </div>
 
-                            <Button
+                        {/* Remember Me & Forgot Password */}
+                        <div className="flex items-center justify-between pt-1">
+                            <label htmlFor="remember" className="flex items-center gap-2 cursor-pointer select-none">
+                                <input
+                                    id="remember"
+                                    type="checkbox"
+                                    name="remember"
+                                    checked={data.remember}
+                                    onChange={(e) => setData('remember', e.target.checked)}
+                                    className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500 focus:ring-offset-0 cursor-pointer transition-colors"
+                                />
+                                <span className="text-xs sm:text-sm text-slate-600 font-medium">Remember me</span>
+                            </label>
+
+                            <Link
+                                href="/forgot-password"
+                                className="text-xs sm:text-sm font-medium text-emerald-600 hover:text-emerald-700 hover:underline transition-colors"
+                            >
+                                Forgot password?
+                            </Link>
+                        </div>
+
+                        {/* Submit Button */}
+                        <div className="pt-2">
+                            <button
                                 type="submit"
                                 disabled={processing}
-                                className="w-full bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white py-4 rounded-2xl font-bold shadow-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 text-lg flex items-center justify-center gap-3 group relative overflow-hidden"
+                                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 shadow-sm hover:shadow transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
                             >
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000"></div>
                                 {processing ? (
                                     <>
-                                        <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
                                         <span>Signing in...</span>
                                     </>
                                 ) : (
                                     <>
                                         <span>Sign in to Dashboard</span>
-                                        <ArrowRight className="w-6 h-6 group-hover:translate-x-2 transition-transform duration-300" />
+                                        <ArrowRight className="w-4 h-4" />
                                     </>
                                 )}
-                            </Button>
-                        </form>
+                            </button>
+                        </div>
+                    </form>
 
-
-
+                    {/* Security Notice */}
+                    <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-center gap-1.5 text-xs text-slate-400">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Authorized access only • Encrypted connection</span>
                     </div>
+                </div>
 
-                    {/* Footer */}
-                    <p className="text-center text-white/90 text-sm mt-8 animate-fade-in font-medium drop-shadow-lg">
-                        © 2025 School Management Pro • Built by ❤️ Mousumi Digital Window
-                    </p>
+                {/* Footer */}
+                <div className="mt-8 text-center text-xs text-slate-400">
+                    <p>© {new Date().getFullYear()} Mousumi Bidyaniketon. All rights reserved.</p>
                 </div>
             </div>
-
-            <style>{`
-                @keyframes gradient {
-                    0%, 100% {
-                        background-size: 200% 200%;
-                        background-position: 0% 50%;
-                    }
-                    50% {
-                        background-size: 200% 200%;
-                        background-position: 100% 50%;
-                    }
-                }
-                @keyframes blob {
-                    0%, 100% {
-                        transform: translate(0, 0) scale(1);
-                    }
-                    33% {
-                        transform: translate(30px, -50px) scale(1.1);
-                    }
-                    66% {
-                        transform: translate(-20px, 20px) scale(0.9);
-                    }
-                }
-                @keyframes float {
-                    0%, 100% {
-                        transform: translateY(0px) rotate(0deg);
-                    }
-                    50% {
-                        transform: translateY(-30px) rotate(10deg);
-                    }
-                }
-                @keyframes fade-in-down {
-                    from {
-                        opacity: 0;
-                        transform: translateY(-30px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
-                }
-                @keyframes fade-in-up {
-                    from {
-                        opacity: 0;
-                        transform: translateY(30px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
-                }
-                @keyframes fade-in {
-                    from {
-                        opacity: 0;
-                    }
-                    to {
-                        opacity: 1;
-                    }
-                }
-
-                .animate-gradient {
-                    animation: gradient 15s ease infinite;
-                }
-                .animate-blob {
-                    animation: blob 7s ease-in-out infinite;
-                }
-                .animate-float {
-                    animation: float 6s ease-in-out infinite;
-                }
-                .animate-fade-in-down {
-                    animation: fade-in-down 1s ease-out;
-                }
-                .animate-fade-in-up {
-                    animation: fade-in-up 1s ease-out 0.2s both;
-                }
-                .animate-fade-in {
-                    animation: fade-in 1.5s ease-out;
-                }
-                .animation-delay-1000 {
-                    animation-delay: 1s;
-                }
-                .animation-delay-2000 {
-                    animation-delay: 2s;
-                }
-                .animation-delay-3000 {
-                    animation-delay: 3s;
-                }
-                .animation-delay-4000 {
-                    animation-delay: 4s;
-                }
-            `}</style>
         </div>
     );
 }

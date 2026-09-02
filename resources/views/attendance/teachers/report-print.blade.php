@@ -207,9 +207,12 @@
     @endphp
 
     <div class="report-header">
-        <div class="report-header-left">
-            <h1>{{ $schoolName }}</h1>
-            @if(!empty($schoolAddress))<p>{{ $schoolAddress }}</p>@endif
+        <div class="report-header-left" style="display: flex; align-items: center; gap: 8px;">
+            <img src="/logo.png" alt="Logo" style="width: 32px; height: 32px; object-fit: contain;">
+            <div>
+                <h1>{{ $schoolName }}</h1>
+                @if(!empty($schoolAddress))<p>{{ $schoolAddress }}</p>@endif
+            </div>
         </div>
         <div class="report-header-right">
             <h2>{{ $reportTitle ?? 'TEACHER ATTENDANCE REPORT' }}</h2>
@@ -288,7 +291,7 @@
     </table>
 
     <div class="report-footer">
-        <span>School Management Pro · Official Attendance Record</span>
+        <span>Mousumi Bidyaniketon · Official Attendance Record</span>
         <span>Generated: {{ now()->format('d M Y, h:i A') }}</span>
     </div>
 

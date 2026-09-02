@@ -50,7 +50,7 @@ export default function BankReport({
     creditCategories,
     debitCategories,
     filters,
-    schoolName = 'School Management Pro',
+    schoolName = 'Mousumi Bidyaniketon',
     schoolAddress = '',
 }: BankReportProps) {
     const [startDate, setStartDate] = useState(filters?.start_date || '');

@@ -157,10 +157,10 @@ export default function Welcome() {
                 className="flex items-center gap-3 group cursor-pointer"
               >
                 <div className="relative">
-                  <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/50 group-hover:shadow-emerald-500/70 transition-all">
-                    <BookOpen className="w-6 h-6" />
+                  <div className="w-12 h-12 bg-white rounded-xl p-1 flex items-center justify-center shadow-lg shadow-emerald-500/30 group-hover:shadow-emerald-500/50 transition-all overflow-hidden border border-emerald-500/20">
+                    <img src="/logo.png" alt="মৌসুমী বিদ্যানিকেতন" className="w-full h-full object-contain" />
                   </div>
-                  <div className="absolute -inset-1 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl blur opacity-30 group-hover:opacity-50 transition-opacity" />
+                  <div className="absolute -inset-1 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl blur opacity-30 group-hover:opacity-50 transition-opacity -z-10" />
                 </div>
                 <div>
                   <h1 className="text-xl font-bold bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">
@@ -836,8 +836,8 @@ export default function Welcome() {
               {/* Logo & Info */}
               <div className="md:col-span-2">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/50">
-                    <BookOpen className="w-6 h-6" />
+                  <div className="w-12 h-12 bg-white rounded-xl p-1 flex items-center justify-center shadow-lg shadow-emerald-500/30 overflow-hidden border border-emerald-500/20">
+                    <img src="/logo.png" alt="মৌসুমী বিদ্যানিকেতন" className="w-full h-full object-contain" />
                   </div>
                   <div>
                     <h3 className="text-xl font-bold bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">

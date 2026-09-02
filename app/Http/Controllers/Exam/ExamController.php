@@ -188,30 +188,13 @@ class ExamController extends Controller
                     ->get();
 
                 foreach ($students as $student) {
-                    // Check if exam fee already exists for this student and exam
-                    $existingFee = FeeCollection::where('student_id', $student->id)
-                        ->where('fee_type_id', $examFeeStructure->fee_type_id)
-                        ->where('month', $examStartDate->month)
-                        ->where('year', $examStartDate->year)
-                        ->whereIn('status', ['pending', 'paid', 'overdue'])
-                        ->first();
-
-                    // Skip if already exists
-                    if ($existingFee) {
-                        continue;
-                    }
-
-                    // Generate receipt number
-                    $receiptNumber = 'FEE-' . date('Ymd') . '-' . str_pad(
-                        FeeCollection::whereDate('created_at', today())->count() + 1,
-                        6,
-                        '0',
-                        STR_PAD_LEFT
-                    );
-
-                    // Create pending exam fee
-                    FeeCollection::create([
-                        'receipt_number' => $receiptNumber,
+                    FeeCollection::createPendingIfAbsent([
+                        'receipt_number' => 'FEE-' . date('Ymd') . '-' . str_pad(
+                            FeeCollection::whereDate('created_at', today())->count() + 1,
+                            6,
+                            '0',
+                            STR_PAD_LEFT
+                        ),
                         'student_id' => $student->id,
                         'fee_type_id' => $examFeeStructure->fee_type_id,
                         'academic_year_id' => $academicYearId,

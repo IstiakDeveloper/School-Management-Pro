@@ -766,8 +766,11 @@ export default function Index({ investors, accounts, stats }: Props) {
                             <div id="printable-ledger">
                                 {/* Print Header */}
                                 <div className="text-center mb-6 mt-4 px-6" style={{pageBreakAfter: 'avoid'}}>
-                                    <h1 className="text-3xl font-bold text-gray-800">School Management Pro</h1>
-                                    <h2 className="text-xl font-semibold text-indigo-700 mt-2">Fund Ledger Report</h2>
+                                    <div className="flex items-center justify-center gap-3 mb-2">
+                                        <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain" />
+                                        <h1 className="text-3xl font-bold text-gray-800">Mousumi Bidyaniketon</h1>
+                                    </div>
+                                    <h2 className="text-xl font-semibold text-emerald-700 mt-1">Fund Ledger Report</h2>
                                     <div className="mt-3 text-sm text-gray-600">
                                         <p><strong>Investor:</strong> {selectedInvestor.name} ({selectedInvestor.investor_code})</p>
                                         <p><strong>Print Date:</strong> {new Date().toLocaleDateString('en-US', {year: 'numeric', month: 'long', day: 'numeric'})}</p>

@@ -7,7 +7,7 @@ interface StudentIDCardProps {
     schoolLogo?: string;
 }
 
-export default function StudentIDCard({ student, appName = import.meta.env.VITE_APP_NAME || 'School Management System', schoolLogo }: StudentIDCardProps) {
+export default function StudentIDCard({ student, appName = import.meta.env.VITE_APP_NAME || 'Mousumi Bidyaniketon', schoolLogo = '/logo.png' }: StudentIDCardProps) {
     const formatDate = (date: string) => {
         return new Date(date).toLocaleDateString('en-US', {
             year: 'numeric',
@@ -315,8 +315,13 @@ export default function StudentIDCard({ student, appName = import.meta.env.VITE_
         <div class="id-card">
             <div class="card-front">
                 <div class="card-header">
-                    <h1>${appName}</h1>
-                    <p>STUDENT IDENTITY CARD</p>
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+                        <img src="${schoolLogo}" style="width: 22px; height: 22px; object-fit: contain; background: white; border-radius: 4px; padding: 1.5px;" alt="Logo" />
+                        <div>
+                            <h1>${appName}</h1>
+                            <p>STUDENT IDENTITY CARD</p>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="card-body">

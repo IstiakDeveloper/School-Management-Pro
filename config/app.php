@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'School Management Pro'),
+    'name' => env('APP_NAME', 'Mousumi Bidyaniketon'),
 
     /*
     |--------------------------------------------------------------------------

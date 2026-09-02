@@ -1,232 +1,131 @@
-import React, { FormEvent, useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
-import Input from '@/Components/Input';
-import Button from '@/Components/Button';
-import { Mail, GraduationCap, ArrowLeft, Sparkles, Send, CheckCircle } from 'lucide-react';
+import React, { FormEvent } from 'react';
+import { Head, Link, useForm } from '@inertiajs/react';
+import { Mail, GraduationCap, ArrowLeft, Send, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function ForgotPassword({ status }: { status?: string }) {
-    const [data, setData] = useState({
+    const { data, setData, post, processing, errors } = useForm({
         email: '',
     });
-    const [errors, setErrors] = useState<any>({});
-    const [processing, setProcessing] = useState(false);
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
-        setProcessing(true);
-
-        router.post('/forgot-password', data, {
-            onError: (errors) => {
-                setErrors(errors);
-                setProcessing(false);
-            },
-            onFinish: () => {
-                setProcessing(false);
-            },
-        });
+        post('/forgot-password');
     };
 
     return (
-        <div className="min-h-screen relative overflow-hidden">
+        <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden selection:bg-emerald-500 selection:text-white">
             <Head title="Forgot Password" />
 
-            {/* Animated gradient background */}
-            <div className="absolute inset-0 bg-gradient-to-br from-orange-600 via-red-600 to-pink-600 animate-gradient"></div>
+            {/* Subtle background grid pattern */}
+            <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:24px_24px] opacity-60 pointer-events-none" />
 
-            {/* Animated floating shapes */}
-            <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute -top-40 -right-40 w-96 h-96 bg-white/10 rounded-full blur-3xl animate-blob"></div>
-                <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-white/10 rounded-full blur-3xl animation-delay-2000 animate-blob"></div>
-            </div>
+            {/* Soft ambient gradient glow */}
+            <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[340px] bg-emerald-100/40 rounded-full blur-3xl pointer-events-none -z-0" />
 
-            <div className="relative min-h-screen flex items-center justify-center p-4">
-                <div className="w-full max-w-md">
-                    {/* Logo and branding */}
-                    <div className="text-center mb-8 animate-fade-in-down">
-                        <div className="inline-flex items-center justify-center w-24 h-24 bg-white/20 backdrop-blur-xl rounded-3xl mb-6 shadow-2xl border border-white/30 transform hover:scale-110 transition-all duration-300">
-                            <GraduationCap className="w-12 h-12 text-white drop-shadow-lg" />
-                        </div>
-                        <h1 className="text-5xl font-extrabold text-white mb-3 drop-shadow-2xl tracking-tight">
-                            Reset <span className="text-yellow-300">Password</span>
-                        </h1>
-                        <p className="text-white/90 text-lg font-medium">
-                            Don't worry, we'll send you reset instructions
-                        </p>
+            <div className="w-full max-w-md relative z-10">
+                {/* Header & Logo */}
+                <div className="text-center mb-8">
+                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-white p-2 shadow-lg shadow-emerald-600/10 mb-4 ring-8 ring-emerald-50 border border-slate-100 transition-transform duration-200 hover:scale-105 overflow-hidden">
+                        <img src="/logo.png" alt="Mousumi Bidyaniketon" className="w-full h-full object-contain" />
                     </div>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                        Reset Password
+                    </h1>
+                    <p className="mt-1.5 text-sm text-slate-500">
+                        Enter your email address to receive a password reset link
+                    </p>
+                </div>
 
-                    {/* Reset password card with glassmorphism */}
-                    <div className="bg-white/95 backdrop-blur-2xl rounded-3xl shadow-2xl p-8 border border-white/50 animate-fade-in-up hover:shadow-3xl transition-all duration-500">
-                        {status && (
-                            <div className="mb-6 p-5 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl animate-bounce-in">
-                                <div className="flex items-start gap-3">
-                                    <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
-                                    <div>
-                                        <p className="font-bold text-green-800 mb-1">Email Sent!</p>
-                                        <p className="text-sm text-green-700">{status}</p>
-                                    </div>
-                                </div>
+                {/* Main Card */}
+                <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-100 p-7 sm:p-9">
+                    {/* Status Alert */}
+                    {status && (
+                        <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex items-start gap-3 text-emerald-900 text-sm">
+                            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                            <div>
+                                <p className="font-semibold text-emerald-800">Reset link sent!</p>
+                                <p className="text-xs text-emerald-700 mt-0.5">{status}</p>
                             </div>
-                        )}
-
-                        <div className="mb-6">
-                            <p className="text-gray-700 text-center">
-                                Enter your email address and we'll send you a link to reset your password.
-                            </p>
                         </div>
+                    )}
 
-                        <form onSubmit={submit} className="space-y-6">
-                            <div className="group transform transition-all duration-300 hover:scale-[1.02]">
-                                <Input
+                    <form onSubmit={submit} className="space-y-5">
+                        {/* Email Field */}
+                        <div>
+                            <label
+                                htmlFor="email"
+                                className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5"
+                            >
+                                Registered Email <span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                    <Mail className="w-4 h-4" />
+                                </div>
+                                <input
+                                    id="email"
                                     type="email"
-                                    label="Email Address"
+                                    name="email"
                                     value={data.email}
-                                    onChange={(e) => setData({ ...data, email: e.target.value })}
-                                    error={errors.email}
-                                    icon={<Mail className="w-5 h-5 text-orange-500 group-hover:text-red-600 transition-colors duration-300" />}
+                                    onChange={(e) => setData('email', e.target.value)}
                                     required
                                     autoFocus
-                                    placeholder="Enter your registered email"
+                                    autoComplete="email"
+                                    placeholder="admin@school.com"
+                                    className={`w-full pl-10 pr-3.5 py-2.5 text-sm bg-white border rounded-xl text-slate-900 placeholder:text-slate-400 transition-all outline-none ${
+                                        errors.email
+                                            ? 'border-red-300 focus:border-red-500 focus:ring-4 focus:ring-red-500/10'
+                                            : 'border-slate-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 hover:border-slate-300'
+                                    }`}
                                 />
                             </div>
+                            {errors.email && (
+                                <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1">
+                                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                    <span>{errors.email}</span>
+                                </p>
+                            )}
+                        </div>
 
-                            <Button
+                        {/* Submit Button */}
+                        <div className="pt-2">
+                            <button
                                 type="submit"
                                 disabled={processing}
-                                className="w-full bg-gradient-to-r from-orange-600 via-red-600 to-pink-600 hover:from-orange-700 hover:via-red-700 hover:to-pink-700 text-white py-4 rounded-2xl font-bold shadow-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 text-lg flex items-center justify-center gap-3 group relative overflow-hidden"
+                                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 shadow-sm hover:shadow transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
                             >
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000"></div>
                                 {processing ? (
                                     <>
-                                        <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                        <span>Sending...</span>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        <span>Sending reset link...</span>
                                     </>
                                 ) : (
                                     <>
-                                        <Send className="w-5 h-5" />
                                         <span>Send Reset Link</span>
+                                        <Send className="w-4 h-4" />
                                     </>
                                 )}
-                            </Button>
-                        </form>
-
-                        <div className="mt-8 pt-6 border-t-2 border-gray-200">
-                            <Link
-                                href="/login"
-                                className="flex items-center justify-center gap-2 text-sm font-bold text-orange-600 hover:text-red-600 transition-all duration-200 hover:underline group"
-                            >
-                                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform duration-200" />
-                                <span>Back to Login</span>
-                            </Link>
+                            </button>
                         </div>
+                    </form>
 
-                        {/* Help text */}
-                        <div className="mt-6 p-5 bg-gradient-to-r from-orange-50 to-pink-50 rounded-2xl border-2 border-orange-100">
-                            <div className="flex items-start gap-3">
-                                <Sparkles className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
-                                <div>
-                                    <p className="text-sm font-bold text-gray-700 mb-1">Need Help?</p>
-                                    <p className="text-xs text-gray-600">If you don't receive the email within a few minutes, please check your spam folder or contact support.</p>
-                                </div>
-                            </div>
-                        </div>
+                    {/* Back to login */}
+                    <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-center">
+                        <Link
+                            href="/login"
+                            className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-emerald-600 transition-colors group"
+                        >
+                            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                            <span>Back to sign in</span>
+                        </Link>
                     </div>
+                </div>
 
-                    {/* Footer */}
-                    <p className="text-center text-white/90 text-sm mt-8 animate-fade-in font-medium drop-shadow-lg">
-                        © 2025 School Management Pro • Secure & Trusted
-                    </p>
+                {/* Footer */}
+                <div className="mt-8 text-center text-xs text-slate-400">
+                    <p>© {new Date().getFullYear()} Mousumi Bidyaniketon. All rights reserved.</p>
                 </div>
             </div>
-
-            <style>{`
-                @keyframes gradient {
-                    0%, 100% {
-                        background-size: 200% 200%;
-                        background-position: 0% 50%;
-                    }
-                    50% {
-                        background-size: 200% 200%;
-                        background-position: 100% 50%;
-                    }
-                }
-                @keyframes blob {
-                    0%, 100% {
-                        transform: translate(0, 0) scale(1);
-                    }
-                    33% {
-                        transform: translate(30px, -50px) scale(1.1);
-                    }
-                    66% {
-                        transform: translate(-20px, 20px) scale(0.9);
-                    }
-                }
-                @keyframes fade-in-down {
-                    from {
-                        opacity: 0;
-                        transform: translateY(-30px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
-                }
-                @keyframes fade-in-up {
-                    from {
-                        opacity: 0;
-                        transform: translateY(30px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
-                }
-                @keyframes fade-in {
-                    from {
-                        opacity: 0;
-                    }
-                    to {
-                        opacity: 1;
-                    }
-                }
-                @keyframes bounce-in {
-                    0% {
-                        opacity: 0;
-                        transform: scale(0.3);
-                    }
-                    50% {
-                        transform: scale(1.05);
-                    }
-                    70% {
-                        transform: scale(0.9);
-                    }
-                    100% {
-                        opacity: 1;
-                        transform: scale(1);
-                    }
-                }
-
-                .animate-gradient {
-                    animation: gradient 15s ease infinite;
-                }
-                .animate-blob {
-                    animation: blob 7s ease-in-out infinite;
-                }
-                .animate-fade-in-down {
-                    animation: fade-in-down 1s ease-out;
-                }
-                .animate-fade-in-up {
-                    animation: fade-in-up 1s ease-out 0.2s both;
-                }
-                .animate-fade-in {
-                    animation: fade-in 1.5s ease-out;
-                }
-                .animate-bounce-in {
-                    animation: bounce-in 0.6s ease-out;
-                }
-                .animation-delay-2000 {
-                    animation-delay: 2s;
-                }
-            `}</style>
         </div>
     );
 }

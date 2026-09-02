@@ -51,6 +51,8 @@ class AutoGenerateMonthlyFees
             return;
         }
 
+        FeeCollection::cancelAllUnpaidPeriodDuplicates();
+
         $currentMonth = now()->month;
         $currentYear = now()->year;
 
@@ -75,32 +77,15 @@ class AutoGenerateMonthlyFees
                 ->get();
 
             foreach ($feeStructures as $feeStructure) {
-                // Check if fee already exists (ignore cancelled duplicates)
-                $exists = FeeCollection::activeExistsForPeriod(
-                    $student->id,
-                    $feeStructure->fee_type_id,
-                    $currentMonth,
-                    $currentYear
-                );
-
-                if ($exists) {
-                    continue;
-                }
-
-                // Calculate due date
                 $dueDate = $feeStructure->due_date ?? Carbon::create($currentYear, $currentMonth, 10);
 
-                // Generate receipt number
-                $receiptNumber = 'FEE-' . date('Ymd') . '-' . str_pad(
-                    FeeCollection::whereDate('created_at', today())->count() + 1,
-                    6,
-                    '0',
-                    STR_PAD_LEFT
-                );
-
-                // Create fee collection record
-                FeeCollection::create([
-                    'receipt_number' => $receiptNumber,
+                FeeCollection::createPendingIfAbsent([
+                    'receipt_number' => 'FEE-' . date('Ymd') . '-' . str_pad(
+                        FeeCollection::whereDate('created_at', today())->count() + 1,
+                        6,
+                        '0',
+                        STR_PAD_LEFT
+                    ),
                     'student_id' => $student->id,
                     'fee_type_id' => $feeStructure->fee_type_id,
                     'academic_year_id' => $academicYear->id,

@@ -411,7 +411,10 @@ export default function Calendar({ students, year, month, daysInMonth, classes, 
             <div className="hidden print:block print-container">
                 {/* Header */}
                 <div className="text-center mb-3 pb-2 border-b-2 border-black" style={{ marginBottom: '12px', paddingBottom: '8px', borderBottom: '2px solid #000' }}>
-                    <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: '#111', marginBottom: '4px' }}>School Management Pro</h1>
+                    <div style={{ display: 'flex', alignItems: 'center', justifySelf: 'center', justifyContent: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <img src="/logo.png" alt="Logo" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
+                        <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: '#111', margin: 0 }}>Mousumi Bidyaniketon</h1>
+                    </div>
                     <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#333', marginBottom: '4px' }}>STUDENT ATTENDANCE CALENDAR</h2>
                     <p style={{ fontSize: '14px', fontWeight: '600', color: '#555' }}>{months[month - 1]} {year}</p>
                 </div>

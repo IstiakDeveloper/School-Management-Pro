@@ -7,16 +7,16 @@ interface GuestLayoutProps {
 
 export default function GuestLayout({ children }: GuestLayoutProps) {
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
             <div className="w-full max-w-md">
                 <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
-                        <GraduationCap className="w-8 h-8 text-white" />
+                    <div className="inline-flex items-center justify-center w-20 h-20 bg-white p-2 rounded-2xl shadow-md mb-4 border border-slate-100">
+                        <img src="/logo.png" alt="Mousumi Bidyaniketon" className="w-full h-full object-contain" />
                     </div>
-                    <h1 className="text-3xl font-bold text-gray-900">School Pro</h1>
-                    <p className="text-gray-600 mt-2">School Management System</p>
+                    <h1 className="text-2xl font-bold text-slate-900">Mousumi Bidyaniketon</h1>
+                    <p className="text-slate-500 mt-1 text-sm">School Management System</p>
                 </div>
-                <div className="bg-white rounded-lg shadow-xl p-8">
+                <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 p-8 border border-slate-100">
                     {children}
                 </div>
             </div>

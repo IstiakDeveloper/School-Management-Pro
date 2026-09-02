@@ -8,7 +8,6 @@ use App\Models\FeeStructure;
 use App\Models\Student;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 
 class GenerateMonthlyFees extends Command
 {
@@ -87,31 +86,15 @@ class GenerateMonthlyFees extends Command
                         continue;
                     }
 
-                    // Check if fee already generated for this student, month, year
-                    if (FeeCollection::activeExistsForPeriod(
-                        $student->id,
-                        $feeStructure->fee_type_id,
-                        $month,
-                        $year
-                    )) {
-                        $skippedCount++;
-                        continue;
-                    }
-
-                    // Calculate due date from fee structure
                     $dueDate = $feeStructure->due_date ?? Carbon::create($year, $month, 10);
 
-                    // Generate receipt number
-                    $receiptNumber = 'FEE-' . date('Ymd') . '-' . str_pad(
-                        FeeCollection::whereDate('created_at', today())->count() + 1,
-                        6,
-                        '0',
-                        STR_PAD_LEFT
-                    );
-
-                    // Create fee collection record with pending status
-                    FeeCollection::create([
-                        'receipt_number' => $receiptNumber,
+                    $created = FeeCollection::createPendingIfAbsent([
+                        'receipt_number' => 'FEE-' . date('Ymd') . '-' . str_pad(
+                            FeeCollection::whereDate('created_at', today())->count() + 1,
+                            6,
+                            '0',
+                            STR_PAD_LEFT
+                        ),
                         'student_id' => $student->id,
                         'fee_type_id' => $feeStructure->fee_type_id,
                         'academic_year_id' => $academicYear->id,
@@ -125,10 +108,14 @@ class GenerateMonthlyFees extends Command
                         'payment_date' => $dueDate,
                         'status' => 'pending',
                         'remarks' => 'Auto-generated monthly fee',
-                        'collected_by' => 1, // System generated
+                        'collected_by' => 1,
                     ]);
 
-                    $generatedCount++;
+                    if ($created) {
+                        $generatedCount++;
+                    } else {
+                        $skippedCount++;
+                    }
                 }
             } catch (\Exception $e) {
                 $this->error("Error for student {$student->id}: " . $e->getMessage());

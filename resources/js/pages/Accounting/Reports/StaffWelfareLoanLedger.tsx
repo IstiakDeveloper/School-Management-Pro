@@ -53,7 +53,7 @@ export default function StaffWelfareLoanLedger({
     summary,
     filters,
     teachers,
-    schoolName = 'School Management Pro',
+    schoolName = 'Mousumi Bidyaniketon',
     schoolAddress = '',
 }: Props) {
     const [startDate, setStartDate] = useState(filters.start_date);

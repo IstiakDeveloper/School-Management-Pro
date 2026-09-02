@@ -6,9 +6,10 @@ import { usePage } from '@inertiajs/react';
 
 interface AuthenticatedLayoutProps {
     children: ReactNode;
+    header?: ReactNode;
 }
 
-export default function AuthenticatedLayout({ children }: AuthenticatedLayoutProps) {
+export default function AuthenticatedLayout({ children, header }: AuthenticatedLayoutProps) {
     const { url, component } = usePage();
     
     // Check if the current page is an attendance page or report page

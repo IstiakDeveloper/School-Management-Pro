@@ -3,6 +3,7 @@ import '../css/app.css';
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
+import GlobalLoadingIndicator from './Components/GlobalLoadingIndicator';
 
 // Prevent mouse wheel from changing number input values while focused
 document.addEventListener(
@@ -16,7 +17,7 @@ document.addEventListener(
     { passive: false, capture: true }
 );
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const appName = import.meta.env.VITE_APP_NAME || 'Mousumi Bidyaniketon';
 
 createInertiaApp({
     title: (title) => title ? `${title} - ${appName}` : appName,
@@ -24,9 +25,13 @@ createInertiaApp({
     setup({ el, App, props }) {
         const root = createRoot(el);
 
-        root.render(<App {...props} />);
+        root.render(
+            <>
+                <App {...props} />
+                <GlobalLoadingIndicator />
+            </>
+        );
     },
-    progress: {
-        color: '#4B5563',
-    },
+    progress: false,
 });
+

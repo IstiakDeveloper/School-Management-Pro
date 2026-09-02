@@ -363,44 +363,34 @@ class StudentController extends Controller
                 ->get();
 
             foreach ($feeStructures as $feeStructure) {
-                // Check if this fee already exists for the student
                 $existingFee = FeeCollection::where('student_id', $student->id)
                     ->where('fee_type_id', $feeStructure->fee_type_id)
                     ->where('academic_year_id', $student->academic_year_id)
-                    ->whereIn('status', ['pending', 'paid'])
+                    ->where('status', '!=', 'cancelled')
                     ->first();
 
-                // Skip if already exists
                 if ($existingFee) {
                     continue;
                 }
 
-                // Generate receipt number
-                $receiptNumber = 'FEE-'.date('Ymd').'-'.str_pad(
-                    FeeCollection::whereDate('created_at', today())->count() + 1,
-                    6,
-                    '0',
-                    STR_PAD_LEFT
-                );
-
-                // Calculate due date
                 $dueDate = $feeStructure->due_date ?? Carbon::create($currentYear, $currentMonth, 10);
-
-                // Determine month/year based on frequency
                 $month = $currentMonth;
                 $year = $currentYear;
 
-                // For one-time fees (like admission), use admission month
                 if ($feeStructure->feeType->frequency === 'one_time') {
                     $admissionDate = Carbon::parse($student->admission_date);
                     $month = $admissionDate->month;
                     $year = $admissionDate->year;
-                    $dueDate = $admissionDate; // Due immediately on admission
+                    $dueDate = $admissionDate;
                 }
 
-                // Create pending fee collection
-                FeeCollection::create([
-                    'receipt_number' => $receiptNumber,
+                FeeCollection::createPendingIfAbsent([
+                    'receipt_number' => 'FEE-'.date('Ymd').'-'.str_pad(
+                        FeeCollection::whereDate('created_at', today())->count() + 1,
+                        6,
+                        '0',
+                        STR_PAD_LEFT
+                    ),
                     'student_id' => $student->id,
                     'fee_type_id' => $feeStructure->fee_type_id,
                     'academic_year_id' => $student->academic_year_id,

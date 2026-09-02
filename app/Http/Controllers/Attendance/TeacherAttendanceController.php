@@ -784,7 +784,7 @@ class TeacherAttendanceController extends Controller
     private function schoolInfo(): array
     {
         return [
-            'schoolName' => Setting::where('key', 'school_name')->value('value') ?: 'School Management Pro',
+            'schoolName' => Setting::where('key', 'school_name')->value('value') ?: config('app.name', 'Mousumi Bidyaniketon'),
             'schoolAddress' => Setting::where('key', 'school_address')->value('value') ?: '',
         ];
     }

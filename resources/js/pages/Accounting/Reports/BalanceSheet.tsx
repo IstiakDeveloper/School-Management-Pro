@@ -39,7 +39,7 @@ export default function BalanceSheet({
     propertyAndAssets,
     filters,
     balanceDifference,
-    schoolName = 'School Management Pro',
+    schoolName = 'Mousumi Bidyaniketon',
     schoolAddress = '',
 }: BalanceSheetProps) {
     const [endDate, setEndDate] = useState(filters?.end_date || '');

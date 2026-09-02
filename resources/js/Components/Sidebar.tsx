@@ -71,16 +71,6 @@ const menuItems: MenuItem[] = [
     { name: 'Dashboard', href: '/teacher/dashboard', icon: <LayoutDashboard className={iconClass} />, roles: ['Teacher'] },
     { name: 'Dashboard', href: '/student/dashboard', icon: <LayoutDashboard className={iconClass} />, roles: ['Student'] },
     {
-        name: 'Users',
-        icon: <Users className={iconClass} />,
-        roles: ['Super Admin', 'Admin'],
-        children: [
-            { name: 'All Users', href: '/users', icon: <Users className={iconClass} />, roles: ['Super Admin', 'Admin'] },
-            { name: 'Roles', href: '/roles', icon: <ShieldCheck className={iconClass} />, roles: ['Super Admin', 'Admin'] },
-            { name: 'Permissions', href: '/permissions', icon: <KeyRound className={iconClass} />, roles: ['Super Admin', 'Admin'] },
-        ],
-    },
-    {
         name: 'Academic',
         icon: <BookOpen className={iconClass} />,
         roles: ['Super Admin', 'Admin', 'Principal'],
@@ -109,25 +99,6 @@ const menuItems: MenuItem[] = [
         children: [
             { name: 'All Teachers', href: '/teachers', icon: <GraduationCap className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
             { name: 'Teacher Subjects', href: '/teacher-subjects', icon: <BookMarked className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
-        ],
-    },
-    {
-        name: 'Staff & Salary',
-        icon: <Briefcase className={iconClass} />,
-        roles: ['Super Admin', 'Admin', 'Principal'],
-        children: [
-            { name: 'Salary Payments', href: '/salary-payments', icon: <DollarSign className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
-            { name: 'Provident Fund', href: '/provident-fund', icon: <Wallet className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
-        ],
-    },
-    {
-        name: 'Other Staff',
-        icon: <Users className={iconClass} />,
-        roles: ['Super Admin'],
-        children: [
-            { name: 'All Staff', href: '/other-staff', icon: <Users className={iconClass} />, roles: ['Super Admin'] },
-            { name: 'Attendance Logs', href: '/other-staff-attendance', icon: <ClipboardCheck className={iconClass} />, roles: ['Super Admin'] },
-            { name: 'Attendance Calculator', href: '/other-staff-attendance?tab=calculator', icon: <Calculator className={iconClass} />, roles: ['Super Admin'] },
         ],
     },
     {
@@ -161,8 +132,9 @@ const menuItems: MenuItem[] = [
         icon: <DollarSign className={iconClass} />,
         roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'],
         children: [
-            { name: 'Fee Types', href: '/fee-types', icon: <Tag className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+            { name: 'Collect Fee (POS)', href: '/fee-collections/create', icon: <Receipt className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
             { name: 'Collections', href: '/fee-collections', icon: <Banknote className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+            { name: 'Fee Types', href: '/fee-types', icon: <Tag className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
             { name: 'Overdue Fees', href: '/overdue-fees', icon: <AlertCircle className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
         ],
     },
@@ -180,6 +152,25 @@ const menuItems: MenuItem[] = [
             { name: 'Welfare Loans', href: '/accounting/welfare-loans', icon: <HandCoins className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
             { name: 'Income Categories', href: '/accounting/income-categories', icon: <TrendingUp className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
             { name: 'Expense Categories', href: '/accounting/expense-categories', icon: <TrendingDown className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+        ],
+    },
+    {
+        name: 'Staff & Salary',
+        icon: <Briefcase className={iconClass} />,
+        roles: ['Super Admin', 'Admin', 'Principal'],
+        children: [
+            { name: 'Salary Payments', href: '/salary-payments', icon: <DollarSign className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
+            { name: 'Provident Fund', href: '/provident-fund', icon: <Wallet className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
+        ],
+    },
+    {
+        name: 'Other Staff',
+        icon: <Users className={iconClass} />,
+        roles: ['Super Admin'],
+        children: [
+            { name: 'All Staff', href: '/other-staff', icon: <Users className={iconClass} />, roles: ['Super Admin'] },
+            { name: 'Attendance Logs', href: '/other-staff-attendance', icon: <ClipboardCheck className={iconClass} />, roles: ['Super Admin'] },
+            { name: 'Attendance Calculator', href: '/other-staff-attendance?tab=calculator', icon: <Calculator className={iconClass} />, roles: ['Super Admin'] },
         ],
     },
     {
@@ -226,6 +217,16 @@ const menuItems: MenuItem[] = [
             { name: 'Receipt Payment', href: '/accounting/reports/receipt-payment', icon: <Receipt className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
             { name: 'Income Expenditure', href: '/accounting/reports/income-expenditure', icon: <PieChart className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
             { name: 'Balance Sheet', href: '/accounting/reports/balance-sheet', icon: <Scale className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal', 'Accountant'] },
+        ],
+    },
+    {
+        name: 'Users',
+        icon: <Users className={iconClass} />,
+        roles: ['Super Admin', 'Admin'],
+        children: [
+            { name: 'All Users', href: '/users', icon: <Users className={iconClass} />, roles: ['Super Admin', 'Admin'] },
+            { name: 'Roles', href: '/roles', icon: <ShieldCheck className={iconClass} />, roles: ['Super Admin', 'Admin'] },
+            { name: 'Permissions', href: '/permissions', icon: <KeyRound className={iconClass} />, roles: ['Super Admin', 'Admin'] },
         ],
     },
     { name: 'Settings', href: '/settings', icon: <Settings className={iconClass} />, roles: ['Super Admin', 'Admin', 'Principal'] },
@@ -316,15 +317,21 @@ export default function Sidebar() {
     return (
         <aside className="w-56 bg-white border-r border-emerald-200/80 h-screen fixed left-0 top-0 flex flex-col z-30 shadow-sm">
             <div className="p-3 border-b border-emerald-100 shrink-0 bg-emerald-600">
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center shrink-0">
-                        <GraduationCap className="w-4 h-4 text-white" />
+                <Link
+                    href="/"
+                    className="flex items-center gap-2.5 group transition-all duration-150 hover:opacity-95"
+                    title="Go to Home / Website"
+                >
+                    <div className="w-9 h-9 bg-white rounded-lg p-1 shadow-sm flex items-center justify-center shrink-0 overflow-hidden group-hover:scale-105 transition-transform">
+                        <img src="/logo.png" alt="Mousumi Bidyaniketon" className="w-full h-full object-contain" />
                     </div>
                     <div className="min-w-0">
-                        <p className="text-sm font-semibold text-white truncate">School Pro</p>
-                        <p className="text-[11px] text-emerald-100">Management</p>
+                        <p className="text-xs font-bold text-white truncate leading-tight tracking-tight group-hover:text-emerald-50 transition-colors">
+                            Mousumi Bidyaniketon
+                        </p>
+                        <p className="text-[10px] text-emerald-100 leading-tight">School Management</p>
                     </div>
-                </div>
+                </Link>
             </div>
 
             <nav className="flex-1 overflow-y-auto py-2 px-2 bg-white">

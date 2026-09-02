@@ -127,7 +127,7 @@ class BalanceSheetReportController extends Controller
         // Total Property and Assets
         $totalPropertyAndAssets = $totalFixedAssets + $welfareLoanOutstanding + $closingBankBalance;
 
-        $schoolName = Setting::where('key', 'school_name')->value('value') ?: 'School Management Pro';
+        $schoolName = Setting::where('key', 'school_name')->value('value') ?: config('app.name', 'Mousumi Bidyaniketon');
         $schoolAddress = Setting::where('key', 'school_address')->value('value') ?: '';
 
         return Inertia::render('Accounting/Reports/BalanceSheet', [

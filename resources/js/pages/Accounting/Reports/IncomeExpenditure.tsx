@@ -46,7 +46,7 @@ export default function IncomeExpenditure({
     cumulativeSurplus,
     filters,
     accounts,
-    schoolName = 'School Management Pro',
+    schoolName = 'Mousumi Bidyaniketon',
     schoolAddress = '',
 }: IncomeExpenditureProps) {
     const [startDate, setStartDate] = useState(filters?.start_date || '');

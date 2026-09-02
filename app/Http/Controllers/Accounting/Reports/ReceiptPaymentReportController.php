@@ -420,7 +420,7 @@ class ReceiptPaymentReportController extends Controller
         $closingBalance = $openingBalancePeriod + $totalMonthReceipts - $totalMonthPayments;
         $cumulativeClosingBalance = $openingBalanceCumulative + $totalCumulativeReceipts - $totalCumulativePayments;
 
-        $schoolName = Setting::where('key', 'school_name')->value('value') ?: 'School Management Pro';
+        $schoolName = Setting::where('key', 'school_name')->value('value') ?: config('app.name', 'Mousumi Bidyaniketon');
         $schoolAddress = Setting::where('key', 'school_address')->value('value') ?: '';
 
         return Inertia::render('Accounting/Reports/ReceiptPayment', [

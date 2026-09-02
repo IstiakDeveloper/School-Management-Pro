@@ -15,17 +15,62 @@ use Inertia\Inertia;
 
 class DueReportController extends Controller
 {
+    private array $monthNames = [
+        1 => 'January',
+        2 => 'February',
+        3 => 'March',
+        4 => 'April',
+        5 => 'May',
+        6 => 'June',
+        7 => 'July',
+        8 => 'August',
+        9 => 'September',
+        10 => 'October',
+        11 => 'November',
+        12 => 'December',
+    ];
+
+    private array $shortMonthNames = [
+        1 => 'Jan',
+        2 => 'Feb',
+        3 => 'Mar',
+        4 => 'Apr',
+        5 => 'May',
+        6 => 'Jun',
+        7 => 'Jul',
+        8 => 'Aug',
+        9 => 'Sep',
+        10 => 'Oct',
+        11 => 'Nov',
+        12 => 'Dec',
+    ];
+
     public function index(Request $request)
     {
         $this->authorize('manage_accounting');
 
-        $startDate = $request->start_date ? Carbon::parse($request->start_date)->startOfDay() : now()->startOfMonth();
-        $endDate = $request->end_date ? Carbon::parse($request->end_date)->endOfDay() : now()->endOfMonth();
+        $academicYears = AcademicYear::orderByDesc('start_date')->get(['id', 'name', 'is_current', 'start_date', 'end_date']);
+        $currentAcademicYear = $academicYears->firstWhere('is_current', true) ?: $academicYears->first();
+
+        $academicYearId = $request->academic_year_id ? (int) $request->academic_year_id : ($currentAcademicYear?->id);
+        $selectedAcademicYear = $academicYears->firstWhere('id', $academicYearId) ?: $currentAcademicYear;
+
         $reportType = $request->report_type ?? 'organization';
         $classId = $request->class_id ? (int) $request->class_id : null;
         $studentId = $request->student_id ? (int) $request->student_id : null;
 
-        $currentAcademicYear = AcademicYear::where('is_current', true)->first();
+        $monthFrom = $request->month_from ? (int) $request->month_from : ($request->month ? (int) $request->month : null);
+        $monthTo = $request->month_to ? (int) $request->month_to : ($request->month ? (int) $request->month : null);
+
+        if ($monthFrom && ! $monthTo) {
+            $monthTo = $monthFrom;
+        } elseif ($monthTo && ! $monthFrom) {
+            $monthFrom = 1;
+        }
+
+        if ($monthFrom && $monthTo && $monthFrom > $monthTo) {
+            [$monthFrom, $monthTo] = [$monthTo, $monthFrom];
+        }
 
         $classes = SchoolClass::active()->ordered()->get(['id', 'name']);
 
@@ -37,9 +82,8 @@ class DueReportController extends Controller
                 ->get(['id', 'first_name', 'last_name', 'student_id', 'roll_number']);
         }
 
-        $baseQuery = $this->buildPeriodFeeQuery($currentAcademicYear, $startDate, $endDate);
+        $baseQuery = $this->buildYearFeeQuery($selectedAcademicYear, $monthFrom, $monthTo);
 
-        $reportData = [];
         $summary = [
             'totalDue' => 0,
             'totalDiscount' => 0,
@@ -49,62 +93,95 @@ class DueReportController extends Controller
             'uniqueStudents' => 0,
         ];
 
+        $reportData = [];
+
         switch ($reportType) {
             case 'organization':
-                $reportData = $this->getOrganizationDueReport($baseQuery->clone(), $summary);
+                $reportData = $this->getOrganizationMonthlyReport($baseQuery->clone(), $summary, $monthFrom, $monthTo);
                 break;
             case 'class':
-                $reportData = $this->getClassWiseDueReport($baseQuery->clone(), $classId, $summary);
+                $reportData = $this->getClassWiseMonthlyReport($baseQuery->clone(), $classId, $summary, $monthFrom, $monthTo);
                 break;
             case 'student':
-                $reportData = $this->getStudentWiseDueReport($baseQuery->clone(), $classId, $studentId, $summary);
+                $reportData = $this->getStudentWiseMonthlyReport($baseQuery->clone(), $classId, $studentId, $summary, $monthFrom, $monthTo);
                 break;
         }
 
-        $schoolName = Setting::where('key', 'school_name')->value('value') ?: 'School Management Pro';
+        $startMonth = $monthFrom ?? 1;
+        $endMonth = $monthTo ?? 12;
+        $activeMonths = [];
+        for ($m = $startMonth; $m <= $endMonth; $m++) {
+            $activeMonths[] = [
+                'num' => $m,
+                'name' => $this->shortMonthNames[$m],
+                'full_name' => $this->monthNames[$m],
+            ];
+        }
+
+        $allMonthOptions = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $allMonthOptions[] = [
+                'num' => $m,
+                'name' => $this->shortMonthNames[$m],
+                'full_name' => $this->monthNames[$m],
+            ];
+        }
+
+        $schoolName = Setting::where('key', 'school_name')->value('value') ?: config('app.name', 'Mousumi Bidyaniketon');
         $schoolAddress = Setting::where('key', 'school_address')->value('value') ?: '';
 
         return Inertia::render('Accounting/Reports/DueReport', [
             'reportData' => $reportData,
             'summary' => $summary,
             'filters' => [
-                'start_date' => $startDate->format('Y-m-d'),
-                'end_date' => $endDate->format('Y-m-d'),
+                'academic_year_id' => $selectedAcademicYear?->id,
                 'report_type' => $reportType,
                 'class_id' => $classId,
                 'student_id' => $studentId,
+                'month_from' => $monthFrom,
+                'month_to' => $monthTo,
             ],
+            'activeMonths' => $activeMonths,
+            'allMonthOptions' => $allMonthOptions,
+            'academicYears' => $academicYears,
+            'academicYear' => $selectedAcademicYear,
             'classes' => $classes,
             'students' => $students,
-            'academicYear' => $currentAcademicYear,
             'schoolName' => $schoolName,
             'schoolAddress' => $schoolAddress,
         ]);
     }
 
     /**
-     * Fees relevant to the selected period for active students only.
+     * Build base query for the selected Academic/Financial Year and optional month range.
      */
-    private function buildPeriodFeeQuery(?AcademicYear $currentAcademicYear, Carbon $startDate, Carbon $endDate): Builder
+    private function buildYearFeeQuery(?AcademicYear $selectedAcademicYear, ?int $monthFrom = null, ?int $monthTo = null): Builder
     {
         $query = FeeCollection::with(['student.schoolClass', 'student.section', 'student.user', 'feeType'])
             ->whereHas('student', function (Builder $q) {
                 $q->where('status', 'active');
             })
-            ->where(function (Builder $q) use ($startDate, $endDate) {
-                $q->where(function (Builder $outstanding) use ($startDate, $endDate) {
-                    $outstanding->whereIn('status', ['pending', 'partial', 'overdue'])
-                        ->whereDate('payment_date', '>=', $startDate)
-                        ->whereDate('payment_date', '<=', $endDate);
-                })->orWhere(function (Builder $collected) use ($startDate, $endDate) {
-                    $collected->where('status', 'paid')
-                        ->whereDate('payment_date', '>=', $startDate)
-                        ->whereDate('payment_date', '<=', $endDate);
-                });
-            });
+            ->where('status', '!=', 'cancelled');
 
-        if ($currentAcademicYear) {
-            $query->where('academic_year_id', $currentAcademicYear->id);
+        if ($selectedAcademicYear) {
+            $yearName = (int) $selectedAcademicYear->name;
+            $query->where(function (Builder $q) use ($selectedAcademicYear, $yearName) {
+                $q->where('academic_year_id', $selectedAcademicYear->id);
+                if ($yearName > 0) {
+                    $q->orWhere('year', $yearName);
+                }
+            });
+        }
+
+        if ($monthFrom !== null && $monthTo !== null) {
+            $query->where(function (Builder $q) use ($monthFrom, $monthTo) {
+                $q->whereBetween('month', [$monthFrom, $monthTo])
+                    ->orWhere(function (Builder $oq) use ($monthFrom, $monthTo) {
+                        $oq->whereNull('month')
+                            ->whereMonth('payment_date', '>=', $monthFrom)
+                            ->whereMonth('payment_date', '<=', $monthTo);
+                    });
+            });
         }
 
         return $query;
@@ -168,29 +245,40 @@ class DueReportController extends Controller
         unset($summary['_studentIds']);
     }
 
-    private function trackUniqueStudent(array &$group, int $studentId): void
-    {
-        if (! isset($group['_student_ids'])) {
-            $group['_student_ids'] = [];
-        }
-
-        $group['_student_ids'][$studentId] = true;
-        $group['student_count'] = count($group['_student_ids']);
-    }
-
-    private function stripInternalKeys(array $group): array
-    {
-        unset($group['_student_ids']);
-
-        return $group;
-    }
-
-    private function getOrganizationDueReport(Builder $query, array &$summary): array
+    /**
+     * 1. ORGANIZATION DUE REPORT: MONTHS ROWS
+     */
+    private function getOrganizationMonthlyReport(Builder $query, array &$summary, ?int $monthFrom = null, ?int $monthTo = null): array
     {
         $records = $query->get();
 
-        $feeTypeWise = [];
-        $classWise = [];
+        $startMonth = $monthFrom ?? 1;
+        $endMonth = $monthTo ?? 12;
+
+        // Initialize months structure for the active range
+        $monthlyData = [];
+        for ($m = $startMonth; $m <= $endMonth; $m++) {
+            $monthlyData[$m] = [
+                'month' => $m,
+                'month_name' => $this->monthNames[$m],
+                'short_name' => $this->shortMonthNames[$m],
+                'total_amount' => 0.0,
+                'discount_amount' => 0.0,
+                'paid_amount' => 0.0,
+                'due_amount' => 0.0,
+                'student_count' => 0,
+                '_student_ids' => [],
+            ];
+        }
+
+        $nonMonthly = [
+            'total_amount' => 0.0,
+            'discount_amount' => 0.0,
+            'paid_amount' => 0.0,
+            'due_amount' => 0.0,
+            'student_count' => 0,
+            '_student_ids' => [],
+        ];
 
         foreach ($records as $record) {
             if (! $record->student) {
@@ -200,56 +288,157 @@ class DueReportController extends Controller
             ['total' => $total, 'discount' => $discount, 'paid' => $paid, 'due' => $due] = $this->feeAmounts($record);
             $studentId = (int) $record->student_id;
 
-            $feeTypeName = $record->feeType->name ?? 'Unknown';
-            if (! isset($feeTypeWise[$feeTypeName])) {
-                $feeTypeWise[$feeTypeName] = [
-                    'fee_type' => $feeTypeName,
-                    'total_amount' => 0,
-                    'discount_amount' => 0,
-                    'paid_amount' => 0,
-                    'due_amount' => 0,
-                    'student_count' => 0,
-                ];
-            }
-            $feeTypeWise[$feeTypeName]['total_amount'] += $total;
-            $feeTypeWise[$feeTypeName]['discount_amount'] += $discount;
-            $feeTypeWise[$feeTypeName]['paid_amount'] += $paid;
-            $feeTypeWise[$feeTypeName]['due_amount'] += $due;
-            if ($due > 0) {
-                $this->trackUniqueStudent($feeTypeWise[$feeTypeName], $studentId);
-            }
+            $month = $record->month ? (int) $record->month : null;
 
-            $classKey = (int) ($record->student->class_id ?? 0);
-            if (! isset($classWise[$classKey])) {
-                $classWise[$classKey] = [
-                    'class_name' => $record->student->schoolClass->name ?? 'Unknown',
-                    'total_amount' => 0,
-                    'discount_amount' => 0,
-                    'paid_amount' => 0,
-                    'due_amount' => 0,
-                    'student_count' => 0,
-                ];
-            }
-            $classWise[$classKey]['total_amount'] += $total;
-            $classWise[$classKey]['discount_amount'] += $discount;
-            $classWise[$classKey]['paid_amount'] += $paid;
-            $classWise[$classKey]['due_amount'] += $due;
-            if ($due > 0) {
-                $this->trackUniqueStudent($classWise[$classKey], $studentId);
-            }
+            if ($month >= $startMonth && $month <= $endMonth) {
+                $monthlyData[$month]['total_amount'] += $total;
+                $monthlyData[$month]['discount_amount'] += $discount;
+                $monthlyData[$month]['paid_amount'] += $paid;
+                $monthlyData[$month]['due_amount'] += $due;
 
-            $this->accumulateSummary($summary, $total, $discount, $paid, $due, $studentId);
+                if ($due > 0) {
+                    $monthlyData[$month]['_student_ids'][$studentId] = true;
+                }
+
+                $this->accumulateSummary($summary, $total, $discount, $paid, $due, $studentId);
+            } elseif ($month === null) {
+                // One-time or admission fee
+                $pm = $record->payment_date ? (int) $record->payment_date->month : null;
+                if ($monthFrom === null || ($pm >= $startMonth && $pm <= $endMonth)) {
+                    $nonMonthly['total_amount'] += $total;
+                    $nonMonthly['discount_amount'] += $discount;
+                    $nonMonthly['paid_amount'] += $paid;
+                    $nonMonthly['due_amount'] += $due;
+
+                    if ($due > 0) {
+                        $nonMonthly['_student_ids'][$studentId] = true;
+                    }
+
+                    $this->accumulateSummary($summary, $total, $discount, $paid, $due, $studentId);
+                }
+            }
         }
 
         $this->finalizeSummary($summary);
 
+        // Process student counts and rates
+        foreach ($monthlyData as $m => &$mData) {
+            $mData['student_count'] = count($mData['_student_ids']);
+            unset($mData['_student_ids']);
+            $mData['collection_rate'] = $mData['total_amount'] > 0
+                ? round(($mData['paid_amount'] / $mData['total_amount']) * 100, 1)
+                : 0;
+            $mData['due_rate'] = $mData['total_amount'] > 0
+                ? round(($mData['due_amount'] / $mData['total_amount']) * 100, 1)
+                : 0;
+        }
+
+        $nonMonthly['student_count'] = count($nonMonthly['_student_ids']);
+        unset($nonMonthly['_student_ids']);
+        $nonMonthly['collection_rate'] = $nonMonthly['total_amount'] > 0
+            ? round(($nonMonthly['paid_amount'] / $nonMonthly['total_amount']) * 100, 1)
+            : 0;
+        $nonMonthly['due_rate'] = $nonMonthly['total_amount'] > 0
+            ? round(($nonMonthly['due_amount'] / $nonMonthly['total_amount']) * 100, 1)
+            : 0;
+
         return [
-            'feeTypeWise' => array_values(array_map(fn ($group) => $this->stripInternalKeys($group), $feeTypeWise)),
-            'classWise' => array_values(array_map(fn ($group) => $this->stripInternalKeys($group), $classWise)),
+            'monthly' => array_values($monthlyData),
+            'nonMonthly' => $nonMonthly,
         ];
     }
 
-    private function getClassWiseDueReport(Builder $query, ?int $classId, array &$summary): array
+    /**
+     * Helper to initialize month slots for a student.
+     */
+    private function initStudentMonths(?int $monthFrom = null, ?int $monthTo = null): array
+    {
+        $startMonth = $monthFrom ?? 1;
+        $endMonth = $monthTo ?? 12;
+
+        $months = [];
+        for ($m = $startMonth; $m <= $endMonth; $m++) {
+            $months[$m] = [
+                'month' => $m,
+                'short_name' => $this->shortMonthNames[$m],
+                'month_name' => $this->monthNames[$m],
+                'has_fees' => false,
+                'fees' => [],
+                'month_total' => 0.0,
+                'month_paid' => 0.0,
+                'month_due' => 0.0,
+                'month_status' => 'none',
+                'receipt_numbers' => [],
+            ];
+        }
+
+        return $months;
+    }
+
+    /**
+     * Attach a fee collection record to a student's monthly structure.
+     */
+    private function attachFeeToStudent(array &$student, FeeCollection $record, float $total, float $discount, float $paid, float $due, ?int $monthFrom = null, ?int $monthTo = null): void
+    {
+        $month = $record->month ? (int) $record->month : null;
+        $receipt = $record->receipt_number;
+
+        $feeItem = [
+            'id' => $record->id,
+            'fee_type' => $record->feeType->name ?? 'Fee',
+            'amount' => $total,
+            'discount' => $discount,
+            'paid_amount' => $paid,
+            'due_amount' => $due,
+            'status' => $record->status,
+            'receipt_number' => $receipt,
+            'payment_date' => $record->payment_date ? $record->payment_date->format('d M Y') : null,
+        ];
+
+        $startMonth = $monthFrom ?? 1;
+        $endMonth = $monthTo ?? 12;
+
+        if ($month >= $startMonth && $month <= $endMonth) {
+            $student['months'][$month]['has_fees'] = true;
+            $student['months'][$month]['fees'][] = $feeItem;
+            $student['months'][$month]['month_total'] += $total;
+            $student['months'][$month]['month_paid'] += $paid;
+            $student['months'][$month]['month_due'] += $due;
+
+            if (! empty($receipt) && ! in_array($receipt, $student['months'][$month]['receipt_numbers'])) {
+                $student['months'][$month]['receipt_numbers'][] = $receipt;
+            }
+
+            // Determine month status
+            if ($student['months'][$month]['month_due'] <= 0 && $student['months'][$month]['month_paid'] > 0) {
+                $student['months'][$month]['month_status'] = 'paid';
+            } elseif ($student['months'][$month]['month_paid'] > 0 && $student['months'][$month]['month_due'] > 0) {
+                $student['months'][$month]['month_status'] = 'partial';
+            } else {
+                $student['months'][$month]['month_status'] = 'due';
+            }
+
+            $student['total_amount'] += $total;
+            $student['discount_amount'] += $discount;
+            $student['paid_amount'] += $paid;
+            $student['due_amount'] += $due;
+        } elseif ($month === null) {
+            // One-time / Admission fee
+            $pm = $record->payment_date ? (int) $record->payment_date->month : null;
+            if ($monthFrom === null || ($pm >= $startMonth && $pm <= $endMonth)) {
+                $student['one_time_fees'][] = $feeItem;
+                $student['total_amount'] += $total;
+                $student['discount_amount'] += $discount;
+                $student['paid_amount'] += $paid;
+                $student['due_amount'] += $due;
+            }
+        }
+    }
+
+    /**
+     * 2. CLASS WISE REPORT: Grouped by class, each student with months boxes
+     */
+    private function getClassWiseMonthlyReport(Builder $query, ?int $classId, array &$summary, ?int $monthFrom = null, ?int $monthTo = null): array
     {
         $this->applyStudentFilters($query, $classId, null);
 
@@ -270,10 +459,10 @@ class DueReportController extends Controller
                 $classData[$classKey] = [
                     'class_name' => $record->student->schoolClass->name ?? 'Unknown',
                     'students' => [],
-                    'total_gross' => 0,
-                    'total_discount' => 0,
-                    'total_paid' => 0,
-                    'total_remaining' => 0,
+                    'total_gross' => 0.0,
+                    'total_discount' => 0.0,
+                    'total_paid' => 0.0,
+                    'total_remaining' => 0.0,
                 ];
             }
 
@@ -284,32 +473,16 @@ class DueReportController extends Controller
                     'student_name' => $this->studentDisplayName($record->student),
                     'roll_number' => $record->student->roll_number ?? '-',
                     'section' => $record->student->section->name ?? '-',
-                    'total_amount' => 0,
-                    'discount_amount' => 0,
-                    'paid_amount' => 0,
-                    'due_amount' => 0,
-                    'fees' => [],
+                    'total_amount' => 0.0,
+                    'discount_amount' => 0.0,
+                    'paid_amount' => 0.0,
+                    'due_amount' => 0.0,
+                    'months' => $this->initStudentMonths($monthFrom, $monthTo),
+                    'one_time_fees' => [],
                 ];
             }
 
-            $classData[$classKey]['students'][$studentId]['total_amount'] += $total;
-            $classData[$classKey]['students'][$studentId]['discount_amount'] += $discount;
-            $classData[$classKey]['students'][$studentId]['paid_amount'] += $paid;
-            $classData[$classKey]['students'][$studentId]['due_amount'] += $due;
-
-            if ($due > 0) {
-                $classData[$classKey]['students'][$studentId]['fees'][] = [
-                    'fee_type' => $record->feeType->name ?? 'Unknown',
-                    'month' => $record->month,
-                    'year' => $record->year,
-                    'total_amount' => $total,
-                    'discount_amount' => $discount,
-                    'paid_amount' => $paid,
-                    'due_amount' => $due,
-                    'status' => $record->status,
-                    'payment_date' => $record->payment_date->format('Y-m-d'),
-                ];
-            }
+            $this->attachFeeToStudent($classData[$classKey]['students'][$studentId], $record, $total, $discount, $paid, $due, $monthFrom, $monthTo);
 
             $classData[$classKey]['total_gross'] += $total;
             $classData[$classKey]['total_discount'] += $discount;
@@ -323,12 +496,9 @@ class DueReportController extends Controller
 
         $result = [];
         foreach ($classData as $class) {
-            $dueStudents = array_values(array_filter(
-                $class['students'],
-                fn (array $student) => $student['due_amount'] > 0
-            ));
+            $studentList = array_values($class['students']);
 
-            usort($dueStudents, function (array $a, array $b) {
+            usort($studentList, function (array $a, array $b) {
                 $rollA = is_numeric($a['roll_number']) ? (int) $a['roll_number'] : PHP_INT_MAX;
                 $rollB = is_numeric($b['roll_number']) ? (int) $b['roll_number'] : PHP_INT_MAX;
 
@@ -339,16 +509,9 @@ class DueReportController extends Controller
                 return $rollA <=> $rollB;
             });
 
-            if ($dueStudents === []) {
-                continue;
-            }
-
-            $class['students'] = $dueStudents;
-            $class['student_count'] = count($dueStudents);
-            $class['total_gross'] = array_sum(array_column($dueStudents, 'total_amount'));
-            $class['total_discount'] = array_sum(array_column($dueStudents, 'discount_amount'));
-            $class['total_paid'] = array_sum(array_column($dueStudents, 'paid_amount'));
-            $class['total_remaining'] = array_sum(array_column($dueStudents, 'due_amount'));
+            $class['students'] = $studentList;
+            $class['student_count'] = count($studentList);
+            $class['due_student_count'] = count(array_filter($studentList, fn ($s) => $s['due_amount'] > 0));
             $result[] = $class;
         }
 
@@ -357,11 +520,14 @@ class DueReportController extends Controller
         return $result;
     }
 
-    private function getStudentWiseDueReport(Builder $query, ?int $classId, ?int $studentId, array &$summary): array
+    /**
+     * 3. STUDENT WISE REPORT: Months matrix per student
+     */
+    private function getStudentWiseMonthlyReport(Builder $query, ?int $classId, ?int $studentId, array &$summary, ?int $monthFrom = null, ?int $monthTo = null): array
     {
         $this->applyStudentFilters($query, $classId, $studentId);
 
-        $records = $query->orderBy('payment_date', 'desc')->get();
+        $records = $query->get();
         $studentData = [];
 
         foreach ($records as $record) {
@@ -382,46 +548,22 @@ class DueReportController extends Controller
                     'section' => $record->student->section->name ?? '-',
                     'father_name' => $record->student->father_name ?? '-',
                     'phone' => $record->student->phone ?? $record->student->father_phone ?? '-',
-                    'total_amount' => 0,
-                    'discount_amount' => 0,
-                    'paid_amount' => 0,
-                    'due_amount' => 0,
-                    'fees' => [],
+                    'total_amount' => 0.0,
+                    'discount_amount' => 0.0,
+                    'paid_amount' => 0.0,
+                    'due_amount' => 0.0,
+                    'months' => $this->initStudentMonths($monthFrom, $monthTo),
+                    'one_time_fees' => [],
                 ];
             }
 
-            $studentData[$sid]['total_amount'] += $total;
-            $studentData[$sid]['discount_amount'] += $discount;
-            $studentData[$sid]['paid_amount'] += $paid;
-            $studentData[$sid]['due_amount'] += $due;
-
-            if ($due > 0) {
-                $studentData[$sid]['fees'][] = [
-                    'id' => $record->id,
-                    'receipt_number' => $record->receipt_number,
-                    'fee_type' => $record->feeType->name ?? 'Unknown',
-                    'month' => $record->month,
-                    'year' => $record->year,
-                    'total_amount' => $total,
-                    'discount_amount' => $discount,
-                    'paid_amount' => $paid,
-                    'due_amount' => $due,
-                    'late_fee' => $record->late_fee,
-                    'discount' => $record->discount,
-                    'status' => $record->status,
-                    'payment_date' => $record->payment_date->format('Y-m-d'),
-                ];
-            }
-
+            $this->attachFeeToStudent($studentData[$sid], $record, $total, $discount, $paid, $due, $monthFrom, $monthTo);
             $this->accumulateSummary($summary, $total, $discount, $paid, $due, $sid);
         }
 
         $this->finalizeSummary($summary);
 
-        $result = array_values(array_filter(
-            $studentData,
-            fn (array $student) => $student['due_amount'] > 0
-        ));
+        $result = array_values($studentData);
 
         usort($result, function (array $a, array $b) {
             $classCmp = strcmp($a['class_name'], $b['class_name']);
