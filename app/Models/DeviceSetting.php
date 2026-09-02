@@ -159,6 +159,11 @@ class DeviceSetting extends Model
         $date = $date ? Carbon::parse($date)->toDateString() : now()->toDateString();
         $status = 'present';
 
+        // An out_time within 60 minutes of in_time is not considered a valid checkout
+        if ($inTime && $outTime && Carbon::parse($inTime)->diffInMinutes(Carbon::parse($outTime)) < 60) {
+            $outTime = null;
+        }
+
         if ($outTime && $this->teacher_out_time && $this->auto_mark_early_leave) {
             $expectedOut = Carbon::parse($date.' '.$this->teacher_out_time);
             $actualOut = Carbon::parse($outTime);

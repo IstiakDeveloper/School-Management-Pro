@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import {
@@ -14,9 +14,22 @@ import {
     AlertCircle,
     Clock,
     ArrowRight,
+    Search,
+    X,
+    User,
 } from 'lucide-react';
 import { formatAmount as formatCurrency } from '@/lib/formatCurrency';
 import { formatReceiptNumber } from '@/lib/formatReceipt';
+
+export interface StudentSearchItem {
+    id: number;
+    name: string;
+    student_id: string;
+    roll_number: string;
+    class_id: number;
+    class_name: string;
+    section_name: string;
+}
 
 interface SchoolClass {
     id: number;
@@ -149,6 +162,7 @@ interface DueReportProps {
     academicYear: AcademicYear | null;
     classes: SchoolClass[];
     students: Student[];
+    allStudents?: StudentSearchItem[];
     schoolName?: string;
     schoolAddress?: string;
 }
@@ -243,6 +257,7 @@ export default function DueReport({
     allMonthOptions,
     classes,
     students,
+    allStudents = [],
     schoolName = 'Mousumi Bidyaniketon',
     schoolAddress = 'Ukilpara, Naogaon Sadar, Naogaon',
 }: DueReportProps) {
@@ -258,6 +273,90 @@ export default function DueReport({
     const [selectedMonthTo, setSelectedMonthTo] = useState<string>(
         filters?.month_to ? filters.month_to.toString() : ''
     );
+
+    // Interactive Search & Select Combobox State
+    const [studentSearchTerm, setStudentSearchTerm] = useState('');
+    const [isStudentDropdownOpen, setIsStudentDropdownOpen] = useState(false);
+    const [tableSearch, setTableSearch] = useState('');
+    const studentDropdownRef = useRef<HTMLDivElement>(null);
+
+    // Selected student details from allStudents
+    const selectedStudentObj = useMemo(() => {
+        if (!selectedStudent || !allStudents) return null;
+        return allStudents.find((s) => s.id === Number(selectedStudent)) || null;
+    }, [selectedStudent, allStudents]);
+
+    // Filtered students for the search & select combobox
+    const filteredStudentList = useMemo(() => {
+        if (!allStudents || allStudents.length === 0) return [];
+        if (!studentSearchTerm.trim()) {
+            if (selectedClass) {
+                return allStudents.filter((s) => s.class_id === Number(selectedClass)).slice(0, 25);
+            }
+            return allStudents.slice(0, 20);
+        }
+        const q = studentSearchTerm.toLowerCase().trim();
+        return allStudents
+            .filter((s) => {
+                if (selectedClass && s.class_id !== Number(selectedClass)) return false;
+                return (
+                    s.name.toLowerCase().includes(q) ||
+                    s.roll_number.toLowerCase().includes(q) ||
+                    s.student_id.toLowerCase().includes(q) ||
+                    s.class_name.toLowerCase().includes(q)
+                );
+            })
+            .slice(0, 25);
+    }, [allStudents, studentSearchTerm, selectedClass]);
+
+    // Close student dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (studentDropdownRef.current && !studentDropdownRef.current.contains(e.target as Node)) {
+                setIsStudentDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleSelectStudentFromSearch = (st: StudentSearchItem) => {
+        setSelectedStudent(st.id.toString());
+        setSelectedClass(st.class_id.toString());
+        setReportType('student');
+        setStudentSearchTerm('');
+        setIsStudentDropdownOpen(false);
+
+        router.get(
+            '/accounting/reports/due-report',
+            {
+                academic_year_id: selectedAcademicYearId || undefined,
+                report_type: 'student',
+                class_id: st.class_id,
+                student_id: st.id,
+                month_from: selectedMonthFrom || undefined,
+                month_to: selectedMonthTo || undefined,
+            },
+            { preserveState: true }
+        );
+    };
+
+    const handleClearSelectedStudent = () => {
+        setSelectedStudent('');
+        setStudentSearchTerm('');
+        router.get(
+            '/accounting/reports/due-report',
+            {
+                academic_year_id: selectedAcademicYearId || undefined,
+                report_type: reportType,
+                class_id: selectedClass || undefined,
+                student_id: undefined,
+                month_from: selectedMonthFrom || undefined,
+                month_to: selectedMonthTo || undefined,
+            },
+            { preserveState: true }
+        );
+    };
 
     useEffect(() => {
         if (selectedClass && reportType !== 'organization') {
@@ -297,6 +396,8 @@ export default function DueReport({
         setReportType('organization');
         setSelectedClass('');
         setSelectedStudent('');
+        setStudentSearchTerm('');
+        setTableSearch('');
         setSelectedMonthFrom('');
         setSelectedMonthTo('');
         router.get('/accounting/reports/due-report');
@@ -556,23 +657,63 @@ export default function DueReport({
         const displayMonths = activeMonths && activeMonths.length > 0 ? activeMonths : MONTH_NAMES;
         const isSingleMonth = displayMonths.length === 1;
 
+        const filteredRows = tableSearch.trim()
+            ? studentsList.filter((s) => {
+                const q = tableSearch.toLowerCase().trim();
+                return (
+                    s.student_name.toLowerCase().includes(q) ||
+                    s.roll_number.toLowerCase().includes(q) ||
+                    s.student_id_number.toLowerCase().includes(q) ||
+                    (s.phone && s.phone.includes(q))
+                );
+            })
+            : studentsList;
+
         return (
-            <div className="overflow-x-auto border-2 border-slate-300 rounded-lg shadow-xs bg-white">
-                <table className={`w-full text-left text-xs border-collapse ${displayMonths.length <= 3 ? 'min-w-[750px]' : 'min-w-[1250px]'}`}>
-                    <thead>
-                        <tr className="bg-slate-200 text-slate-800 font-bold text-[10.5px] uppercase tracking-wider border-b-2 border-slate-400">
-                            <th className="py-2.5 px-2.5 border-r border-slate-300 w-14 text-center">Roll</th>
-                            <th className="py-2.5 px-3 border-r border-slate-300 w-36">Student Name & ID</th>
-                            {displayMonths.map((m) => (
-                                <th key={m.num} className="py-2.5 px-1.5 border-r border-slate-300 text-center min-w-[90px]">
-                                    {m.name}
-                                </th>
-                            ))}
-                            <th className="py-2.5 px-3 text-right w-28 text-rose-700">Total Due</th>
-                        </tr>
-                    </thead>
-                    <tbody className="text-slate-800">
-                        {studentsList.map((student) => {
+            <div className="border-2 border-slate-300 rounded-lg shadow-xs bg-white overflow-hidden">
+                {studentsList.length > 1 && (
+                    <div className="px-3 py-2 bg-slate-100/90 border-b-2 border-slate-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 no-print">
+                        <div className="relative w-full sm:w-80">
+                            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                            <input
+                                type="text"
+                                placeholder="Quick search on table (Name, Roll, ID)..."
+                                value={tableSearch}
+                                onChange={(e) => setTableSearch(e.target.value)}
+                                className="w-full text-xs pl-8 pr-7 py-1 rounded-md border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400 focus:ring-1 focus:ring-indigo-500"
+                            />
+                            {tableSearch && (
+                                <button
+                                    type="button"
+                                    onClick={() => setTableSearch('')}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                                >
+                                    <X className="w-3 h-3" />
+                                </button>
+                            )}
+                        </div>
+                        <span className="text-[11px] text-slate-600 font-mono">
+                            Showing <strong className="text-slate-900">{filteredRows.length}</strong> of {studentsList.length} students
+                        </span>
+                    </div>
+                )}
+
+                <div className="overflow-x-auto">
+                    <table className={`w-full text-left text-xs border-collapse ${displayMonths.length <= 3 ? 'min-w-[750px]' : 'min-w-[1250px]'}`}>
+                        <thead>
+                            <tr className="bg-slate-200 text-slate-800 font-bold text-[10.5px] uppercase tracking-wider border-b-2 border-slate-400">
+                                <th className="py-2.5 px-2.5 border-r border-slate-300 w-14 text-center">Roll</th>
+                                <th className="py-2.5 px-3 border-r border-slate-300 w-36">Student Name & ID</th>
+                                {displayMonths.map((m) => (
+                                    <th key={m.num} className="py-2.5 px-1.5 border-r border-slate-300 text-center min-w-[90px]">
+                                        {m.name}
+                                    </th>
+                                ))}
+                                <th className="py-2.5 px-3 text-right w-28 text-rose-700">Total Due</th>
+                            </tr>
+                        </thead>
+                        <tbody className="text-slate-800">
+                            {filteredRows.map((student) => {
                             const studentDueRate = student.total_amount > 0
                                 ? (student.due_amount / student.total_amount) * 100
                                 : 0;
@@ -752,6 +893,7 @@ export default function DueReport({
                         })}
                     </tbody>
                 </table>
+                </div>
             </div>
         );
     };
@@ -998,52 +1140,110 @@ export default function DueReport({
                             </select>
                         </div>
 
-                        {reportType !== 'organization' ? (
-                            <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                                    Class Filter
-                                </label>
-                                <select
-                                    value={selectedClass}
-                                    onChange={(e) => {
-                                        setSelectedClass(e.target.value);
-                                        setSelectedStudent('');
-                                    }}
-                                    className="w-full text-xs py-1.5 px-2 rounded-md border border-slate-300 bg-white text-slate-800 focus:ring-1 focus:ring-indigo-500"
-                                >
-                                    <option value="">All Classes</option>
-                                    {classes.map((cls) => (
-                                        <option key={cls.id} value={cls.id}>
-                                            {cls.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        ) : (
-                            <div className="hidden lg:block"></div>
-                        )}
+                        {/* Class Filter */}
+                        <div>
+                            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                                Class Filter
+                            </label>
+                            <select
+                                value={selectedClass}
+                                onChange={(e) => {
+                                    setSelectedClass(e.target.value);
+                                }}
+                                className="w-full text-xs py-1.5 px-2 rounded-md border border-slate-300 bg-white text-slate-800 focus:ring-1 focus:ring-indigo-500"
+                            >
+                                <option value="">All Classes</option>
+                                {classes.map((cls) => (
+                                    <option key={cls.id} value={cls.id}>
+                                        {cls.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
 
-                        {reportType === 'student' && selectedClass ? (
-                            <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                                    Student Filter
-                                </label>
-                                <select
-                                    value={selectedStudent}
-                                    onChange={(e) => setSelectedStudent(e.target.value)}
-                                    className="w-full text-xs py-1.5 px-2 rounded-md border border-slate-300 bg-white text-slate-800 focus:ring-1 focus:ring-indigo-500"
-                                >
-                                    <option value="">All Students in Class</option>
-                                    {students.map((student) => (
-                                        <option key={student.id} value={student.id}>
-                                            {student.first_name} {student.last_name} ({student.roll_number})
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        ) : (
-                            <div className="hidden lg:block"></div>
-                        )}
+                        {/* Search & Select Student Combobox */}
+                        <div className="relative">
+                            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                                Search Student
+                            </label>
+
+                            {selectedStudent ? (
+                                <div className="flex items-center justify-between gap-1 py-1 px-2 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-900 text-xs min-h-[30px]">
+                                    <div className="truncate flex items-center gap-1 min-w-0">
+                                        <User className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                        <span className="font-bold truncate text-[11px]">
+                                            {selectedStudentObj?.name || `ID #${selectedStudent}`}
+                                        </span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleClearSelectedStudent}
+                                        className="text-indigo-400 hover:text-indigo-800 p-0.5 rounded transition cursor-pointer shrink-0"
+                                        title="Clear student filter"
+                                    >
+                                        <X className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="relative">
+                                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                    <input
+                                        type="text"
+                                        placeholder="Name, roll, ID..."
+                                        value={studentSearchTerm}
+                                        onChange={(e) => {
+                                            setStudentSearchTerm(e.target.value);
+                                            setIsStudentDropdownOpen(true);
+                                        }}
+                                        onFocus={() => setIsStudentDropdownOpen(true)}
+                                        className="w-full text-xs pl-7 pr-6 py-1.5 rounded-md border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400 focus:ring-1 focus:ring-indigo-500"
+                                    />
+                                    {studentSearchTerm && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setStudentSearchTerm('');
+                                                setIsStudentDropdownOpen(false);
+                                            }}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                                        >
+                                            <X className="w-3 h-3" />
+                                        </button>
+                                    )}
+
+                                    {/* Dropdown Results Popover */}
+                                    {isStudentDropdownOpen && (
+                                        <div
+                                            ref={studentDropdownRef}
+                                            className="absolute z-50 left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-lg bg-white border-2 border-slate-300 shadow-xl py-1 text-xs"
+                                        >
+                                            {filteredStudentList.length > 0 ? (
+                                                filteredStudentList.map((st) => (
+                                                    <button
+                                                        key={st.id}
+                                                        type="button"
+                                                        onClick={() => handleSelectStudentFromSearch(st)}
+                                                        className="w-full text-left px-2.5 py-1.5 hover:bg-indigo-50 transition flex items-center justify-between gap-1.5 border-b border-slate-100 last:border-0 cursor-pointer"
+                                                    >
+                                                        <div className="min-w-0">
+                                                            <p className="font-bold text-slate-900 truncate text-[11px]">{st.name}</p>
+                                                            <p className="text-[9.5px] text-slate-500 font-mono mt-0.5">
+                                                                Roll: {st.roll_number || '-'} • {st.class_name} • {st.student_id}
+                                                            </p>
+                                                        </div>
+                                                        <ArrowRight className="w-3 h-3 text-indigo-600 shrink-0" />
+                                                    </button>
+                                                ))
+                                            ) : (
+                                                <div className="p-3 text-center text-slate-400 text-xs">
+                                                    No matching students found
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
 
                         <div className="flex items-end">
                             <button

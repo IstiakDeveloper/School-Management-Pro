@@ -51,6 +51,14 @@ class ZktecoController extends Controller
             $deviceSetting = DeviceSetting::current();
 
             // Process attendance data
+            // Sort attendance data chronologically so punches are processed in time order
+            usort($attendanceData, function ($a, $b) {
+                $timeA = $a['timestamp'] ?? $a['punch_time'] ?? '';
+                $timeB = $b['timestamp'] ?? $b['punch_time'] ?? '';
+
+                return strcmp((string) $timeA, (string) $timeB);
+            });
+
             foreach ($attendanceData as $record) {
                 try {
                     // ZKTeco agent format: id, timestamp, state, type
@@ -402,7 +410,12 @@ class ZktecoController extends Controller
             $successCount = 0;
             $errors = [];
 
-            foreach ($validated['attendance'] as $record) {
+            $attendanceList = $validated['attendance'];
+            usort($attendanceList, function ($a, $b) {
+                return strcmp((string) ($a['punch_time'] ?? ''), (string) ($b['punch_time'] ?? ''));
+            });
+
+            foreach ($attendanceList as $record) {
                 try {
                     if ($record['type'] === 'teacher') {
                         $this->processTeacherAttendance($record);
@@ -466,7 +479,12 @@ class ZktecoController extends Controller
             $successCount = 0;
             $errors = [];
 
-            foreach ($validated['attendance'] as $record) {
+            $attendanceList = $validated['attendance'];
+            usort($attendanceList, function ($a, $b) {
+                return strcmp((string) ($a['punch_time'] ?? ''), (string) ($b['punch_time'] ?? ''));
+            });
+
+            foreach ($attendanceList as $record) {
                 try {
                     $this->processTeacherAttendance($record);
                     $successCount++;
@@ -515,7 +533,12 @@ class ZktecoController extends Controller
             $successCount = 0;
             $errors = [];
 
-            foreach ($validated['attendance'] as $record) {
+            $attendanceList = $validated['attendance'];
+            usort($attendanceList, function ($a, $b) {
+                return strcmp((string) ($a['punch_time'] ?? ''), (string) ($b['punch_time'] ?? ''));
+            });
+
+            foreach ($attendanceList as $record) {
                 try {
                     $this->processStudentAttendance($record);
                     $successCount++;
@@ -581,20 +604,8 @@ class ZktecoController extends Controller
         $attendance->punch_type = $record['punch_type'] ?? 'fingerprint';
         $attendance->device_sn = $record['device_sn'] ?? null;
 
-        // Logic: First punch = Check In, Last punch = Check Out
-        if ($record['punch_state'] == 0 || ! $attendance->in_time) {
-            // Check In: First punch or explicit check-in
-            if (! $attendance->in_time || $punchTime->lt($attendance->in_time)) {
-                $attendance->in_time = $punchTime;
-            }
-        }
-
-        if ($record['punch_state'] == 1 || $attendance->in_time) {
-            // Check Out: Last punch or explicit check-out
-            if (! $attendance->out_time || $punchTime->gt($attendance->out_time)) {
-                $attendance->out_time = $punchTime;
-            }
-        }
+        // Apply punch logic: first punch = In, >= 60m = Out, last punch = final Out
+        $this->applyPunchLogic($attendance, $punchTime);
 
         // Dynamic status from device settings: teacher_in_time, teacher_out_time, teacher_late_time
         $attendance->status = 'present';
@@ -668,19 +679,18 @@ class ZktecoController extends Controller
         $attendance->punch_type = $record['punch_type'] ?? 'fingerprint';
         $attendance->device_sn = $record['device_sn'] ?? null;
 
-        // For students, just mark them as present
-        // Update in_time with first punch if not set
-        if (! $attendance->in_time) {
-            $attendance->in_time = $punchTime;
+        $isFirstPunch = ! $attendance->in_time;
 
-            // Check if late based on device settings
-            if ($deviceSettings && $deviceSettings->student_in_time) {
-                $expectedInTime = Carbon::parse($date.' '.$deviceSettings->student_in_time);
-                $lateThreshold = $deviceSettings->student_late_threshold ?? 15;
+        // Apply punch logic: first punch = In, >= 60m = Out, last punch = final Out
+        $this->applyPunchLogic($attendance, $punchTime);
 
-                if ($punchTime->diffInMinutes($expectedInTime) > $lateThreshold) {
-                    $attendance->status = 'late';
-                }
+        // For students, check if late based on device settings upon first punch
+        if ($isFirstPunch && $attendance->in_time && $deviceSettings && $deviceSettings->student_in_time) {
+            $expectedInTime = Carbon::parse($date.' '.$deviceSettings->student_in_time);
+            $lateThreshold = $deviceSettings->student_late_threshold ?? 15;
+
+            if (Carbon::parse($attendance->in_time)->diffInMinutes($expectedInTime) > $lateThreshold) {
+                $attendance->status = 'late';
             }
         }
 
@@ -758,19 +768,8 @@ class ZktecoController extends Controller
         $attendance->punch_type = $record['punch_type'] ?? 'fingerprint';
         $attendance->device_sn = $record['device_sn'] ?? null;
 
-        // Check In: First punch or earlier punch
-        if ($record['punch_state'] == 0 || ! $attendance->in_time) {
-            if (! $attendance->in_time || $punchTime->lt($attendance->in_time)) {
-                $attendance->in_time = $punchTime;
-            }
-        }
-
-        // Check Out: Last punch or later punch
-        if ($record['punch_state'] == 1 || $attendance->in_time) {
-            if (! $attendance->out_time || $punchTime->gt($attendance->out_time)) {
-                $attendance->out_time = $punchTime;
-            }
-        }
+        // Apply punch logic: first punch = In, >= 60m = Out, last punch = final Out
+        $this->applyPunchLogic($attendance, $punchTime);
 
         // Status calculation
         if ($staff->isWeekend($date)) {
@@ -802,5 +801,46 @@ class ZktecoController extends Controller
         $attendance->save();
 
         Log::info("Other staff attendance updated: {$staff->name} on {$date}");
+    }
+
+    /**
+     * Apply check-in and check-out punch logic:
+     * - First punch is Check In (in_time). out_time remains null.
+     * - Any punch within 1 hour (< 60 minutes) of in_time is NOT counted as out_time.
+     * - Any punch >= 60 minutes after in_time is counted as out_time.
+     * - If multiple punches occur >= 60 minutes after in_time, the latest/last punch is kept as out_time.
+     */
+    private function applyPunchLogic($attendance, Carbon $punchTime): void
+    {
+        // If existing record has corrupted out_time within 60 minutes of in_time, reset it
+        if ($attendance->in_time && $attendance->out_time) {
+            $existingIn = Carbon::parse($attendance->in_time);
+            $existingOut = Carbon::parse($attendance->out_time);
+            if ($existingIn->diffInMinutes($existingOut) < 60) {
+                $attendance->out_time = null;
+            }
+        }
+
+        if (! $attendance->in_time) {
+            // First punch of the day: Check In only
+            $attendance->in_time = $punchTime;
+        } elseif ($punchTime->lt(Carbon::parse($attendance->in_time))) {
+            // A punch earlier than current in_time arrived
+            $oldInTime = Carbon::parse($attendance->in_time);
+            $attendance->in_time = $punchTime;
+
+            // If former in_time is >= 60 minutes after the new in_time, it qualifies as out_time
+            if ($punchTime->diffInMinutes($oldInTime) >= 60) {
+                if (! $attendance->out_time || $oldInTime->gt(Carbon::parse($attendance->out_time))) {
+                    $attendance->out_time = $oldInTime;
+                }
+            }
+        } elseif (Carbon::parse($attendance->in_time)->diffInMinutes($punchTime) >= 60) {
+            // Punch is at least 60 minutes after in_time: qualifies as out_time
+            if (! $attendance->out_time || $punchTime->gt(Carbon::parse($attendance->out_time))) {
+                $attendance->out_time = $punchTime;
+            }
+        }
+        // If punch is >= in_time and < 60 minutes from in_time, ignore for out_time (only keep in_time)
     }
 }

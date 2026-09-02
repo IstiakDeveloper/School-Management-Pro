@@ -59,6 +59,18 @@ class DueReportController extends Controller
         $classId = $request->class_id ? (int) $request->class_id : null;
         $studentId = $request->student_id ? (int) $request->student_id : null;
 
+        // Auto switch to student report if student_id is specified
+        if ($studentId && $reportType === 'organization') {
+            $reportType = 'student';
+        }
+
+        if ($studentId && ! $classId) {
+            $foundStudent = Student::find($studentId);
+            if ($foundStudent) {
+                $classId = $foundStudent->class_id;
+            }
+        }
+
         $monthFrom = $request->month_from ? (int) $request->month_from : ($request->month ? (int) $request->month : null);
         $monthTo = $request->month_to ? (int) $request->month_to : ($request->month ? (int) $request->month : null);
 
@@ -73,6 +85,28 @@ class DueReportController extends Controller
         }
 
         $classes = SchoolClass::active()->ordered()->get(['id', 'name']);
+
+        // All active students for instant search & select combobox
+        $allStudents = Student::with(['schoolClass', 'section', 'user'])
+            ->where('status', 'active')
+            ->orderBy('first_name')
+            ->get(['id', 'first_name', 'last_name', 'student_id', 'roll_number', 'class_id', 'section_id'])
+            ->map(function ($s) {
+                $name = trim(($s->first_name ?? '').' '.($s->last_name ?? ''));
+                if ($name === '') {
+                    $name = $s->user->name ?? 'Student #'.$s->id;
+                }
+
+                return [
+                    'id' => $s->id,
+                    'name' => $name,
+                    'student_id' => $s->student_id ?? '',
+                    'roll_number' => $s->roll_number ?? '',
+                    'class_id' => $s->class_id,
+                    'class_name' => $s->schoolClass->name ?? '',
+                    'section_name' => $s->section->name ?? '',
+                ];
+            });
 
         $students = [];
         if ($classId) {
@@ -147,6 +181,7 @@ class DueReportController extends Controller
             'academicYear' => $selectedAcademicYear,
             'classes' => $classes,
             'students' => $students,
+            'allStudents' => $allStudents,
             'schoolName' => $schoolName,
             'schoolAddress' => $schoolAddress,
         ]);

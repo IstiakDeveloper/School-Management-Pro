@@ -72,10 +72,15 @@ class TeacherAttendanceCalculator
         $today = $today ?? now();
         $isFuture = Carbon::parse($date)->startOfDay()->gt($today->copy()->startOfDay());
         $holidayName = $holidayMap[$date] ?? null;
-        $status = self::determineStatus($date, $record, $settings, $weekendDays, $holidayMap, $isFuture, $personType);
-
         $inTime = $record?->in_time;
         $outTime = $record?->out_time;
+
+        // If out_time is within 60 minutes of in_time, do not consider it a valid checkout
+        if ($inTime && $outTime && Carbon::parse($inTime)->diffInMinutes(Carbon::parse($outTime)) < 60) {
+            $outTime = null;
+        }
+
+        $status = self::determineStatus($date, $record, $settings, $weekendDays, $holidayMap, $isFuture, $personType, $outTime);
 
         return [
             'status' => $status,
@@ -108,7 +113,8 @@ class TeacherAttendanceCalculator
         array $weekendDays,
         array $holidayMap,
         bool $isFuture,
-        string $personType = 'teacher'
+        string $personType = 'teacher',
+        mixed $sanitizedOutTime = null
     ): ?string {
         $stored = $record?->status === 'excused' ? 'leave' : $record?->status;
 
@@ -123,8 +129,13 @@ class TeacherAttendanceCalculator
                     : ($stored ?: 'present');
             }
 
+            $outTime = $sanitizedOutTime ?? $record->out_time;
+            if ($outTime && Carbon::parse($record->in_time)->diffInMinutes(Carbon::parse($outTime)) < 60) {
+                $outTime = null;
+            }
+
             return $settings
-                ? $settings->computeTeacherStatus($record->in_time, $record->out_time, $date)
+                ? $settings->computeTeacherStatus($record->in_time, $outTime, $date)
                 : ($stored ?: 'present');
         }
 

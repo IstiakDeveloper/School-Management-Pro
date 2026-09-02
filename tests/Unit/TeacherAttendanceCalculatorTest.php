@@ -3,6 +3,8 @@
 use App\Support\TeacherAttendanceCalculator;
 use Carbon\Carbon;
 
+uses(Tests\TestCase::class);
+
 test('weekend uses carbon day of week friday saturday', function () {
     expect(TeacherAttendanceCalculator::isWeekend('2026-09-04', [5, 6]))->toBeTrue() // Friday
         ->and(TeacherAttendanceCalculator::isWeekend('2026-09-05', [5, 6]))->toBeTrue() // Saturday
@@ -62,3 +64,64 @@ test('working hours formats a punch pair', function () {
         Carbon::parse('2026-09-02 16:30:00')
     ))->toBe('7h 30m');
 });
+
+test('resolveDay treats out_time within 60 minutes of in_time as null', function () {
+    $record = new \App\Models\TeacherAttendance([
+        'in_time' => Carbon::parse('2026-09-02 08:30:00'),
+        'out_time' => Carbon::parse('2026-09-02 08:45:00'),
+        'status' => 'present',
+    ]);
+
+    $settings = new \App\Models\DeviceSetting([
+        'teacher_in_time' => '08:00',
+        'teacher_out_time' => '16:00',
+        'teacher_late_time' => '08:45',
+        'auto_mark_early_leave' => true,
+        'auto_mark_late' => true,
+    ]);
+
+    $resolved = TeacherAttendanceCalculator::resolveDay(
+        '2026-09-02',
+        $record,
+        $settings,
+        [5, 6],
+        []
+    );
+
+    expect($resolved['out_time'])->toBeNull()
+        ->and($resolved['out_time_formatted'])->toBeNull()
+        ->and($resolved['missing_checkout'])->toBeTrue()
+        ->and($resolved['hours'])->toBeNull()
+        ->and($resolved['status'])->toBe('present'); // Not early_leave!
+});
+
+test('resolveDay accepts valid out_time after 60 minutes', function () {
+    $record = new \App\Models\TeacherAttendance([
+        'in_time' => Carbon::parse('2026-09-02 08:30:00'),
+        'out_time' => Carbon::parse('2026-09-02 16:30:00'),
+        'status' => 'present',
+    ]);
+
+    $settings = new \App\Models\DeviceSetting([
+        'teacher_in_time' => '08:00',
+        'teacher_out_time' => '16:00',
+        'teacher_late_time' => '08:45',
+        'auto_mark_early_leave' => true,
+        'auto_mark_late' => true,
+    ]);
+
+    $resolved = TeacherAttendanceCalculator::resolveDay(
+        '2026-09-02',
+        $record,
+        $settings,
+        [5, 6],
+        []
+    );
+
+    expect($resolved['out_time'])->not->toBeNull()
+        ->and($resolved['out_time_formatted'])->toBe('4:30 PM')
+        ->and($resolved['missing_checkout'])->toBeFalse()
+        ->and($resolved['hours'])->toBe('8h 0m')
+        ->and($resolved['status'])->toBe('present');
+});
+
