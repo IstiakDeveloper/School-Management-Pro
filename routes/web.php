@@ -172,6 +172,7 @@ Route::middleware(['auth', 'restrict.admin.mutations'])->group(function () {
         Route::get('salary-payments', [App\Http\Controllers\Salary\SalaryPaymentController::class, 'index'])->name('salary-payments.index');
         Route::post('salary-payments', [App\Http\Controllers\Salary\SalaryPaymentController::class, 'store'])->name('salary-payments.store');
         Route::post('salary-payments/bulk', [App\Http\Controllers\Salary\SalaryPaymentController::class, 'bulkStore'])->name('salary-payments.bulk');
+        Route::post('salary-payments/bulk-change-month', [App\Http\Controllers\Salary\SalaryPaymentController::class, 'bulkChangeMonth'])->name('salary-payments.bulk-change-month');
         Route::get('salary-payments/{payment}/edit', [App\Http\Controllers\Salary\SalaryPaymentController::class, 'edit'])->name('salary-payments.edit');
         Route::put('salary-payments/{payment}', [App\Http\Controllers\Salary\SalaryPaymentController::class, 'update'])->name('salary-payments.update');
         Route::get('salary-payments/{payment}', [App\Http\Controllers\Salary\SalaryPaymentController::class, 'show'])->name('salary-payments.show');
@@ -271,6 +272,7 @@ Route::middleware(['auth', 'restrict.admin.mutations'])->group(function () {
         // API endpoints for fee management
         Route::get('api/fee-structures', [FeeCollectionController::class, 'getFeesByClass'])->name('api.fee-structures');
         Route::get('api/fee-collections/student-dues', [FeeCollectionController::class, 'getStudentDues'])->name('api.student-dues');
+        Route::match(['get', 'post'], 'api/fee-collections/resync-student-dues', [FeeCollectionController::class, 'resyncStudentDues'])->name('api.resync-student-dues');
 
         Route::resource('fee-waivers', FeeWaiverController::class)->except(['show']);
 
@@ -472,6 +474,7 @@ Route::middleware(['auth', 'restrict.admin.mutations'])->group(function () {
         Route::get('/profile', [\App\Http\Controllers\Student\StudentProfileController::class, 'show'])->name('profile.show');
         Route::put('/profile', [\App\Http\Controllers\Student\StudentProfileController::class, 'update'])->name('profile.update');
         Route::post('/profile/photo', [\App\Http\Controllers\Student\StudentProfileController::class, 'updatePhoto'])->name('profile.photo');
+        Route::put('/profile/password', [\App\Http\Controllers\Student\StudentProfileController::class, 'updatePassword'])->name('profile.password');
 
         // Attendance
         Route::get('/attendance', [\App\Http\Controllers\Student\StudentAttendanceController::class, 'index'])->name('attendance.index');

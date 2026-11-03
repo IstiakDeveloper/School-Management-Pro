@@ -22,6 +22,7 @@ import {
     Receipt,
     Phone,
     BadgeCheck,
+    RefreshCw,
 } from 'lucide-react';
 
 interface StudentItem {
@@ -156,6 +157,8 @@ export default function Create({
     const [tenderedCash, setTenderedCash] = useState<string>('');
     const [submitting, setSubmitting] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [resyncingDues, setResyncingDues] = useState(false);
+    const [resyncMessage, setResyncMessage] = useState<string | null>(null);
 
     const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -265,6 +268,51 @@ export default function Create({
             setSelectedDueIds([]);
         } else {
             setSelectedDueIds(dues.map((d) => d.id));
+        }
+    };
+
+    const handleResyncDues = async () => {
+        if (!selectedStudent || resyncingDues) return;
+        setResyncingDues(true);
+        setResyncMessage(null);
+        setErrorMessage(null);
+        try {
+            let csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+            if (!csrfToken) {
+                const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+                if (match) csrfToken = decodeURIComponent(match[1]);
+            }
+
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            };
+            if (csrfToken) {
+                headers['X-CSRF-TOKEN'] = csrfToken;
+                headers['X-XSRF-TOKEN'] = csrfToken;
+            }
+
+            const res = await fetch('/api/fee-collections/resync-student-dues', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                    student_id: selectedStudent.id,
+                    _token: csrfToken || undefined,
+                }),
+            });
+
+            const data = await res.json().catch(() => null);
+
+            if (res.ok && data?.success) {
+                setResyncMessage(data.message);
+                await handleSelectStudent(selectedStudent);
+            } else {
+                setErrorMessage(data?.error || data?.message || `Failed to resync dues (Status: ${res.status})`);
+            }
+        } catch (err: any) {
+            setErrorMessage(err?.message || 'Error resyncing student dues. Please try again.');
+        } finally {
+            setResyncingDues(false);
         }
     };
 
@@ -650,16 +698,40 @@ export default function Create({
                                         </p>
                                     </div>
 
-                                    {dues.length > 0 && (
+                                    <div className="flex items-center gap-1.5">
                                         <button
                                             type="button"
-                                            onClick={toggleSelectAllDues}
-                                            className="text-[11px] font-semibold px-2 py-0.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 transition cursor-pointer"
+                                            onClick={handleResyncDues}
+                                            disabled={resyncingDues}
+                                            title="ভর্তির তারিখ অনুযায়ী বকেয়া ও অনুপস্থিত মাসিক ফি রিসিংক করুন"
+                                            className="text-[11px] font-semibold px-2 py-0.5 rounded border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition cursor-pointer flex items-center gap-1 disabled:opacity-50"
                                         >
-                                            {selectedDueIds.length === dues.length ? 'Deselect All' : 'Select All Dues'}
+                                            <RefreshCw className={`w-3 h-3 ${resyncingDues ? 'animate-spin' : ''}`} />
+                                            {resyncingDues ? 'রিসিংক হচ্ছে...' : 'রিসিংক ফি'}
                                         </button>
-                                    )}
+                                        {dues.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={toggleSelectAllDues}
+                                                className="text-[11px] font-semibold px-2 py-0.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 transition cursor-pointer"
+                                            >
+                                                {selectedDueIds.length === dues.length ? 'Deselect All' : 'Select All Dues'}
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
+
+                                {resyncMessage && (
+                                    <div className="p-2.5 bg-emerald-50 border-b border-emerald-200 text-emerald-800 text-xs flex items-center justify-between">
+                                        <div className="flex items-center gap-1.5">
+                                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                            <span>{resyncMessage}</span>
+                                        </div>
+                                        <button type="button" onClick={() => setResyncMessage(null)} className="text-emerald-700 hover:text-emerald-900 cursor-pointer">
+                                            <X className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                )}
 
                                 {loadingDues ? (
                                     <div className="p-6 text-center text-xs text-slate-500">
@@ -672,11 +744,22 @@ export default function Create({
                                             <CheckCircle2 className="w-5 h-5 shrink-0" />
                                         </div>
                                         <h3 className="text-xs font-bold text-slate-900">
-                                            All clear! No pending dues.
+                                            All clear! No pending dues recorded
                                         </h3>
-                                        <p className="text-[10px] text-slate-400 mt-0.5">
-                                            You can collect advance fees below.
+                                        <p className="text-[11px] text-slate-500 mt-1 max-w-xs mx-auto">
+                                            ভর্তির তারিখ থেকে কোনো পূর্ববর্তী মাসিক ফি অনুপস্থিত থাকলে নিচের বাটনে ক্লিক করে স্বয়ংক্রিয়ভাবে তৈরি করে নিতে পারেন।
                                         </p>
+                                        <div className="mt-3">
+                                            <button
+                                                type="button"
+                                                onClick={handleResyncDues}
+                                                disabled={resyncingDues}
+                                                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition cursor-pointer"
+                                            >
+                                                <RefreshCw className={`w-3.5 h-3.5 ${resyncingDues ? 'animate-spin' : ''}`} />
+                                                {resyncingDues ? 'বিল জেনারেট হচ্ছে...' : 'ভর্তির তারিখ থেকে বিল রিসিংক / জেনারেট করুন'}
+                                            </button>
+                                        </div>
                                     </div>
                                 ) : (
                                     <div className="divide-y divide-slate-100">

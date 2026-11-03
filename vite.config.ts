@@ -17,6 +17,10 @@ export default defineConfig({
             formVariants: true,
         }),
     ],
+    server: {
+        host: true,
+        cors: true,
+    },
     esbuild: {
         jsx: 'automatic',
     },

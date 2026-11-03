@@ -650,12 +650,119 @@ export default function DueReport({
         );
     };
 
+    const monthDataFor = (student: StudentReportItem, monthNum: number): StudentMonthData | undefined => {
+        const months = student.months as Record<string | number, StudentMonthData> | undefined;
+        return months?.[monthNum] ?? months?.[String(monthNum)];
+    };
+
+    const renderFeeChip = (f: MonthFeeDetail, student: StudentReportItem, monthNum?: number) => {
+        const isPaid = f.status === 'paid';
+        const isPartial = f.status === 'partial';
+        const collectHref = monthNum
+            ? `/fee-collections/create?student_id=${student.student_id}&month=${monthNum}&fee_id=${f.id}`
+            : `/fee-collections/create?student_id=${student.student_id}&fee_id=${f.id}`;
+
+        return (
+            <div
+                className={`rounded p-1 text-[9px] leading-tight border transition ${
+                    isPaid
+                        ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
+                        : isPartial
+                          ? 'bg-amber-50/80 border-amber-200 text-amber-900'
+                          : 'bg-rose-50/80 border-rose-200 text-rose-900'
+                }`}
+            >
+                <p className="text-[7.5px] font-bold uppercase tracking-wide truncate text-slate-600" title={f.fee_type}>
+                    {f.fee_type}
+                </p>
+                <div className="flex items-center justify-between font-mono font-bold">
+                    {isPaid ? (
+                        <span className="text-emerald-700">৳{formatCurrency(f.paid_amount)}</span>
+                    ) : isPartial ? (
+                        <span className="text-amber-700">P:৳{formatCurrency(f.paid_amount)} D:৳{formatCurrency(f.due_amount)}</span>
+                    ) : (
+                        <span className="text-rose-700">৳{formatCurrency(f.due_amount)}</span>
+                    )}
+
+                    {isPaid ? (
+                        <span className="text-[8px] font-bold uppercase px-1 rounded bg-emerald-100 text-emerald-800">
+                            Paid
+                        </span>
+                    ) : isPartial ? (
+                        <span className="text-[8px] font-bold uppercase px-1 rounded bg-amber-100 text-amber-800">
+                            Part
+                        </span>
+                    ) : (
+                        <span className="text-[8px] font-bold uppercase px-1 rounded bg-rose-100 text-rose-800">
+                            Due
+                        </span>
+                    )}
+                </div>
+
+                {isPaid && f.receipt_number && (
+                    <a
+                        href={`/fee-collections/${f.id}/receipt?autoprint=1`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[8px] font-mono text-emerald-800 hover:text-emerald-950 font-bold mt-1 truncate flex items-center justify-between gap-0.5 bg-emerald-100/90 hover:bg-emerald-200 px-1 py-0.5 rounded transition cursor-pointer"
+                        title={`Click to Print Receipt #${formatReceiptNumber(f.receipt_number)}`}
+                    >
+                        <span className="flex items-center gap-0.5 truncate">
+                            <Receipt className="w-2.5 h-2.5 shrink-0 text-emerald-700" />
+                            <span>#{formatReceiptNumber(f.receipt_number)}</span>
+                        </span>
+                        <Printer className="w-2.5 h-2.5 shrink-0 text-emerald-600" />
+                    </a>
+                )}
+
+                {!isPaid && !isPartial && (
+                    <a
+                        href={collectHref}
+                        className="text-[8px] font-bold text-rose-700 hover:text-white mt-1 flex items-center justify-between gap-0.5 bg-rose-100/80 hover:bg-rose-600 px-1 py-0.5 rounded transition cursor-pointer group"
+                        title={`Click to collect ${f.fee_type} for ${student.student_name}`}
+                    >
+                        <span>Collect Fee</span>
+                        <ArrowRight className="w-2.5 h-2.5 shrink-0 text-rose-600 group-hover:text-white" />
+                    </a>
+                )}
+
+                {isPartial && (
+                    <div className="space-y-0.5 mt-1">
+                        {f.receipt_number && (
+                            <a
+                                href={`/fee-collections/${f.id}/receipt?autoprint=1`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[7.5px] font-mono text-amber-800 hover:text-amber-950 font-bold truncate flex items-center justify-between gap-0.5 bg-amber-100 hover:bg-amber-200 px-1 py-0.5 rounded transition cursor-pointer"
+                                title={`Click to Print Receipt #${formatReceiptNumber(f.receipt_number)}`}
+                            >
+                                <span className="flex items-center gap-0.5 truncate">
+                                    <Receipt className="w-2 h-2 shrink-0 text-amber-700" />
+                                    <span>#{formatReceiptNumber(f.receipt_number)}</span>
+                                </span>
+                                <Printer className="w-2 h-2 shrink-0 text-amber-600" />
+                            </a>
+                        )}
+                        <a
+                            href={collectHref}
+                            className="text-[7.5px] font-bold text-amber-800 hover:text-white flex items-center justify-between gap-0.5 bg-amber-200/80 hover:bg-amber-600 px-1 py-0.5 rounded transition cursor-pointer group"
+                            title={`Click to collect remaining ${f.fee_type}`}
+                        >
+                            <span>Collect Due</span>
+                            <ArrowRight className="w-2.5 h-2.5 shrink-0 text-amber-700 group-hover:text-white" />
+                        </a>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     /* ----------------------------------------------------
        2. REUSABLE 12-MONTH STUDENT MATRIX COMPONENT
     ---------------------------------------------------- */
     const renderStudentMatrixTable = (studentsList: StudentReportItem[]) => {
         const displayMonths = activeMonths && activeMonths.length > 0 ? activeMonths : MONTH_NAMES;
-        const isSingleMonth = displayMonths.length === 1;
+        const showOtherFeesColumn = studentsList.some((s) => (s.one_time_fees?.length ?? 0) > 0);
 
         const filteredRows = tableSearch.trim()
             ? studentsList.filter((s) => {
@@ -709,6 +816,11 @@ export default function DueReport({
                                         {m.name}
                                     </th>
                                 ))}
+                                {showOtherFeesColumn && (
+                                    <th className="py-2.5 px-1.5 border-r border-slate-300 text-center min-w-[110px] text-amber-800">
+                                        Other Fees
+                                    </th>
+                                )}
                                 <th className="py-2.5 px-3 text-right w-28 text-rose-700">Total Due</th>
                             </tr>
                         </thead>
@@ -748,7 +860,7 @@ export default function DueReport({
 
                                     {/* Month Cells */}
                                     {displayMonths.map((m) => {
-                                        const mData = student.months?.[m.num];
+                                        const mData = monthDataFor(student, m.num);
 
                                         if (!mData || !mData.has_fees) {
                                             return (
@@ -767,110 +879,27 @@ export default function DueReport({
                                         return (
                                             <td key={m.num} className="py-2 px-1 border-r border-slate-200 align-top">
                                                 <div className="space-y-1">
-                                                    {mData.fees.map((f, fIdx) => {
-                                                        const isPaid = f.status === 'paid';
-                                                        const isPartial = f.status === 'partial';
-
-                                                        return (
-                                                            <div
-                                                                key={fIdx}
-                                                                className={`rounded p-1 text-[9px] leading-tight border transition ${
-                                                                    isPaid
-                                                                        ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
-                                                                        : isPartial
-                                                                        ? 'bg-amber-50/80 border-amber-200 text-amber-900'
-                                                                        : 'bg-rose-50/80 border-rose-200 text-rose-900'
-                                                                }`}
-                                                            >
-                                                                {/* Status & Amount */}
-                                                                <div className="flex items-center justify-between font-mono font-bold">
-                                                                    {isPaid ? (
-                                                                        <span className="text-emerald-700">৳{formatCurrency(f.paid_amount)}</span>
-                                                                    ) : isPartial ? (
-                                                                        <span className="text-amber-700">P:৳{formatCurrency(f.paid_amount)} D:৳{formatCurrency(f.due_amount)}</span>
-                                                                    ) : (
-                                                                        <span className="text-rose-700">৳{formatCurrency(f.due_amount)}</span>
-                                                                    )}
-
-                                                                    {isPaid ? (
-                                                                        <span className="text-[8px] font-bold uppercase px-1 rounded bg-emerald-100 text-emerald-800">
-                                                                            Paid
-                                                                        </span>
-                                                                    ) : isPartial ? (
-                                                                        <span className="text-[8px] font-bold uppercase px-1 rounded bg-amber-100 text-amber-800">
-                                                                            Part
-                                                                        </span>
-                                                                    ) : (
-                                                                        <span className="text-[8px] font-bold uppercase px-1 rounded bg-rose-100 text-rose-800">
-                                                                            Due
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-
-                                                                {/* If Paid: Clickable Receipt Number to View & Print */}
-                                                                {isPaid && f.receipt_number && (
-                                                                    <a
-                                                                        href={`/fee-collections/${f.id}/receipt?autoprint=1`}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        className="text-[8px] font-mono text-emerald-800 hover:text-emerald-950 font-bold mt-1 truncate flex items-center justify-between gap-0.5 bg-emerald-100/90 hover:bg-emerald-200 px-1 py-0.5 rounded transition cursor-pointer"
-                                                                        title={`Click to Print Receipt #${formatReceiptNumber(f.receipt_number)}`}
-                                                                    >
-                                                                        <span className="flex items-center gap-0.5 truncate">
-                                                                            <Receipt className="w-2.5 h-2.5 shrink-0 text-emerald-700" />
-                                                                            <span>#{formatReceiptNumber(f.receipt_number)}</span>
-                                                                        </span>
-                                                                        <Printer className="w-2.5 h-2.5 shrink-0 text-emerald-600" />
-                                                                    </a>
-                                                                )}
-
-                                                                {/* If Due / Unpaid: Clickable button to collect fee for this month */}
-                                                                {!isPaid && !isPartial && (
-                                                                    <a
-                                                                        href={`/fee-collections/create?student_id=${student.student_id}&month=${m.num}&fee_id=${f.id}`}
-                                                                        className="text-[8px] font-bold text-rose-700 hover:text-white mt-1 flex items-center justify-between gap-0.5 bg-rose-100/80 hover:bg-rose-600 px-1 py-0.5 rounded transition cursor-pointer group"
-                                                                        title={`Click to Collect ${m.name} fee for ${student.student_name}`}
-                                                                    >
-                                                                        <span>Collect Fee</span>
-                                                                        <ArrowRight className="w-2.5 h-2.5 shrink-0 text-rose-600 group-hover:text-white" />
-                                                                    </a>
-                                                                )}
-
-                                                                {/* If Partial: Both Receipt and Collect Remaining Due */}
-                                                                {isPartial && (
-                                                                    <div className="space-y-0.5 mt-1">
-                                                                        {f.receipt_number && (
-                                                                            <a
-                                                                                href={`/fee-collections/${f.id}/receipt?autoprint=1`}
-                                                                                target="_blank"
-                                                                                rel="noopener noreferrer"
-                                                                                className="text-[7.5px] font-mono text-amber-800 hover:text-amber-950 font-bold truncate flex items-center justify-between gap-0.5 bg-amber-100 hover:bg-amber-200 px-1 py-0.5 rounded transition cursor-pointer"
-                                                                                title={`Click to Print Receipt #${formatReceiptNumber(f.receipt_number)}`}
-                                                                            >
-                                                                                <span className="flex items-center gap-0.5 truncate">
-                                                                                    <Receipt className="w-2 h-2 shrink-0 text-amber-700" />
-                                                                                    <span>#{formatReceiptNumber(f.receipt_number)}</span>
-                                                                                </span>
-                                                                                <Printer className="w-2 h-2 shrink-0 text-amber-600" />
-                                                                            </a>
-                                                                        )}
-                                                                        <a
-                                                                            href={`/fee-collections/create?student_id=${student.student_id}&month=${m.num}&fee_id=${f.id}`}
-                                                                            className="text-[7.5px] font-bold text-amber-800 hover:text-white flex items-center justify-between gap-0.5 bg-amber-200/80 hover:bg-amber-600 px-1 py-0.5 rounded transition cursor-pointer group"
-                                                                            title={`Click to Collect remaining due for ${m.name}`}
-                                                                        >
-                                                                            <span>Collect Due</span>
-                                                                            <ArrowRight className="w-2 h-2 shrink-0 text-amber-700 group-hover:text-white" />
-                                                                        </a>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })}
+                                                    {mData.fees.map((f) => (
+                                                        <div key={f.id}>{renderFeeChip(f, student, m.num)}</div>
+                                                    ))}
                                                 </div>
                                             </td>
                                         );
                                     })}
+
+                                    {showOtherFeesColumn && (
+                                        <td className="py-2 px-1 border-r border-slate-200 align-top bg-amber-50/30">
+                                            {(student.one_time_fees?.length ?? 0) > 0 ? (
+                                                <div className="space-y-1">
+                                                    {student.one_time_fees!.map((f) => (
+                                                        <div key={f.id}>{renderFeeChip(f, student)}</div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="text-center text-slate-300 font-mono text-[10px] py-2">-</div>
+                                            )}
+                                        </td>
+                                    )}
 
                                     {/* Student Total Due Column */}
                                     <td className="py-2 px-2.5 text-right font-mono text-rose-700 font-bold bg-rose-50/20">
@@ -895,6 +924,67 @@ export default function DueReport({
                 </table>
                 </div>
             </div>
+        );
+    };
+
+    const renderPrintStudentTable = (studentsList: StudentReportItem[]) => {
+        const displayMonths = activeMonths && activeMonths.length > 0 ? activeMonths : MONTH_NAMES;
+        const showOther = studentsList.some((s) => (s.one_time_fees?.length ?? 0) > 0);
+
+        return (
+            <table className="w-full border-collapse border border-black text-[7.5px]">
+                <thead>
+                    <tr className="bg-gray-50">
+                        <th className="border border-black p-0.5 text-center w-8">Roll</th>
+                        <th className="border border-black p-0.5 text-left w-28">Name & ID</th>
+                        {displayMonths.map((m) => (
+                            <th key={m.num} className="border border-black p-0.5 text-center">
+                                {m.name}
+                            </th>
+                        ))}
+                        {showOther && (
+                            <th className="border border-black p-0.5 text-center">Other</th>
+                        )}
+                        <th className="border border-black p-0.5 text-right w-16">Due</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {studentsList.map((st) => (
+                        <tr key={st.student_id}>
+                            <td className="border border-black p-0.5 text-center font-mono">{st.roll_number}</td>
+                            <td className="border border-black p-0.5 truncate">{st.student_name}</td>
+                            {displayMonths.map((m) => {
+                                const mData = monthDataFor(st, m.num);
+                                return (
+                                    <td key={m.num} className="border border-black p-0.5 text-center font-mono">
+                                        {mData && mData.has_fees ? (
+                                            mData.month_due > 0 ? (
+                                                <span className="font-bold">D:{mData.month_due}</span>
+                                            ) : (
+                                                <span>P:{mData.month_paid}</span>
+                                            )
+                                        ) : '-'}
+                                    </td>
+                                );
+                            })}
+                            {showOther && (
+                                <td className="border border-black p-0.5 text-center font-mono">
+                                    {(st.one_time_fees ?? []).length > 0
+                                        ? (st.one_time_fees ?? []).map((f) => (
+                                            <div key={f.id}>
+                                                {f.fee_type} {f.due_amount > 0 ? `D:${f.due_amount}` : `P:${f.paid_amount}`}
+                                            </div>
+                                        ))
+                                        : '-'}
+                                </td>
+                            )}
+                            <td className="border border-black p-0.5 text-right font-mono font-bold">
+                                ৳{formatCurrency(st.due_amount)}
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
         );
     };
 
@@ -1445,6 +1535,17 @@ export default function DueReport({
                                     <td className="border border-black p-1 text-center font-mono">{item.collection_rate}%</td>
                                 </tr>
                             ))}
+                            {((reportData as OrganizationReportData)?.nonMonthly?.total_amount || 0) > 0 && (
+                                <tr>
+                                    <td className="border border-black p-1 font-bold">One-time / Admission Fees</td>
+                                    <td className="border border-black p-1 text-right font-mono">৳{formatCurrency((reportData as OrganizationReportData).nonMonthly.total_amount)}</td>
+                                    <td className="border border-black p-1 text-right font-mono">৳{formatCurrency((reportData as OrganizationReportData).nonMonthly.discount_amount)}</td>
+                                    <td className="border border-black p-1 text-right font-mono">৳{formatCurrency((reportData as OrganizationReportData).nonMonthly.paid_amount)}</td>
+                                    <td className="border border-black p-1 text-right font-mono font-bold">৳{formatCurrency((reportData as OrganizationReportData).nonMonthly.due_amount)}</td>
+                                    <td className="border border-black p-1 text-center font-mono">{(reportData as OrganizationReportData).nonMonthly.student_count}</td>
+                                    <td className="border border-black p-1 text-center font-mono">{(reportData as OrganizationReportData).nonMonthly.collection_rate}%</td>
+                                </tr>
+                            )}
                         </tbody>
                         <tfoot>
                             <tr className="bg-gray-100 font-bold border-t-2 border-black">
@@ -1469,47 +1570,14 @@ export default function DueReport({
                                     <span>Class: {cls.class_name} ({cls.student_count} students)</span>
                                     <span>Total Due: ৳{formatCurrency(cls.total_remaining)}</span>
                                 </div>
-                                <table className="w-full border-collapse border border-black text-[7.5px]">
-                                    <thead>
-                                        <tr className="bg-gray-50">
-                                            <th className="border border-black p-0.5 text-center w-8">Roll</th>
-                                            <th className="border border-black p-0.5 text-left w-28">Name & ID</th>
-                                            {(activeMonths && activeMonths.length > 0 ? activeMonths : MONTH_NAMES).map((m) => (
-                                                <th key={m.num} className="border border-black p-0.5 text-center">
-                                                    {m.name}
-                                                </th>
-                                            ))}
-                                            <th className="border border-black p-0.5 text-right w-16">Due</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {cls.students.map((st) => (
-                                            <tr key={st.student_id}>
-                                                <td className="border border-black p-0.5 text-center font-mono">{st.roll_number}</td>
-                                                <td className="border border-black p-0.5 truncate">{st.student_name}</td>
-                                                {(activeMonths && activeMonths.length > 0 ? activeMonths : MONTH_NAMES).map((m) => {
-                                                    const mData = st.months?.[m.num];
-                                                    return (
-                                                        <td key={m.num} className="border border-black p-0.5 text-center font-mono">
-                                                            {mData && mData.has_fees ? (
-                                                                mData.month_due > 0 ? (
-                                                                    <span className="font-bold">D:{mData.month_due}</span>
-                                                                ) : (
-                                                                    <span>P:{mData.month_paid}</span>
-                                                                )
-                                                            ) : '-'}
-                                                        </td>
-                                                    );
-                                                })}
-                                                <td className="border border-black p-0.5 text-right font-mono font-bold">
-                                                    ৳{formatCurrency(st.due_amount)}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                {renderPrintStudentTable(cls.students)}
                             </div>
                         ))}
+                        {reportType === 'student' && Array.isArray(reportData) && (
+                            <div className="mb-4">
+                                {renderPrintStudentTable(reportData as StudentReportItem[])}
+                            </div>
+                        )}
                     </div>
                 )}
 
